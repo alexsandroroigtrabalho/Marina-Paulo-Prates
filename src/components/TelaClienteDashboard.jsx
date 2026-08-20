@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconFileCertificate, IconGasStation, IconUsers, IconTrash } from '@tabler/icons-react'
+import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconClipboardList, IconGasStation, IconUsers, IconTrash, IconArrowLeft } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
-  listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, solicitarLaudo, listarDespachosCliente,
+  listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, solicitarLaudo, listarDespachosCliente, criarDespacho,
   listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
   listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
+import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
 
@@ -52,7 +53,11 @@ export default function TelaClienteDashboard({ perfil }) {
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
   const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data_hora: '', observacoes: '' })
   const [enviandoAgendamento, setEnviandoAgendamento] = useState(false)
-  const [modalLaudoAberto, setModalLaudoAberto] = useState(false)
+  const [modalServicosAberto, setModalServicosAberto] = useState(false)
+  const [abaServicos, setAbaServicos] = useState('despachos') // despachos | laudo
+  const [servicoAtivo, setServicoAtivo] = useState(null) // item do catálogo selecionado, dentro da aba despachos
+  const [formServico, setFormServico] = useState({ embarcacao_id: '', observacoes: '' })
+  const [enviandoServico, setEnviandoServico] = useState(false)
   const [formLaudo, setFormLaudo] = useState({ embarcacao_id: '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
   const [enviandoLaudo, setEnviandoLaudo] = useState(false)
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
@@ -139,9 +144,40 @@ export default function TelaClienteDashboard({ perfil }) {
     carregar()
   }
 
-  function abrirModalLaudo() {
+  function abrirModalServicos() {
+    setAbaServicos('despachos')
+    setServicoAtivo(null)
     setFormLaudo({ embarcacao_id: embarcacoes[0]?.id || '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
-    setModalLaudoAberto(true)
+    setModalServicosAberto(true)
+  }
+
+  function selecionarServico(servico) {
+    setServicoAtivo(servico)
+    setFormServico({ embarcacao_id: embarcacoes[0]?.id || '', observacoes: '' })
+  }
+
+  async function enviarSolicitacaoServico(e) {
+    e.preventDefault()
+    if (!cliente || !servicoAtivo) return
+    setEnviandoServico(true)
+    try {
+      await criarDespacho({
+        marina_id: cliente.marina_id,
+        cliente_id: cliente.id,
+        embarcacao_id: formServico.embarcacao_id || null,
+        tipo: servicoAtivo.key,
+        observacoes: formServico.observacoes
+          ? `${servicoAtivo.titulo} — ${formServico.observacoes}`
+          : servicoAtivo.titulo,
+      })
+      setModalServicosAberto(false)
+      setServicoAtivo(null)
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setEnviandoServico(false)
+    }
   }
 
   async function enviarLaudo(e) {
@@ -157,7 +193,7 @@ export default function TelaClienteDashboard({ perfil }) {
         finalidade: formLaudo.finalidade,
         observacoes: formLaudo.observacoes || null,
       })
-      setModalLaudoAberto(false)
+      setModalServicosAberto(false)
       await carregar()
     } catch (err) {
       alert(err.message)
@@ -238,8 +274,8 @@ export default function TelaClienteDashboard({ perfil }) {
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
             <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              onClick={abrirModalLaudo}>
-              <IconFileCertificate size={18} /> Solicitar laudo técnico
+              onClick={abrirModalServicos}>
+              <IconClipboardList size={18} /> Serviços
             </button>
             <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               onClick={abrirModalAbastecimento} disabled={combustiveis.length === 0}>
@@ -371,38 +407,100 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {modalLaudoAberto && (
-        <div className="modal-fundo" onClick={() => setModalLaudoAberto(false)}>
-          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarLaudo}>
-            <h3>Solicitar laudo técnico</h3>
-            <p className="dica">Laudo emitido por engenheiro responsável da marina — vale para seguro, financiamento, transferência ou regularização.</p>
-            {embarcacoes.length > 0 ? (
-              <select required value={formLaudo.embarcacao_id}
-                onChange={(e) => setFormLaudo({ ...formLaudo, embarcacao_id: e.target.value })}>
-                <option value="">Selecione a embarcação</option>
-                {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-              </select>
-            ) : (
-              <p className="dica">Você ainda não tem embarcações cadastradas.</p>
-            )}
-            <select value={formLaudo.tipo} onChange={(e) => setFormLaudo({ ...formLaudo, tipo: e.target.value })}>
-              <option value="vistoria">Vistoria</option>
-              <option value="avaliacao">Avaliação</option>
-              <option value="transferencia">Transferência</option>
-              <option value="seguro">Seguro</option>
-              <option value="outro">Outro</option>
-            </select>
-            <select value={formLaudo.finalidade} onChange={(e) => setFormLaudo({ ...formLaudo, finalidade: e.target.value })}>
-              {FINALIDADES_LAUDO.map((f) => <option key={f} value={f}>{f.replace('_', ' ')}</option>)}
-            </select>
-            <input placeholder="Observações (opcional)"
-              value={formLaudo.observacoes}
-              onChange={(e) => setFormLaudo({ ...formLaudo, observacoes: e.target.value })} />
-            <div className="acoes-modal">
-              <button type="button" onClick={() => setModalLaudoAberto(false)}>Cancelar</button>
-              <button type="submit" disabled={enviandoLaudo}>{enviandoLaudo ? 'Enviando...' : 'Confirmar solicitação'}</button>
+      {modalServicosAberto && (
+        <div className="modal-fundo" onClick={() => setModalServicosAberto(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+            <h3>Serviços</h3>
+            <p className="dica">
+              A marina conhece de perto os processos da Capitania dos Portos e conta com engenheiro responsável próprio —
+              cuidamos da burocracia de despacho e das vistorias técnicas da sua embarcação.
+            </p>
+
+            <div className="abas">
+              <button className={abaServicos === 'despachos' ? 'ativo' : ''}
+                onClick={() => { setAbaServicos('despachos'); setServicoAtivo(null) }}>Despachos</button>
+              <button className={abaServicos === 'laudo' ? 'ativo' : ''}
+                onClick={() => setAbaServicos('laudo')}>Laudo técnico</button>
             </div>
-          </form>
+
+            {abaServicos === 'despachos' && !servicoAtivo && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                {CATEGORIAS_SERVICOS.map((cat) => (
+                  <div key={cat.key}>
+                    <h4 style={{ margin: '0 0 8px', color: 'var(--cor-primaria)' }}>{cat.titulo}</h4>
+                    <div className="lista-cards">
+                      {SERVICOS_DESPACHO.filter((s) => s.categoria === cat.key).map((s) => (
+                        <button key={s.key} type="button" className="cliente-card"
+                          style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit' }}
+                          onClick={() => selecionarServico(s)}>
+                          <div className="linha"><b>{s.titulo}</b></div>
+                          <div className="linha">{s.resumo}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {abaServicos === 'despachos' && servicoAtivo && (
+              <form onSubmit={enviarSolicitacaoServico} style={{ marginTop: 12 }}>
+                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}
+                  onClick={() => setServicoAtivo(null)}>
+                  <IconArrowLeft size={16} /> Voltar
+                </button>
+                <p className="dica"><b>{servicoAtivo.titulo}</b><br />{servicoAtivo.resumo}</p>
+                {embarcacoes.length > 0 ? (
+                  <select value={formServico.embarcacao_id}
+                    onChange={(e) => setFormServico({ ...formServico, embarcacao_id: e.target.value })}>
+                    <option value="">Selecione a embarcação (opcional)</option>
+                    {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  </select>
+                ) : (
+                  <p className="dica">Você ainda não tem embarcações cadastradas.</p>
+                )}
+                <input placeholder="Observações (opcional)"
+                  value={formServico.observacoes}
+                  onChange={(e) => setFormServico({ ...formServico, observacoes: e.target.value })} />
+                <div className="acoes-modal">
+                  <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
+                  <button type="submit" disabled={enviandoServico}>{enviandoServico ? 'Enviando...' : 'Solicitar este serviço'}</button>
+                </div>
+              </form>
+            )}
+
+            {abaServicos === 'laudo' && (
+              <form onSubmit={enviarLaudo} style={{ marginTop: 12 }}>
+                <p className="dica">Laudo emitido por engenheiro responsável da marina — vale para seguro, financiamento, transferência ou regularização.</p>
+                {embarcacoes.length > 0 ? (
+                  <select required value={formLaudo.embarcacao_id}
+                    onChange={(e) => setFormLaudo({ ...formLaudo, embarcacao_id: e.target.value })}>
+                    <option value="">Selecione a embarcação</option>
+                    {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  </select>
+                ) : (
+                  <p className="dica">Você ainda não tem embarcações cadastradas.</p>
+                )}
+                <select value={formLaudo.tipo} onChange={(e) => setFormLaudo({ ...formLaudo, tipo: e.target.value })}>
+                  <option value="vistoria">Vistoria</option>
+                  <option value="avaliacao">Avaliação</option>
+                  <option value="transferencia">Transferência</option>
+                  <option value="seguro">Seguro</option>
+                  <option value="outro">Outro</option>
+                </select>
+                <select value={formLaudo.finalidade} onChange={(e) => setFormLaudo({ ...formLaudo, finalidade: e.target.value })}>
+                  {FINALIDADES_LAUDO.map((f) => <option key={f} value={f}>{f.replace('_', ' ')}</option>)}
+                </select>
+                <input placeholder="Observações (opcional)"
+                  value={formLaudo.observacoes}
+                  onChange={(e) => setFormLaudo({ ...formLaudo, observacoes: e.target.value })} />
+                <div className="acoes-modal">
+                  <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
+                  <button type="submit" disabled={enviandoLaudo}>{enviandoLaudo ? 'Enviando...' : 'Confirmar solicitação'}</button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 

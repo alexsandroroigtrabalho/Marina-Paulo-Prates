@@ -464,6 +464,11 @@ CREATE POLICY "cliente_ve_proprios_despachos" ON marina.despachos
   FOR SELECT TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
+-- Despachos: cliente também pode solicitar diretamente (catálogo "Serviços")
+CREATE POLICY "cliente_cria_despacho" ON marina.despachos
+  FOR INSERT TO authenticated
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
 -- Combustíveis: staff da marina gerencia (estoque e preço)
 CREATE POLICY "admin_marina_combustiveis" ON marina.combustiveis
   FOR ALL TO authenticated
