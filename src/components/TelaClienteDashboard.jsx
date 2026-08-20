@@ -3,18 +3,13 @@ import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconClipboardList, Ico
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
-  listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, solicitarLaudo, listarDespachosCliente, criarDespacho,
+  listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, listarDespachosCliente, criarDespacho,
   listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
   listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
-
-const TIPO_LABEL = {
-  retirada: 'Retirada para água',
-  retorno: 'Atracação de retorno',
-}
 
 const STATUS_LABEL = {
   solicitado: 'Solicitado',
@@ -34,8 +29,6 @@ const STATUS_LABEL = {
   entregue: 'Entregue',
 }
 
-const FINALIDADES_LAUDO = ['seguro', 'financiamento', 'transferencia_propriedade', 'regularizacao', 'outro']
-
 export default function TelaClienteDashboard({ perfil }) {
   const [cliente, setCliente] = useState(null)
   const [reservas, setReservas] = useState([])
@@ -54,12 +47,9 @@ export default function TelaClienteDashboard({ perfil }) {
   const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data_hora: '', observacoes: '' })
   const [enviandoAgendamento, setEnviandoAgendamento] = useState(false)
   const [modalServicosAberto, setModalServicosAberto] = useState(false)
-  const [abaServicos, setAbaServicos] = useState('despachos') // despachos | laudo
-  const [servicoAtivo, setServicoAtivo] = useState(null) // item do catálogo selecionado, dentro da aba despachos
+  const [servicoAtivo, setServicoAtivo] = useState(null) // item do catálogo selecionado
   const [formServico, setFormServico] = useState({ embarcacao_id: '', observacoes: '' })
   const [enviandoServico, setEnviandoServico] = useState(false)
-  const [formLaudo, setFormLaudo] = useState({ embarcacao_id: '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
-  const [enviandoLaudo, setEnviandoLaudo] = useState(false)
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
   const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '' })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
@@ -145,9 +135,7 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   function abrirModalServicos() {
-    setAbaServicos('despachos')
     setServicoAtivo(null)
-    setFormLaudo({ embarcacao_id: embarcacoes[0]?.id || '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
     setModalServicosAberto(true)
   }
 
@@ -177,28 +165,6 @@ export default function TelaClienteDashboard({ perfil }) {
       alert(err.message)
     } finally {
       setEnviandoServico(false)
-    }
-  }
-
-  async function enviarLaudo(e) {
-    e.preventDefault()
-    if (!cliente) return
-    setEnviandoLaudo(true)
-    try {
-      await solicitarLaudo({
-        marina_id: cliente.marina_id,
-        cliente_id: cliente.id,
-        embarcacao_id: formLaudo.embarcacao_id,
-        tipo: formLaudo.tipo,
-        finalidade: formLaudo.finalidade,
-        observacoes: formLaudo.observacoes || null,
-      })
-      setModalServicosAberto(false)
-      await carregar()
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setEnviandoLaudo(false)
     }
   }
 
@@ -273,20 +239,19 @@ export default function TelaClienteDashboard({ perfil }) {
           </div>
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-            <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            <button className="btn-outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textAlign: 'center', fontSize: 13, padding: '10px 6px' }}
               onClick={abrirModalServicos}>
               <IconClipboardList size={18} /> Serviços
             </button>
-            <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            <button className="btn-outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textAlign: 'center', fontSize: 13, padding: '10px 6px' }}
+              onClick={abrirModalAutorizados}>
+              <IconUsers size={18} /> Pessoas autorizadas ({autorizados.filter((a) => a.ativo).length})
+            </button>
+            <button className="btn-outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textAlign: 'center', fontSize: 13, padding: '10px 6px' }}
               onClick={abrirModalAbastecimento} disabled={combustiveis.length === 0}>
-              <IconGasStation size={18} /> Pedir abastecimento
+              <IconGasStation size={18} /> Abastecimento
             </button>
           </div>
-
-          <button className="btn-outline" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 }}
-            onClick={abrirModalAutorizados}>
-            <IconUsers size={18} /> Pessoas autorizadas ({autorizados.filter((a) => a.ativo).length})
-          </button>
 
           {abastecimentos.length > 0 && (
             <>
@@ -307,7 +272,7 @@ export default function TelaClienteDashboard({ perfil }) {
 
           {(laudos.length > 0 || despachos.length > 0) && (
             <>
-              <h3>Laudos e regularização</h3>
+              <h3>Serviços solicitados</h3>
               <div className="lista-cards">
                 {laudos.map((l) => (
                   <div key={`laudo-${l.id}`} className="cliente-card">
@@ -330,20 +295,6 @@ export default function TelaClienteDashboard({ perfil }) {
               </div>
             </>
           )}
-
-          <h3>Meus agendamentos</h3>
-          <div className="lista-cards">
-            {agendamentos.length === 0 && <p className="dica">Nenhum agendamento solicitado ainda.</p>}
-            {agendamentos.map((a) => (
-              <div key={a.id} className="cliente-card">
-                <div className="linha"><b>{TIPO_LABEL[a.tipo] || a.tipo}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
-                <div className="linha">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
-                <span className={`status-texto ${a.status === 'confirmado' || a.status === 'concluido' ? 'em-dia' : 'pendente'}`}>
-                  {STATUS_LABEL[a.status] || a.status}
-                </span>
-              </div>
-            ))}
-          </div>
 
           <h3>Minhas reservas</h3>
           <div className="lista-cards">
@@ -412,18 +363,11 @@ export default function TelaClienteDashboard({ perfil }) {
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
             <h3>Serviços</h3>
             <p className="dica">
-              A marina conhece de perto os processos da Capitania dos Portos e conta com engenheiro responsável próprio —
-              cuidamos da burocracia de despacho e das vistorias técnicas da sua embarcação.
+              A marina conhece de perto os processos da Capitania dos Portos — cuidamos da burocracia de despacho da sua
+              embarcação. Alguns serviços exigem laudo técnico; se for o caso, a própria marina entra em contato com você.
             </p>
 
-            <div className="abas">
-              <button className={abaServicos === 'despachos' ? 'ativo' : ''}
-                onClick={() => { setAbaServicos('despachos'); setServicoAtivo(null) }}>Despachos</button>
-              <button className={abaServicos === 'laudo' ? 'ativo' : ''}
-                onClick={() => setAbaServicos('laudo')}>Laudo técnico</button>
-            </div>
-
-            {abaServicos === 'despachos' && !servicoAtivo && (
+            {!servicoAtivo && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
                 {CATEGORIAS_SERVICOS.map((cat) => (
                   <div key={cat.key}>
@@ -443,7 +387,7 @@ export default function TelaClienteDashboard({ perfil }) {
               </div>
             )}
 
-            {abaServicos === 'despachos' && servicoAtivo && (
+            {servicoAtivo && (
               <form onSubmit={enviarSolicitacaoServico} style={{ marginTop: 12 }}>
                 <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}
                   onClick={() => setServicoAtivo(null)}>
@@ -465,38 +409,6 @@ export default function TelaClienteDashboard({ perfil }) {
                 <div className="acoes-modal">
                   <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
                   <button type="submit" disabled={enviandoServico}>{enviandoServico ? 'Enviando...' : 'Solicitar este serviço'}</button>
-                </div>
-              </form>
-            )}
-
-            {abaServicos === 'laudo' && (
-              <form onSubmit={enviarLaudo} style={{ marginTop: 12 }}>
-                <p className="dica">Laudo emitido por engenheiro responsável da marina — vale para seguro, financiamento, transferência ou regularização.</p>
-                {embarcacoes.length > 0 ? (
-                  <select required value={formLaudo.embarcacao_id}
-                    onChange={(e) => setFormLaudo({ ...formLaudo, embarcacao_id: e.target.value })}>
-                    <option value="">Selecione a embarcação</option>
-                    {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                  </select>
-                ) : (
-                  <p className="dica">Você ainda não tem embarcações cadastradas.</p>
-                )}
-                <select value={formLaudo.tipo} onChange={(e) => setFormLaudo({ ...formLaudo, tipo: e.target.value })}>
-                  <option value="vistoria">Vistoria</option>
-                  <option value="avaliacao">Avaliação</option>
-                  <option value="transferencia">Transferência</option>
-                  <option value="seguro">Seguro</option>
-                  <option value="outro">Outro</option>
-                </select>
-                <select value={formLaudo.finalidade} onChange={(e) => setFormLaudo({ ...formLaudo, finalidade: e.target.value })}>
-                  {FINALIDADES_LAUDO.map((f) => <option key={f} value={f}>{f.replace('_', ' ')}</option>)}
-                </select>
-                <input placeholder="Observações (opcional)"
-                  value={formLaudo.observacoes}
-                  onChange={(e) => setFormLaudo({ ...formLaudo, observacoes: e.target.value })} />
-                <div className="acoes-modal">
-                  <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
-                  <button type="submit" disabled={enviandoLaudo}>{enviandoLaudo ? 'Enviando...' : 'Confirmar solicitação'}</button>
                 </div>
               </form>
             )}
