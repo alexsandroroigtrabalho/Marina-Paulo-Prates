@@ -95,6 +95,8 @@ copie `.env.local.example` para `.env.local` e preencha com as chaves do seu pro
 - **Clientes / Embarcações** — cadastro de sócios e das embarcações vinculadas a cada um.
 - **Financeiro** — cobranças (mensalidade, serviço, multa), controle de pendente/pago, integração com Mercado Pago via Edge Function.
 - **Manutenção** — ordens de serviço por embarcação (limpeza, motor, guincho, combustível, pintura), com status e prioridade.
+- **Agendamento de retirada/retorno** — o cliente solicita horário de retirada para água e de atracação de retorno pelo próprio app; a marina confirma/conclui.
+- **Documentação e Regularização** *(diferencial competitivo)* — controle de vencimento de documentos da embarcação (TIE, seguro, habilitação, vistoria), solicitação de laudos técnicos emitidos por engenheiro responsável da marina, e acompanhamento de despachos junto à Capitania dos Portos (registro, transferência, baixa, renovação de TIE).
 
 ## Trabalhando em equipe
 

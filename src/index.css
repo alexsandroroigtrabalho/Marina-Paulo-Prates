@@ -133,6 +133,16 @@ body {
 .status-em_andamento, .status-reservada { background: #DCEEF4; color: var(--cor-primaria); }
 .status-ocupada { background: #E7ECEF; color: #445; }
 
+/* ---------- Documentação / Laudos / Despachos ---------- */
+.status-solicitado, .status-protocolado, .status-agendado { background: #DCEEF4; color: var(--cor-primaria); }
+.status-em_analise { background: #FCE6DA; color: var(--cor-alerta); }
+.status-exigencia { background: #FCE0D6; color: #B0472A; }
+.status-emitido, .status-aprovado, .status-concluido { background: #DCEEF4; color: var(--cor-secundaria); }
+.status-indeferido { background: #FCE0D6; color: #B0472A; }
+.status-vencido { background: #FCE0D6; color: #B0472A; }
+.status-vencendo { background: #FCE6DA; color: var(--cor-alerta); }
+.status-valido { background: #DCEEF4; color: var(--cor-secundaria); }
+
 /* ---------- Vagas ---------- */
 .grid-vagas { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }
 .vaga-card {

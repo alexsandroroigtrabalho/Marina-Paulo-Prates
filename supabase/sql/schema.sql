@@ -190,6 +190,60 @@ CREATE TABLE marina.agendamentos (
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 
+-- ------------------------------------------------------------
+-- 10. DOCUMENTOS DA EMBARCAÇÃO (TIE, seguro, habilitação, vistoria...)
+-- ------------------------------------------------------------
+CREATE TABLE marina.documentos_embarcacao (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id       UUID REFERENCES marina.marinas(id) NOT NULL,
+  embarcacao_id   UUID REFERENCES marina.embarcacoes(id) NOT NULL,
+  tipo            TEXT NOT NULL, -- TIE | seguro | seguro_obrigatorio | habilitacao_condutor | vistoria | outro
+  numero_documento TEXT,
+  data_emissao    DATE,
+  data_validade   DATE,
+  arquivo_url     TEXT,
+  observacoes     TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- ------------------------------------------------------------
+-- 11. LAUDOS TÉCNICOS (vistoria, avaliação, etc. — diferencial: engenheiro próprio)
+-- ------------------------------------------------------------
+CREATE TABLE marina.laudos (
+  id                  UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id           UUID REFERENCES marina.marinas(id) NOT NULL,
+  embarcacao_id       UUID REFERENCES marina.embarcacoes(id) NOT NULL,
+  cliente_id          UUID REFERENCES marina.clientes(id) NOT NULL,
+  tipo                TEXT DEFAULT 'vistoria', -- vistoria | avaliacao | transferencia | seguro | outro
+  finalidade          TEXT, -- seguro | financiamento | transferencia_propriedade | regularizacao | outro
+  status              TEXT DEFAULT 'solicitado', -- solicitado | agendado | em_andamento | emitido | cancelado
+  responsavel_tecnico TEXT, -- nome/CREA do engenheiro responsável
+  data_solicitacao    TIMESTAMPTZ DEFAULT now(),
+  data_vistoria       TIMESTAMPTZ,
+  data_emissao        TIMESTAMPTZ,
+  arquivo_url         TEXT,
+  valor               NUMERIC(10,2),
+  observacoes         TEXT
+);
+
+-- ------------------------------------------------------------
+-- 12. DESPACHOS (regularização junto à Capitania dos Portos)
+-- ------------------------------------------------------------
+CREATE TABLE marina.despachos (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id         UUID REFERENCES marina.marinas(id) NOT NULL,
+  embarcacao_id     UUID REFERENCES marina.embarcacoes(id),
+  cliente_id        UUID REFERENCES marina.clientes(id) NOT NULL,
+  tipo              TEXT NOT NULL, -- registro | transferencia | baixa | renovacao_tie | outro
+  orgao             TEXT DEFAULT 'Capitania dos Portos',
+  numero_protocolo  TEXT,
+  status            TEXT DEFAULT 'protocolado', -- protocolado | em_analise | exigencia | aprovado | indeferido | concluido
+  data_protocolo    DATE,
+  data_conclusao    DATE,
+  observacoes       TEXT,
+  created_at        TIMESTAMPTZ DEFAULT now()
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================
@@ -203,6 +257,9 @@ ALTER TABLE marina.reservas         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.cobrancas        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.ordens_servico   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.agendamentos     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.documentos_embarcacao ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.laudos                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.despachos             ENABLE ROW LEVEL SECURITY;
 
 -- Perfis: cada usuário vê e edita o próprio perfil
 CREATE POLICY "perfil_proprio" ON marina.perfis
@@ -288,6 +345,42 @@ CREATE POLICY "cliente_cancela_proprio_agendamento" ON marina.agendamentos
   FOR UPDATE TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'solicitado')
   WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+-- Documentação, laudos e despachos: staff da marina tem acesso completo
+CREATE POLICY "admin_marina_documentos" ON marina.documentos_embarcacao
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+CREATE POLICY "admin_marina_laudos" ON marina.laudos
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+CREATE POLICY "admin_marina_despachos" ON marina.despachos
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Cliente: vê os próprios documentos/laudos/despachos; pode solicitar laudo
+CREATE POLICY "cliente_ve_proprios_documentos" ON marina.documentos_embarcacao
+  FOR SELECT TO authenticated
+  USING (embarcacao_id IN (SELECT id FROM marina.embarcacoes WHERE cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid())));
+
+CREATE POLICY "cliente_ve_proprios_laudos" ON marina.laudos
+  FOR SELECT TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+CREATE POLICY "cliente_solicita_laudo" ON marina.laudos
+  FOR INSERT TO authenticated
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+CREATE POLICY "cliente_ve_proprios_despachos" ON marina.despachos
+  FOR SELECT TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
 -- Operador (dono da plataforma): vê todas as marinas
 CREATE POLICY "operador_marinas" ON marina.marinas

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { IconAnchor, IconLogout, IconShip, IconAnchorOff } from '@tabler/icons-react'
+import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconFileCertificate } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
-import { listarAgendamentosCliente, solicitarAgendamento } from '../lib/db'
+import { listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, solicitarLaudo, listarDespachosCliente } from '../lib/db'
 
 const TIPO_LABEL = {
   retirada: 'Retirada para água',
@@ -12,8 +12,18 @@ const STATUS_LABEL = {
   solicitado: 'Solicitado',
   confirmado: 'Confirmado',
   concluido: 'Concluído',
+  agendado: 'Agendado',
+  em_andamento: 'Em andamento',
+  emitido: 'Emitido',
   cancelado: 'Cancelado',
+  protocolado: 'Protocolado',
+  em_analise: 'Em análise',
+  exigencia: 'Exigência pendente',
+  aprovado: 'Aprovado',
+  indeferido: 'Indeferido',
 }
+
+const FINALIDADES_LAUDO = ['seguro', 'financiamento', 'transferencia_propriedade', 'regularizacao', 'outro']
 
 export default function TelaClienteDashboard({ perfil }) {
   const [cliente, setCliente] = useState(null)
@@ -21,9 +31,14 @@ export default function TelaClienteDashboard({ perfil }) {
   const [cobrancas, setCobrancas] = useState([])
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [agendamentos, setAgendamentos] = useState([])
+  const [laudos, setLaudos] = useState([])
+  const [despachos, setDespachos] = useState([])
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
   const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data_hora: '', observacoes: '' })
   const [enviandoAgendamento, setEnviandoAgendamento] = useState(false)
+  const [modalLaudoAberto, setModalLaudoAberto] = useState(false)
+  const [formLaudo, setFormLaudo] = useState({ embarcacao_id: '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
+  const [enviandoLaudo, setEnviandoLaudo] = useState(false)
 
   async function carregar() {
     const { data: cli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
@@ -36,6 +51,8 @@ export default function TelaClienteDashboard({ perfil }) {
     const { data: emb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
     setEmbarcacoes(emb || [])
     setAgendamentos(await listarAgendamentosCliente(cli.id))
+    setLaudos(await listarLaudosCliente(cli.id))
+    setDespachos(await listarDespachosCliente(cli.id))
   }
 
   useEffect(() => { carregar() }, [perfil])
@@ -64,6 +81,33 @@ export default function TelaClienteDashboard({ perfil }) {
       alert(err.message)
     } finally {
       setEnviandoAgendamento(false)
+    }
+  }
+
+  function abrirModalLaudo() {
+    setFormLaudo({ embarcacao_id: embarcacoes[0]?.id || '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
+    setModalLaudoAberto(true)
+  }
+
+  async function enviarLaudo(e) {
+    e.preventDefault()
+    if (!cliente) return
+    setEnviandoLaudo(true)
+    try {
+      await solicitarLaudo({
+        marina_id: cliente.marina_id,
+        cliente_id: cliente.id,
+        embarcacao_id: formLaudo.embarcacao_id,
+        tipo: formLaudo.tipo,
+        finalidade: formLaudo.finalidade,
+        observacoes: formLaudo.observacoes || null,
+      })
+      setModalLaudoAberto(false)
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setEnviandoLaudo(false)
     }
   }
 
@@ -97,6 +141,37 @@ export default function TelaClienteDashboard({ perfil }) {
               <IconAnchorOff size={18} /> Agendar retorno
             </button>
           </div>
+
+          <button className="btn-outline" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 }}
+            onClick={abrirModalLaudo}>
+            <IconFileCertificate size={18} /> Solicitar laudo técnico
+          </button>
+
+          {(laudos.length > 0 || despachos.length > 0) && (
+            <>
+              <h3>Laudos e regularização</h3>
+              <div className="lista-cards">
+                {laudos.map((l) => (
+                  <div key={`laudo-${l.id}`} className="cliente-card">
+                    <div className="linha"><b>Laudo — {l.tipo}</b>{l.embarcacoes?.nome ? ` — ${l.embarcacoes.nome}` : ''}</div>
+                    <div className="linha">Finalidade: {l.finalidade || '-'}</div>
+                    <span className={`status-texto ${l.status === 'emitido' ? 'em-dia' : 'pendente'}`}>
+                      {STATUS_LABEL[l.status] || l.status}
+                    </span>
+                  </div>
+                ))}
+                {despachos.map((d) => (
+                  <div key={`despacho-${d.id}`} className="cliente-card">
+                    <div className="linha"><b>Despacho — {d.tipo?.replace('_', ' ')}</b>{d.embarcacoes?.nome ? ` — ${d.embarcacoes.nome}` : ''}</div>
+                    <div className="linha">{d.orgao}{d.numero_protocolo ? ` · Protocolo ${d.numero_protocolo}` : ''}</div>
+                    <span className={`status-texto ${d.status === 'concluido' || d.status === 'aprovado' ? 'em-dia' : 'pendente'}`}>
+                      {STATUS_LABEL[d.status] || d.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <h3>Meus agendamentos</h3>
           <div className="lista-cards">
@@ -162,6 +237,41 @@ export default function TelaClienteDashboard({ perfil }) {
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalTipo(null)}>Cancelar</button>
               <button type="submit" disabled={enviandoAgendamento}>{enviandoAgendamento ? 'Enviando...' : 'Confirmar solicitação'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {modalLaudoAberto && (
+        <div className="modal-fundo" onClick={() => setModalLaudoAberto(false)}>
+          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarLaudo}>
+            <h3>Solicitar laudo técnico</h3>
+            <p className="dica">Laudo emitido por engenheiro responsável da marina — vale para seguro, financiamento, transferência ou regularização.</p>
+            {embarcacoes.length > 0 ? (
+              <select required value={formLaudo.embarcacao_id}
+                onChange={(e) => setFormLaudo({ ...formLaudo, embarcacao_id: e.target.value })}>
+                <option value="">Selecione a embarcação</option>
+                {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+              </select>
+            ) : (
+              <p className="dica">Você ainda não tem embarcações cadastradas.</p>
+            )}
+            <select value={formLaudo.tipo} onChange={(e) => setFormLaudo({ ...formLaudo, tipo: e.target.value })}>
+              <option value="vistoria">Vistoria</option>
+              <option value="avaliacao">Avaliação</option>
+              <option value="transferencia">Transferência</option>
+              <option value="seguro">Seguro</option>
+              <option value="outro">Outro</option>
+            </select>
+            <select value={formLaudo.finalidade} onChange={(e) => setFormLaudo({ ...formLaudo, finalidade: e.target.value })}>
+              {FINALIDADES_LAUDO.map((f) => <option key={f} value={f}>{f.replace('_', ' ')}</option>)}
+            </select>
+            <input placeholder="Observações (opcional)"
+              value={formLaudo.observacoes}
+              onChange={(e) => setFormLaudo({ ...formLaudo, observacoes: e.target.value })} />
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalLaudoAberto(false)}>Cancelar</button>
+              <button type="submit" disabled={enviandoLaudo}>{enviandoLaudo ? 'Enviando...' : 'Confirmar solicitação'}</button>
             </div>
           </form>
         </div>

@@ -161,3 +161,94 @@ export async function atualizarStatusAgendamento(id, status) {
   const { error } = await db.from('agendamentos').update({ status }).eq('id', id)
   if (error) throw error
 }
+
+/* ---------- Documentação (TIE, seguro, habilitação, vistoria...) ---------- */
+export async function listarDocumentos(marinaId) {
+  const { data, error } = await db
+    .from('documentos_embarcacao')
+    .select('*, embarcacoes(nome, clientes(nome))')
+    .eq('marina_id', marinaId)
+    .order('data_validade', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function listarDocumentosEmbarcacao(embarcacaoId) {
+  const { data, error } = await db
+    .from('documentos_embarcacao')
+    .select('*')
+    .eq('embarcacao_id', embarcacaoId)
+    .order('data_validade', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function salvarDocumento(documento) {
+  const { data, error } = await db.from('documentos_embarcacao').upsert(documento).select()
+  if (error) throw error
+  return data[0]
+}
+
+/* ---------- Laudos técnicos (diferencial: engenheiro/vistoriador próprio) ---------- */
+export async function listarLaudos(marinaId) {
+  const { data, error } = await db
+    .from('laudos')
+    .select('*, embarcacoes(nome), clientes(nome)')
+    .eq('marina_id', marinaId)
+    .order('data_solicitacao', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function listarLaudosCliente(clienteId) {
+  const { data, error } = await db
+    .from('laudos')
+    .select('*, embarcacoes(nome)')
+    .eq('cliente_id', clienteId)
+    .order('data_solicitacao', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function solicitarLaudo(laudo) {
+  const { data, error } = await db.from('laudos').insert(laudo).select()
+  if (error) throw error
+  return data[0]
+}
+
+export async function atualizarLaudo(id, patch) {
+  const { error } = await db.from('laudos').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/* ---------- Despachos (regularização junto à Capitania dos Portos) ---------- */
+export async function listarDespachos(marinaId) {
+  const { data, error } = await db
+    .from('despachos')
+    .select('*, embarcacoes(nome), clientes(nome)')
+    .eq('marina_id', marinaId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function listarDespachosCliente(clienteId) {
+  const { data, error } = await db
+    .from('despachos')
+    .select('*, embarcacoes(nome)')
+    .eq('cliente_id', clienteId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function criarDespacho(despacho) {
+  const { data, error } = await db.from('despachos').insert(despacho).select()
+  if (error) throw error
+  return data[0]
+}
+
+export async function atualizarDespacho(id, patch) {
+  const { error } = await db.from('despachos').update(patch).eq('id', id)
+  if (error) throw error
+}
