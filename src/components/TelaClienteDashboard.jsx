@@ -71,7 +71,7 @@ export default function TelaClienteDashboard({ perfil }) {
     <div style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cor-primaria)' }}>
-          <IconAnchor /> <strong>Minha marina</strong>
+          <IconAnchor /> <strong>Marina Paulo Prates</strong>
         </div>
         <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} onClick={() => supabase.auth.signOut()}>
           <IconLogout size={16} /> Sair

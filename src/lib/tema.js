@@ -4,7 +4,7 @@ export const TEMA_PADRAO = {
   corPrimaria: '#0E4461',
   corSecundaria: '#26799F',
   logoUrl: null,
-  nomeExibicao: 'Minha Marina',
+  nomeExibicao: 'Marina Paulo Prates',
 }
 
 export function aplicarTema(configJson) {
