@@ -1,0 +1,213 @@
+/* ============================================================
+   Paleta extraída do app de referência "Marina Paulo Prates"
+   (estrutura de telas + cores replicadas por pedido do cliente)
+   ============================================================ */
+:root {
+  --cor-primaria: #0E4461;      /* header, títulos, ícones fortes */
+  --cor-secundaria: #26799F;    /* botões, links, toggle ligado, destaque */
+  --cor-secundaria-clara: #9ECCDE; /* selos/badges, fundo suave do destaque */
+  --cor-fundo: #EEF7FA;         /* fundo geral das telas */
+  --cor-card: #FFFFFF;
+  --cor-alerta: #D9713E;        /* pendências / inadimplência */
+  --cor-toggle-off: #D7D7DC;
+  --cor-texto: #17313E;
+  --cor-texto-suave: #5B7887;
+  --raio: 16px;
+  --sombra: 0 6px 20px rgba(14, 68, 97, 0.08);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  /* watermark sutil de âncoras, como no app de referência */
+  background-image: radial-gradient(circle at 12% 18%, rgba(14,68,97,0.05) 0 3px, transparent 4px),
+    radial-gradient(circle at 68% 62%, rgba(14,68,97,0.05) 0 3px, transparent 4px),
+    radial-gradient(circle at 40% 85%, rgba(14,68,97,0.05) 0 3px, transparent 4px);
+  background-size: 220px 220px;
+}
+
+.tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }
+
+/* ---------- Landing / seleção de perfil (Home) ---------- */
+.landing {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; height: 100vh; text-align: center; padding: 24px;
+}
+.landing .icone-ancora {
+  width: 64px; height: 64px; color: var(--cor-primaria); margin-bottom: 8px;
+}
+.landing h1 { color: var(--cor-primaria); font-size: 26px; margin: 0; }
+.landing p.subtitulo { color: var(--cor-texto-suave); margin: 4px 0 28px; }
+.landing .acoes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 340px; }
+
+.btn-primario, .btn-outline {
+  padding: 14px 20px; border-radius: 999px; font-size: 15px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+}
+.btn-primario { background: var(--cor-secundaria); color: #fff; border: none; }
+.btn-primario:hover { background: #1F6B8C; }
+.btn-outline { background: transparent; color: var(--cor-secundaria); border: 1.5px solid var(--cor-secundaria); }
+.btn-outline:hover { background: rgba(38,121,159,0.08); }
+
+/* ---------- Cards de acesso (login cliente / senha admin) ---------- */
+.card-login {
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--cor-card); padding: 40px; border-radius: var(--raio);
+  box-shadow: var(--sombra); width: 340px;
+}
+.card-login h1 { margin: 0; color: var(--cor-primaria); font-size: 22px; }
+.card-login p { color: var(--cor-texto-suave); margin: 0 0 8px; font-size: 14px; }
+.card-login input {
+  padding: 12px 14px; border: 1px solid #D8E6EC; border-radius: 10px; font-size: 14px; background: var(--cor-fundo);
+}
+.card-login button {
+  padding: 12px; background: var(--cor-secundaria); color: #fff; border: none;
+  border-radius: 999px; cursor: pointer; font-weight: 600;
+}
+/* Overrides com especificidade maior para não perder o estilo utilitário
+   quando os botões ficam dentro de .card-login */
+.card-login button.btn-outline {
+  background: transparent; color: var(--cor-secundaria); border: 1.5px solid var(--cor-secundaria);
+}
+.card-login button.btn-outline:hover { background: rgba(38,121,159,0.08); color: var(--cor-secundaria); }
+.card-login button.voltar,
+.card-login .voltar {
+  background: none; color: var(--cor-texto-suave); font-weight: 400; padding: 4px; border: none;
+}
+.erro { color: #B00020; font-size: 13px; }
+
+/* ---------- Shell interno (área administrativa) ---------- */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 240px; background: var(--cor-primaria); color: #fff;
+  display: flex; flex-direction: column; padding: 20px 12px;
+}
+.logo { font-weight: 700; font-size: 18px; margin-bottom: 24px; padding: 0 8px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  background: none; border: none; color: #BFE0EC; text-align: left;
+  padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
+}
+.nav-item:hover, .nav-item.ativo { background: rgba(255,255,255,0.14); color: #fff; }
+.nav-item.sair { margin-top: auto; }
+
+.conteudo { flex: 1; padding: 24px 32px; }
+.topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.topo h1 { font-size: 22px; color: var(--cor-primaria); margin: 0; }
+.usuario { font-size: 13px; color: var(--cor-texto-suave); }
+
+/* ---------- Painel da marina (cards de navegação estilo app) ---------- */
+.painel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.painel-card {
+  background: var(--cor-card); border-radius: var(--raio); box-shadow: var(--sombra);
+  padding: 20px; display: flex; gap: 14px; align-items: flex-start; cursor: pointer; border: none; text-align: left;
+}
+.painel-card .icone { color: var(--cor-secundaria); flex-shrink: 0; }
+.painel-card strong { display: block; color: var(--cor-primaria); font-size: 16px; margin-bottom: 4px; }
+.painel-card span { color: var(--cor-texto-suave); font-size: 13px; }
+
+/* ---------- Formulários ---------- */
+.form-inline { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.form-inline input, .form-inline select {
+  padding: 10px 12px; border: 1px solid #D8E6EC; border-radius: 10px; font-size: 14px; background: var(--cor-card);
+}
+.form-inline button {
+  padding: 10px 18px; background: var(--cor-secundaria); color: #fff; border: none;
+  border-radius: 999px; cursor: pointer; font-weight: 600;
+}
+
+/* ---------- Tabela (telas administrativas mais densas) ---------- */
+.tabela { width: 100%; border-collapse: collapse; background: var(--cor-card); border-radius: var(--raio); overflow: hidden; box-shadow: var(--sombra); }
+.tabela th, .tabela td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #EAF2F5; font-size: 14px; }
+.tabela th { background: #F5FAFC; color: var(--cor-texto-suave); font-weight: 600; }
+
+.badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.status-pendente, .status-aberta { background: #FCE6DA; color: var(--cor-alerta); }
+.status-pago, .status-concluida, .status-disponivel { background: #DCEEF4; color: var(--cor-secundaria); }
+.status-atrasado, .status-cancelada { background: #FCE0D6; color: #B0472A; }
+.status-em_andamento, .status-reservada { background: #DCEEF4; color: var(--cor-primaria); }
+.status-ocupada { background: #E7ECEF; color: #445; }
+
+/* ---------- Vagas ---------- */
+.grid-vagas { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }
+.vaga-card {
+  border: 2px solid #D8E6EC; border-radius: var(--raio); background: var(--cor-card); padding: 14px;
+  display: flex; flex-direction: column; gap: 6px; cursor: pointer; text-align: left;
+}
+.vaga-card:disabled, .vaga-card[disabled] { cursor: not-allowed; opacity: 0.7; }
+
+.modal-fundo {
+  position: fixed; inset: 0; background: rgba(14,68,97,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 10;
+}
+.modal-card {
+  background: var(--cor-card); padding: 24px; border-radius: var(--raio); width: 340px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.modal-card input, .modal-card select { padding: 10px 12px; border: 1px solid #D8E6EC; border-radius: 10px; }
+.acoes-modal { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.acoes-modal button:first-child { background: #EAF2F5; border: none; padding: 8px 16px; border-radius: 999px; }
+.acoes-modal button:last-child { background: var(--cor-secundaria); color: #fff; border: none; padding: 8px 16px; border-radius: 999px; }
+
+.abas { display: flex; gap: 8px; margin-bottom: 16px; }
+.abas button { padding: 8px 18px; border: none; background: var(--cor-card); border-radius: 999px; cursor: pointer; color: var(--cor-texto-suave); font-weight: 600; }
+.abas button.ativo { background: var(--cor-secundaria); color: #fff; }
+
+.resumo-financeiro { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-card { background: var(--cor-card); padding: 16px 24px; border-radius: var(--raio); box-shadow: var(--sombra); min-width: 150px; }
+.stat-card span { display: block; font-size: 13px; color: var(--cor-texto-suave); }
+.stat-card strong { font-size: 22px; color: var(--cor-secundaria); }
+.stat-card.alerta strong { color: var(--cor-alerta); }
+
+.dica { font-size: 13px; color: var(--cor-texto-suave); margin-top: 16px; }
+.dica code { background: #E7F1F5; padding: 2px 6px; border-radius: 4px; }
+
+/* ---------- Cartões de cliente estilo "Planilha de cadastros" ---------- */
+.lista-cards { display: flex; flex-direction: column; gap: 14px; }
+.cliente-card {
+  background: var(--cor-card); border-radius: var(--raio); box-shadow: var(--sombra);
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;
+}
+.cliente-card .cabecalho-cliente { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cliente-card .titulo-cliente { display: flex; align-items: center; gap: 10px; }
+.selo-numero {
+  background: var(--cor-secundaria-clara); color: var(--cor-primaria);
+  font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 8px; white-space: nowrap;
+}
+.cliente-card .nome { font-weight: 700; color: var(--cor-texto); font-size: 15px; }
+.cliente-card .linha { font-size: 13px; color: var(--cor-texto); }
+.cliente-card .linha b { color: var(--cor-texto-suave); font-weight: 600; }
+.status-texto { font-size: 13px; font-weight: 600; }
+.status-texto.em-dia { color: var(--cor-secundaria); }
+.status-texto.pendente { color: var(--cor-alerta); }
+
+/* Toggle estilo iOS, igual ao app de referência */
+.toggle { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle .trilho {
+  position: absolute; inset: 0; background: var(--cor-toggle-off); border-radius: 999px; cursor: pointer; transition: 0.2s;
+}
+.toggle .trilho::before {
+  content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+  background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.toggle input:checked + .trilho { background: var(--cor-secundaria); }
+.toggle input:checked + .trilho::before { transform: translateX(20px); }
+
+/* ---------- Agenda do dia (grade de horários) ---------- */
+.agenda-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; font-weight: 700; color: var(--cor-primaria); }
+.agenda-nav button { background: none; border: none; color: var(--cor-secundaria); cursor: pointer; font-size: 16px; }
+.lista-horarios { display: flex; flex-direction: column; gap: 8px; }
+.horario-slot {
+  display: flex; align-items: center; gap: 14px; background: var(--cor-card); border-radius: 12px;
+  padding: 12px 16px; box-shadow: 0 2px 8px rgba(14,68,97,0.05);
+}
+.horario-slot .hora { font-weight: 700; color: var(--cor-texto); width: 52px; }
+.horario-slot .rotulo { color: var(--cor-texto-suave); font-size: 14px; }
+.horario-slot.ocupado { background: #DCEEF4; }
+.horario-slot.ocupado .rotulo { color: var(--cor-primaria); font-weight: 600; }
