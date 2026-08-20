@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { listarVagas, listarClientes, listarEmbarcacoes, criarReserva, listarReservas, encerrarReserva } from '../lib/db'
+import {
+  listarVagas, listarClientes, listarEmbarcacoes, criarReserva, listarReservas, encerrarReserva,
+  listarAgendamentos, atualizarStatusAgendamento,
+} from '../lib/db'
 
 const STATUS_COR = {
   disponivel: '#12B5C9',
@@ -8,23 +11,35 @@ const STATUS_COR = {
   manutencao: '#B00020',
 }
 
+const TIPO_AGENDAMENTO_LABEL = {
+  retirada: 'Retirada para água',
+  retorno: 'Atracação de retorno',
+}
+
 export default function TelaVagas({ marinaId }) {
   const [vagas, setVagas] = useState([])
   const [clientes, setClientes] = useState([])
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [reservas, setReservas] = useState([])
+  const [agendamentos, setAgendamentos] = useState([])
   const [vagaSelecionada, setVagaSelecionada] = useState(null)
   const [form, setForm] = useState({ cliente_id: '', embarcacao_id: '', tipo: 'mensal', data_inicio: '', valor: '' })
 
   async function carregar() {
     if (!marinaId) return
-    const [v, c, e, r] = await Promise.all([
+    const [v, c, e, r, a] = await Promise.all([
       listarVagas(marinaId), listarClientes(marinaId), listarEmbarcacoes(marinaId), listarReservas(marinaId),
+      listarAgendamentos(marinaId),
     ])
-    setVagas(v); setClientes(c); setEmbarcacoes(e); setReservas(r)
+    setVagas(v); setClientes(c); setEmbarcacoes(e); setReservas(r); setAgendamentos(a)
   }
 
   useEffect(() => { carregar() }, [marinaId])
+
+  async function mudarStatusAgendamento(id, status) {
+    await atualizarStatusAgendamento(id, status)
+    carregar()
+  }
 
   async function reservarVaga(e) {
     e.preventDefault()
@@ -80,6 +95,38 @@ export default function TelaVagas({ marinaId }) {
           </form>
         </div>
       )}
+
+      <h2>Solicitações de retirada / retorno</h2>
+      <table className="tabela">
+        <thead>
+          <tr><th>Tipo</th><th>Cliente</th><th>Embarcação</th><th>Data/hora</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {agendamentos.length === 0 && (
+            <tr><td colSpan={6}>Nenhuma solicitação de agendamento ainda.</td></tr>
+          )}
+          {agendamentos.map((a) => (
+            <tr key={a.id}>
+              <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
+              <td>{a.clientes?.nome}</td>
+              <td>{a.embarcacoes?.nome || '-'}</td>
+              <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+              <td>{a.status}</td>
+              <td style={{ display: 'flex', gap: 6 }}>
+                {a.status === 'solicitado' && (
+                  <button onClick={() => mudarStatusAgendamento(a.id, 'confirmado')}>Confirmar</button>
+                )}
+                {a.status === 'confirmado' && (
+                  <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Concluir</button>
+                )}
+                {a.status !== 'concluido' && a.status !== 'cancelado' && (
+                  <button onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h2>Reservas ativas</h2>
       <table className="tabela">

@@ -129,3 +129,35 @@ export async function atualizarStatusOS(osId, status) {
   const { error } = await db.from('ordens_servico').update(patch).eq('id', osId)
   if (error) throw error
 }
+
+/* ---------- Agendamentos (retirada para água / retorno de atracação) ---------- */
+export async function listarAgendamentosCliente(clienteId) {
+  const { data, error } = await db
+    .from('agendamentos')
+    .select('*, embarcacoes(nome)')
+    .eq('cliente_id', clienteId)
+    .order('data_hora', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function listarAgendamentos(marinaId) {
+  const { data, error } = await db
+    .from('agendamentos')
+    .select('*, clientes(nome), embarcacoes(nome)')
+    .eq('marina_id', marinaId)
+    .order('data_hora', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function solicitarAgendamento(agendamento) {
+  const { data, error } = await db.from('agendamentos').insert(agendamento).select()
+  if (error) throw error
+  return data[0]
+}
+
+export async function atualizarStatusAgendamento(id, status) {
+  const { error } = await db.from('agendamentos').update({ status }).eq('id', id)
+  if (error) throw error
+}

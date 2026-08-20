@@ -175,6 +175,21 @@ CREATE TABLE marina.ordens_servico (
 ALTER TABLE marina.cobrancas
   ADD CONSTRAINT fk_cobranca_os FOREIGN KEY (ordem_servico_id) REFERENCES marina.ordens_servico(id);
 
+-- ------------------------------------------------------------
+-- 9. AGENDAMENTOS (solicitação do cliente: retirada para água / retorno)
+-- ------------------------------------------------------------
+CREATE TABLE marina.agendamentos (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id     UUID REFERENCES marina.marinas(id) NOT NULL,
+  cliente_id    UUID REFERENCES marina.clientes(id) NOT NULL,
+  embarcacao_id UUID REFERENCES marina.embarcacoes(id),
+  tipo          TEXT NOT NULL CHECK (tipo IN ('retirada','retorno')), -- retirada = lançamento na água | retorno = atracação de volta
+  data_hora     TIMESTAMPTZ NOT NULL,
+  status        TEXT DEFAULT 'solicitado', -- solicitado | confirmado | concluido | cancelado
+  observacoes   TEXT,
+  created_at    TIMESTAMPTZ DEFAULT now()
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================
@@ -187,6 +202,7 @@ ALTER TABLE marina.vagas            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.reservas         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.cobrancas        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.ordens_servico   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.agendamentos     ENABLE ROW LEVEL SECURITY;
 
 -- Perfis: cada usuário vê e edita o próprio perfil
 CREATE POLICY "perfil_proprio" ON marina.perfis
@@ -251,6 +267,27 @@ CREATE POLICY "cliente_proprias_cobrancas" ON marina.cobrancas
 CREATE POLICY "cliente_proprias_os" ON marina.ordens_servico
   FOR SELECT TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+-- Agendamentos: staff da marina tem acesso completo
+CREATE POLICY "admin_marina_agendamentos" ON marina.agendamentos
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Agendamentos: cliente solicita, vê e cancela os próprios (enquanto ainda "solicitado")
+CREATE POLICY "cliente_cria_agendamento" ON marina.agendamentos
+  FOR INSERT TO authenticated
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+CREATE POLICY "cliente_ve_proprios_agendamentos" ON marina.agendamentos
+  FOR SELECT TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+CREATE POLICY "cliente_cancela_proprio_agendamento" ON marina.agendamentos
+  FOR UPDATE TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'solicitado')
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
 -- Operador (dono da plataforma): vê todas as marinas
 CREATE POLICY "operador_marinas" ON marina.marinas
