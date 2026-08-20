@@ -99,17 +99,18 @@ export default function TelaVagas({ marinaId }) {
       <h2>Solicitações de retirada / retorno</h2>
       <table className="tabela">
         <thead>
-          <tr><th>Tipo</th><th>Cliente</th><th>Embarcação</th><th>Data/hora</th><th>Status</th><th></th></tr>
+          <tr><th>Tipo</th><th>Cliente</th><th>Embarcação</th><th>Quem retira/entrega</th><th>Data/hora</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {agendamentos.length === 0 && (
-            <tr><td colSpan={6}>Nenhuma solicitação de agendamento ainda.</td></tr>
+            <tr><td colSpan={7}>Nenhuma solicitação de agendamento ainda.</td></tr>
           )}
           {agendamentos.map((a) => (
             <tr key={a.id}>
               <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
               <td>{a.clientes?.nome}</td>
               <td>{a.embarcacoes?.nome || '-'}</td>
+              <td>{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'}</td>
               <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
               <td>{a.status}</td>
               <td style={{ display: 'flex', gap: 6 }}>

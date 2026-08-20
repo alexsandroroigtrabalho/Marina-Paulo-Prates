@@ -1,4 +1,4 @@
-import { IconClipboardList, IconCalendarEvent, IconAnchor, IconTool, IconFileCertificate } from '@tabler/icons-react'
+import { IconClipboardList, IconCalendarEvent, IconAnchor, IconTool, IconFileCertificate, IconGasStation } from '@tabler/icons-react'
 
 const CARDS = [
   { chave: 'clientes', Icone: IconClipboardList, titulo: 'Planilha de cadastros', desc: 'Todos os cadastros por matrícula, pagamento e total arrecadado.' },
@@ -6,6 +6,7 @@ const CARDS = [
   { chave: 'financeiro', Icone: IconClipboardList, titulo: 'Financeiro', desc: 'Cobranças, mensalidades e status de pagamento.' },
   { chave: 'manutencao', Icone: IconTool, titulo: 'Manutenção', desc: 'Ordens de serviço das embarcações.' },
   { chave: 'documentacao', Icone: IconFileCertificate, titulo: 'Documentação / Despachos', desc: 'Vencimentos, laudos técnicos e regularização na Capitania.' },
+  { chave: 'abastecimento', Icone: IconGasStation, titulo: 'Abastecimento', desc: 'Estoque, preço por litro e pedidos de abastecimento dos clientes.' },
 ]
 
 export default function PainelMarina({ irPara }) {

@@ -97,6 +97,17 @@ copie `.env.local.example` para `.env.local` e preencha com as chaves do seu pro
 - **Manutenção** — ordens de serviço por embarcação (limpeza, motor, guincho, combustível, pintura), com status e prioridade.
 - **Agendamento de retirada/retorno** — o cliente solicita horário de retirada para água e de atracação de retorno pelo próprio app; a marina confirma/conclui.
 - **Documentação e Regularização** *(diferencial competitivo)* — controle de vencimento de documentos da embarcação (TIE, seguro, habilitação, vistoria), solicitação de laudos técnicos emitidos por engenheiro responsável da marina, e acompanhamento de despachos junto à Capitania dos Portos (registro, transferência, baixa, renovação de TIE).
+- **Abastecimento** — o gestor controla o catálogo de combustíveis (nome, preço por litro, estoque); o cliente solicita abastecimento pelo app e recebe um QR de pagamento (Pix). *Hoje o QR é de demonstração* — para ativar o Pix real é preciso configurar uma conta Mercado Pago própria da marina (ver nota abaixo).
+- **Pessoas autorizadas** — o próprio cliente cadastra quem mais pode retirar/devolver a embarcação em seu nome (filho, sócio, funcionário...). Ao pedir retirada/retorno, ele escolhe quem vai de fato buscar/entregar, e a administração vê esse nome na tela de Vagas para conferir na rampa.
+- **Notas fiscais (NFS-e)** — aba dentro do Financeiro para controlar quais cobranças precisam de nota fiscal de serviço. *Emissão real ainda não conectada* (ver nota abaixo) — hoje é um controle interno onde você registra o número da nota emitida pelo canal que já usa.
+
+### ⚠️ Emissão real de NFS-e
+
+NFS-e não tem padrão único no Brasil — cada prefeitura tem seu próprio sistema, e emitir de verdade exige inscrição municipal e, geralmente, certificado digital A1/A3. A tabela `notas_fiscais` já tem um campo `forma_emissao` (`manual` | `api`) pronto para o dia em que a marina configurar um provedor (ex: Focus NFe, NFE.io, PlugNotas) ou fizer a integração direta com a prefeitura — nesse momento, é só me avisar qual caminho vocês escolheram que eu conecto a emissão automática ali.
+
+### ⚠️ Pagamento real do abastecimento (Mercado Pago)
+
+O QR gerado hoje na tela de abastecimento é só de demonstração (`qr_code_demo = true` na tabela `pedidos_abastecimento`). O projeto já tem uma Edge Function pronta para gerar Pix real (`supabase/functions/payment`), mas **ela não pode reaproveitar a função `payment` já publicada no projeto Supabase**, porque esse projeto é compartilhado com a Escola Náutica (RV Invictus) e aquele slug já pertence ao pagamento de matrículas da escola — sobrescrever ia quebrar o fluxo deles. Quando você tiver uma conta Mercado Pago própria da marina, é só pedir para eu publicar essa função sob um nome próprio (ex: `marina-payment`) com o Access Token da marina, e trocar o QR de demonstração pelo Pix real.
 
 ## Trabalhando em equipe
 

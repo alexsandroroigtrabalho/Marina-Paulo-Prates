@@ -63,10 +63,10 @@ export default function TelaDocumentacao({ marinaId }) {
 
   return (
     <div>
-      <div className="abas" style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        <button className={`btn-outline ${aba === 'documentos' ? 'ativo' : ''}`} onClick={() => setAba('documentos')}>Documentos das embarcações</button>
-        <button className={`btn-outline ${aba === 'laudos' ? 'ativo' : ''}`} onClick={() => setAba('laudos')}>Laudos técnicos</button>
-        <button className={`btn-outline ${aba === 'despachos' ? 'ativo' : ''}`} onClick={() => setAba('despachos')}>Despachos (Capitania)</button>
+      <div className="abas">
+        <button className={aba === 'documentos' ? 'ativo' : ''} onClick={() => setAba('documentos')}>Documentos das embarcações</button>
+        <button className={aba === 'laudos' ? 'ativo' : ''} onClick={() => setAba('laudos')}>Laudos técnicos</button>
+        <button className={aba === 'despachos' ? 'ativo' : ''} onClick={() => setAba('despachos')}>Despachos (Capitania)</button>
       </div>
 
       {aba === 'documentos' && (

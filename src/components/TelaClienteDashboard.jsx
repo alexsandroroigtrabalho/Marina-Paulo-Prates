@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
-import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconFileCertificate } from '@tabler/icons-react'
+import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconFileCertificate, IconGasStation, IconUsers, IconTrash } from '@tabler/icons-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
-import { listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, solicitarLaudo, listarDespachosCliente } from '../lib/db'
+import {
+  listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, solicitarLaudo, listarDespachosCliente,
+  listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
+  listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
+} from '../lib/db'
+
+const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
 
 const TIPO_LABEL = {
   retirada: 'Retirada para água',
@@ -21,6 +28,9 @@ const STATUS_LABEL = {
   exigencia: 'Exigência pendente',
   aprovado: 'Aprovado',
   indeferido: 'Indeferido',
+  aguardando_pagamento: 'Aguardando pagamento',
+  pago: 'Pago',
+  entregue: 'Entregue',
 }
 
 const FINALIDADES_LAUDO = ['seguro', 'financiamento', 'transferencia_propriedade', 'regularizacao', 'outro']
@@ -33,12 +43,22 @@ export default function TelaClienteDashboard({ perfil }) {
   const [agendamentos, setAgendamentos] = useState([])
   const [laudos, setLaudos] = useState([])
   const [despachos, setDespachos] = useState([])
+  const [combustiveis, setCombustiveis] = useState([])
+  const [abastecimentos, setAbastecimentos] = useState([])
+  const [autorizados, setAutorizados] = useState([])
+  const [modalAutorizadosAberto, setModalAutorizadosAberto] = useState(false)
+  const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
+  const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
   const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data_hora: '', observacoes: '' })
   const [enviandoAgendamento, setEnviandoAgendamento] = useState(false)
   const [modalLaudoAberto, setModalLaudoAberto] = useState(false)
   const [formLaudo, setFormLaudo] = useState({ embarcacao_id: '', tipo: 'vistoria', finalidade: 'seguro', observacoes: '' })
   const [enviandoLaudo, setEnviandoLaudo] = useState(false)
+  const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
+  const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '' })
+  const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
+  const [pedidoGerado, setPedidoGerado] = useState(null) // pedido recém-criado, para mostrar o QR
 
   async function carregar() {
     const { data: cli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
@@ -53,12 +73,15 @@ export default function TelaClienteDashboard({ perfil }) {
     setAgendamentos(await listarAgendamentosCliente(cli.id))
     setLaudos(await listarLaudosCliente(cli.id))
     setDespachos(await listarDespachosCliente(cli.id))
+    setCombustiveis((await listarCombustiveis(cli.marina_id)).filter((c) => c.ativo))
+    setAbastecimentos(await listarPedidosAbastecimentoCliente(cli.id))
+    setAutorizados(await listarAutorizados(cli.id))
   }
 
   useEffect(() => { carregar() }, [perfil])
 
   function abrirModal(tipo) {
-    setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data_hora: '', observacoes: '' })
+    setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data_hora: '', observacoes: '', autorizado_id: '' })
     setModalTipo(tipo)
   }
 
@@ -74,6 +97,7 @@ export default function TelaClienteDashboard({ perfil }) {
         tipo: modalTipo,
         data_hora: formAgendamento.data_hora,
         observacoes: formAgendamento.observacoes || null,
+        autorizado_id: formAgendamento.autorizado_id || null,
       })
       setModalTipo(null)
       await carregar()
@@ -82,6 +106,37 @@ export default function TelaClienteDashboard({ perfil }) {
     } finally {
       setEnviandoAgendamento(false)
     }
+  }
+
+  function abrirModalAutorizados() {
+    setFormAutorizado({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
+    setModalAutorizadosAberto(true)
+  }
+
+  async function enviarNovoAutorizado(e) {
+    e.preventDefault()
+    if (!cliente) return
+    setSalvandoAutorizado(true)
+    try {
+      await adicionarAutorizado({ marina_id: cliente.marina_id, cliente_id: cliente.id, ...formAutorizado })
+      setFormAutorizado({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSalvandoAutorizado(false)
+    }
+  }
+
+  async function alternarAutorizado(autorizado) {
+    await atualizarAutorizado(autorizado.id, { ativo: !autorizado.ativo })
+    carregar()
+  }
+
+  async function excluirAutorizado(id) {
+    if (!confirm('Remover esta pessoa autorizada?')) return
+    await removerAutorizado(id)
+    carregar()
   }
 
   function abrirModalLaudo() {
@@ -108,6 +163,45 @@ export default function TelaClienteDashboard({ perfil }) {
       alert(err.message)
     } finally {
       setEnviandoLaudo(false)
+    }
+  }
+
+  function abrirModalAbastecimento() {
+    setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '' })
+    setModalAbastecimentoAberto(true)
+  }
+
+  async function enviarAbastecimento(e) {
+    e.preventDefault()
+    if (!cliente) return
+    const combustivel = combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)
+    if (!combustivel) return
+    const litros = Number(formAbastecimento.quantidade_litros)
+    const valorTotal = litros * Number(combustivel.preco_litro)
+    setEnviandoAbastecimento(true)
+    try {
+      // QR "Pix copia e cola" de demonstração — o pagamento real será conectado
+      // quando a marina configurar sua própria conta Mercado Pago.
+      const qrDemo = `00020126DEMO-PIX-MARINA5204000053039865406${valorTotal.toFixed(2)}5802BR5913Marina Manager6009DEMO-QR`
+      const pedido = await solicitarAbastecimento({
+        marina_id: cliente.marina_id,
+        cliente_id: cliente.id,
+        embarcacao_id: formAbastecimento.embarcacao_id || null,
+        combustivel_id: combustivel.id,
+        quantidade_litros: litros,
+        preco_litro_no_pedido: combustivel.preco_litro,
+        valor_total: valorTotal,
+        status: 'aguardando_pagamento',
+        qr_code: qrDemo,
+        qr_code_demo: true,
+      })
+      setModalAbastecimentoAberto(false)
+      setPedidoGerado({ ...pedido, combustivelNome: combustivel.nome })
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setEnviandoAbastecimento(false)
     }
   }
 
@@ -142,10 +236,38 @@ export default function TelaClienteDashboard({ perfil }) {
             </button>
           </div>
 
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              onClick={abrirModalLaudo}>
+              <IconFileCertificate size={18} /> Solicitar laudo técnico
+            </button>
+            <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              onClick={abrirModalAbastecimento} disabled={combustiveis.length === 0}>
+              <IconGasStation size={18} /> Pedir abastecimento
+            </button>
+          </div>
+
           <button className="btn-outline" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 }}
-            onClick={abrirModalLaudo}>
-            <IconFileCertificate size={18} /> Solicitar laudo técnico
+            onClick={abrirModalAutorizados}>
+            <IconUsers size={18} /> Pessoas autorizadas ({autorizados.filter((a) => a.ativo).length})
           </button>
+
+          {abastecimentos.length > 0 && (
+            <>
+              <h3>Meus abastecimentos</h3>
+              <div className="lista-cards">
+                {abastecimentos.map((p) => (
+                  <div key={p.id} className="cliente-card">
+                    <div className="linha"><b>{p.combustiveis?.nome}</b> — {Number(p.quantidade_litros).toFixed(2)} L{p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}</div>
+                    <div className="linha">Total: R$ {Number(p.valor_total).toFixed(2)}</div>
+                    <span className={`status-texto ${p.status === 'pago' || p.status === 'entregue' ? 'em-dia' : 'pendente'}`}>
+                      {STATUS_LABEL[p.status] || p.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {(laudos.length > 0 || despachos.length > 0) && (
             <>
@@ -231,6 +353,13 @@ export default function TelaClienteDashboard({ perfil }) {
             <input type="datetime-local" required
               value={formAgendamento.data_hora}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, data_hora: e.target.value })} />
+            <select value={formAgendamento.autorizado_id}
+              onChange={(e) => setFormAgendamento({ ...formAgendamento, autorizado_id: e.target.value })}>
+              <option value="">Quem vai buscar/entregar: eu mesmo</option>
+              {autorizados.filter((a) => a.ativo).map((a) => (
+                <option key={a.id} value={a.id}>{a.nome} ({a.parentesco})</option>
+              ))}
+            </select>
             <input placeholder="Observações (opcional)"
               value={formAgendamento.observacoes}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, observacoes: e.target.value })} />
@@ -274,6 +403,104 @@ export default function TelaClienteDashboard({ perfil }) {
               <button type="submit" disabled={enviandoLaudo}>{enviandoLaudo ? 'Enviando...' : 'Confirmar solicitação'}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {modalAbastecimentoAberto && (
+        <div className="modal-fundo" onClick={() => setModalAbastecimentoAberto(false)}>
+          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarAbastecimento}>
+            <h3>Pedir abastecimento</h3>
+            {embarcacoes.length > 0 ? (
+              <select required value={formAbastecimento.embarcacao_id}
+                onChange={(e) => setFormAbastecimento({ ...formAbastecimento, embarcacao_id: e.target.value })}>
+                <option value="">Selecione a embarcação</option>
+                {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+              </select>
+            ) : (
+              <p className="dica">Você ainda não tem embarcações cadastradas.</p>
+            )}
+            <select required value={formAbastecimento.combustivel_id}
+              onChange={(e) => setFormAbastecimento({ ...formAbastecimento, combustivel_id: e.target.value })}>
+              <option value="">Selecione o combustível</option>
+              {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} — R$ {Number(c.preco_litro).toFixed(2)}/L</option>)}
+            </select>
+            <input type="number" min="1" step="0.5" required placeholder="Quantidade (litros)"
+              value={formAbastecimento.quantidade_litros}
+              onChange={(e) => setFormAbastecimento({ ...formAbastecimento, quantidade_litros: e.target.value })} />
+            {formAbastecimento.combustivel_id && formAbastecimento.quantidade_litros > 0 && (
+              <p className="dica">
+                Total estimado: <b>R$ {(Number(formAbastecimento.quantidade_litros) * Number(combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)?.preco_litro || 0)).toFixed(2)}</b>
+              </p>
+            )}
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalAbastecimentoAberto(false)}>Cancelar</button>
+              <button type="submit" disabled={enviandoAbastecimento}>{enviandoAbastecimento ? 'Gerando...' : 'Gerar QR de pagamento'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {pedidoGerado && (
+        <div className="modal-fundo" onClick={() => setPedidoGerado(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <h3>Escaneie para pagar</h3>
+            <p className="dica">{pedidoGerado.combustivelNome} — {Number(pedidoGerado.quantidade_litros).toFixed(2)} L</p>
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+              <QRCodeSVG value={pedidoGerado.qr_code} size={200} />
+            </div>
+            <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--cor-primaria)', margin: '4px 0' }}>
+              R$ {Number(pedidoGerado.valor_total).toFixed(2)}
+            </p>
+            <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
+              QR de demonstração — o pagamento real via Pix ainda não está conectado. Seu pedido já foi registrado para a marina.
+            </p>
+            <button className="btn-primario" style={{ width: '100%' }} onClick={() => setPedidoGerado(null)}>Fechar</button>
+          </div>
+        </div>
+      )}
+
+      {modalAutorizadosAberto && (
+        <div className="modal-fundo" onClick={() => setModalAutorizadosAberto(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Pessoas autorizadas</h3>
+            <p className="dica">Quem pode retirar ou devolver sua embarcação em seu nome (ex: filho, sócio, funcionário).</p>
+
+            <div className="lista-cards" style={{ marginBottom: 12 }}>
+              {autorizados.length === 0 && <p className="dica">Nenhuma pessoa autorizada cadastrada ainda.</p>}
+              {autorizados.map((a) => (
+                <div key={a.id} className="cliente-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div>
+                    <div className="linha"><b>{a.nome}</b> — {a.parentesco}</div>
+                    <div className="linha">{a.documento || 'sem documento'}{a.telefone ? ` · ${a.telefone}` : ''}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label className="toggle">
+                      <input type="checkbox" checked={a.ativo} onChange={() => alternarAutorizado(a)} />
+                      <span className="trilho" />
+                    </label>
+                    <button type="button" className="voltar" onClick={() => excluirAutorizado(a.id)}><IconTrash size={16} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={enviarNovoAutorizado} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input required placeholder="Nome completo" value={formAutorizado.nome}
+                onChange={(e) => setFormAutorizado({ ...formAutorizado, nome: e.target.value })} />
+              <select value={formAutorizado.parentesco} onChange={(e) => setFormAutorizado({ ...formAutorizado, parentesco: e.target.value })}>
+                {PARENTESCOS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <input placeholder="CPF ou RG (opcional)" value={formAutorizado.documento}
+                onChange={(e) => setFormAutorizado({ ...formAutorizado, documento: e.target.value })} />
+              <input placeholder="Telefone (opcional)" value={formAutorizado.telefone}
+                onChange={(e) => setFormAutorizado({ ...formAutorizado, telefone: e.target.value })} />
+              <button type="submit" disabled={salvandoAutorizado}>{salvandoAutorizado ? 'Adicionando...' : '+ Adicionar autorizado'}</button>
+            </form>
+
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalAutorizadosAberto(false)}>Fechar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

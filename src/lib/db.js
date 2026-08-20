@@ -144,7 +144,7 @@ export async function listarAgendamentosCliente(clienteId) {
 export async function listarAgendamentos(marinaId) {
   const { data, error } = await db
     .from('agendamentos')
-    .select('*, clientes(nome), embarcacoes(nome)')
+    .select('*, clientes(nome), embarcacoes(nome), autorizados(nome, parentesco)')
     .eq('marina_id', marinaId)
     .order('data_hora', { ascending: true })
   if (error) throw error
@@ -250,5 +250,108 @@ export async function criarDespacho(despacho) {
 
 export async function atualizarDespacho(id, patch) {
   const { error } = await db.from('despachos').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/* ---------- Combustíveis (estoque/preço, controlado pelo gestor) ---------- */
+export async function listarCombustiveis(marinaId) {
+  const { data, error } = await db
+    .from('combustiveis')
+    .select('*')
+    .eq('marina_id', marinaId)
+    .order('nome')
+  if (error) throw error
+  return data
+}
+
+export async function salvarCombustivel(combustivel) {
+  const { data, error } = await db
+    .from('combustiveis')
+    .upsert({ ...combustivel, atualizado_em: new Date().toISOString() })
+    .select()
+  if (error) throw error
+  return data[0]
+}
+
+/* ---------- Pedidos de abastecimento (cliente solicita, com QR de pagamento) ---------- */
+export async function listarPedidosAbastecimento(marinaId) {
+  const { data, error } = await db
+    .from('pedidos_abastecimento')
+    .select('*, clientes(nome), embarcacoes(nome), combustiveis(nome)')
+    .eq('marina_id', marinaId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function listarPedidosAbastecimentoCliente(clienteId) {
+  const { data, error } = await db
+    .from('pedidos_abastecimento')
+    .select('*, embarcacoes(nome), combustiveis(nome)')
+    .eq('cliente_id', clienteId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function solicitarAbastecimento(pedido) {
+  const { data, error } = await db.from('pedidos_abastecimento').insert(pedido).select()
+  if (error) throw error
+  return data[0]
+}
+
+export async function atualizarStatusAbastecimento(id, status) {
+  const patch = { status }
+  if (status === 'pago') patch.pago_em = new Date().toISOString()
+  const { error } = await db.from('pedidos_abastecimento').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/* ---------- Autorizados (pessoas que o cliente autoriza a retirar/devolver a embarcação) ---------- */
+export async function listarAutorizados(clienteId) {
+  const { data, error } = await db
+    .from('autorizados')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('nome')
+  if (error) throw error
+  return data
+}
+
+export async function adicionarAutorizado(autorizado) {
+  const { data, error } = await db.from('autorizados').insert(autorizado).select()
+  if (error) throw error
+  return data[0]
+}
+
+export async function atualizarAutorizado(id, patch) {
+  const { error } = await db.from('autorizados').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function removerAutorizado(id) {
+  const { error } = await db.from('autorizados').delete().eq('id', id)
+  if (error) throw error
+}
+
+/* ---------- Notas fiscais (controle de NFS-e do serviço) ---------- */
+export async function listarNotasFiscais(marinaId) {
+  const { data, error } = await db
+    .from('notas_fiscais')
+    .select('*, clientes(nome), cobrancas(descricao)')
+    .eq('marina_id', marinaId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function criarNotaFiscal(nota) {
+  const { data, error } = await db.from('notas_fiscais').insert(nota).select()
+  if (error) throw error
+  return data[0]
+}
+
+export async function atualizarNotaFiscal(id, patch) {
+  const { error } = await db.from('notas_fiscais').update(patch).eq('id', id)
   if (error) throw error
 }

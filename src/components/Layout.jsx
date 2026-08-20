@@ -1,5 +1,5 @@
 import {
-  IconLayoutGrid, IconAnchor, IconUsers, IconCash, IconTool, IconLogout, IconFileCertificate,
+  IconLayoutGrid, IconAnchor, IconUsers, IconCash, IconTool, IconLogout, IconFileCertificate, IconGasStation,
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 
@@ -10,6 +10,7 @@ const ITENS_MENU = [
   { chave: 'financeiro', label: 'Financeiro', Icone: IconCash },
   { chave: 'manutencao', label: 'Manutenção', Icone: IconTool },
   { chave: 'documentacao', label: 'Documentação / Despachos', Icone: IconFileCertificate },
+  { chave: 'abastecimento', label: 'Abastecimento', Icone: IconGasStation },
 ]
 
 export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titulo }) {

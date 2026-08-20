@@ -244,6 +244,84 @@ CREATE TABLE marina.despachos (
   created_at        TIMESTAMPTZ DEFAULT now()
 );
 
+-- ------------------------------------------------------------
+-- 13. COMBUSTÍVEIS (catálogo/estoque/preço, controlado pelo gestor)
+-- ------------------------------------------------------------
+CREATE TABLE marina.combustiveis (
+  id                  UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id           UUID REFERENCES marina.marinas(id) NOT NULL,
+  nome                TEXT NOT NULL, -- ex: "Gasolina", "Diesel Marítimo", "Etanol", "Óleo 2T"
+  preco_litro         NUMERIC(10,2) NOT NULL,
+  estoque_litros      NUMERIC(10,2) NOT NULL DEFAULT 0,
+  ativo               BOOLEAN DEFAULT true,
+  atualizado_em       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ------------------------------------------------------------
+-- 14. PEDIDOS DE ABASTECIMENTO (cliente solicita, com QR de pagamento)
+-- ------------------------------------------------------------
+CREATE TABLE marina.pedidos_abastecimento (
+  id                     UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id              UUID REFERENCES marina.marinas(id) NOT NULL,
+  cliente_id             UUID REFERENCES marina.clientes(id) NOT NULL,
+  embarcacao_id          UUID REFERENCES marina.embarcacoes(id),
+  combustivel_id         UUID REFERENCES marina.combustiveis(id) NOT NULL,
+  quantidade_litros      NUMERIC(10,2) NOT NULL,
+  preco_litro_no_pedido  NUMERIC(10,2) NOT NULL, -- snapshot do preço no momento do pedido
+  valor_total            NUMERIC(10,2) NOT NULL,
+  status                 TEXT DEFAULT 'solicitado', -- solicitado | confirmado | aguardando_pagamento | pago | entregue | cancelado
+  forma_pagamento        TEXT DEFAULT 'pix',
+  payment_id             TEXT,
+  qr_code                TEXT, -- payload "pix copia e cola" (real ou demo)
+  qr_code_demo           BOOLEAN DEFAULT true, -- true = QR de demonstração, ainda sem Mercado Pago real conectado
+  pago_em                TIMESTAMPTZ,
+  observacoes            TEXT,
+  created_at             TIMESTAMPTZ DEFAULT now()
+);
+
+-- ------------------------------------------------------------
+-- 15. AUTORIZADOS (pessoas autorizadas pelo cliente a retirar/devolver a embarcação)
+-- ------------------------------------------------------------
+CREATE TABLE marina.autorizados (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id     UUID REFERENCES marina.marinas(id) NOT NULL,
+  cliente_id    UUID REFERENCES marina.clientes(id) NOT NULL,
+  nome          TEXT NOT NULL,
+  documento     TEXT, -- CPF ou RG
+  telefone      TEXT,
+  parentesco    TEXT, -- filho(a) | conjuge | socio | funcionario | outro
+  ativo         BOOLEAN DEFAULT true,
+  created_at    TIMESTAMPTZ DEFAULT now()
+);
+
+-- Vincula (opcionalmente) um agendamento de retirada/retorno a quem de fato vai buscar/entregar
+ALTER TABLE marina.agendamentos ADD COLUMN autorizado_id UUID REFERENCES marina.autorizados(id);
+
+-- ------------------------------------------------------------
+-- 16. NOTAS FISCAIS (controle de NFS-e do serviço)
+-- ------------------------------------------------------------
+-- Como a emissão real depende da prefeitura/certificado digital/provedor de
+-- cada marina (não há padrão único de NFS-e no Brasil), esta tabela registra
+-- o controle interno (o que precisa de nota, valor, status) e guarda o número
+-- da nota quando ela é emitida — manualmente pelo portal da prefeitura, por um
+-- provedor (Focus NFe, NFE.io etc.) ou, futuramente, via integração automática
+-- (forma_emissao = 'api').
+CREATE TABLE marina.notas_fiscais (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  marina_id       UUID REFERENCES marina.marinas(id) NOT NULL,
+  cliente_id      UUID REFERENCES marina.clientes(id) NOT NULL,
+  cobranca_id     UUID REFERENCES marina.cobrancas(id),
+  descricao       TEXT NOT NULL,
+  valor           NUMERIC(10,2) NOT NULL,
+  numero_nota     TEXT,
+  status          TEXT DEFAULT 'pendente', -- pendente | emitida | cancelada
+  forma_emissao   TEXT DEFAULT 'manual',   -- manual | api
+  data_emissao    DATE,
+  arquivo_url     TEXT,
+  observacoes     TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================
@@ -260,6 +338,10 @@ ALTER TABLE marina.agendamentos     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.documentos_embarcacao ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.laudos                ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marina.despachos             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.combustiveis          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.pedidos_abastecimento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.autorizados           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marina.notas_fiscais         ENABLE ROW LEVEL SECURITY;
 
 -- Perfis: cada usuário vê e edita o próprio perfil
 CREATE POLICY "perfil_proprio" ON marina.perfis
@@ -379,6 +461,59 @@ CREATE POLICY "cliente_solicita_laudo" ON marina.laudos
   WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
 CREATE POLICY "cliente_ve_proprios_despachos" ON marina.despachos
+  FOR SELECT TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+-- Combustíveis: staff da marina gerencia (estoque e preço)
+CREATE POLICY "admin_marina_combustiveis" ON marina.combustiveis
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Combustíveis: qualquer usuário da marina (inclusive cliente) pode ver preço/estoque disponível
+CREATE POLICY "usuarios_marina_veem_combustiveis" ON marina.combustiveis
+  FOR SELECT TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Pedidos de abastecimento: staff da marina tem acesso completo
+CREATE POLICY "admin_marina_pedidos_abastecimento" ON marina.pedidos_abastecimento
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Pedidos de abastecimento: cliente solicita e vê os próprios
+CREATE POLICY "cliente_cria_pedido_abastecimento" ON marina.pedidos_abastecimento
+  FOR INSERT TO authenticated
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+CREATE POLICY "cliente_ve_proprios_pedidos_abastecimento" ON marina.pedidos_abastecimento
+  FOR SELECT TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+-- Autorizados: staff da marina tem acesso completo (para conferir na portaria/rampa)
+CREATE POLICY "admin_marina_autorizados" ON marina.autorizados
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Autorizados: cliente gerencia (adiciona/edita/remove) os próprios
+CREATE POLICY "cliente_gerencia_autorizados" ON marina.autorizados
+  FOR ALL TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()))
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+-- Notas fiscais: staff da marina tem acesso completo
+CREATE POLICY "admin_marina_notas_fiscais" ON marina.notas_fiscais
+  FOR ALL TO authenticated
+  USING (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+-- Notas fiscais: cliente vê as próprias
+CREATE POLICY "cliente_ve_proprias_notas_fiscais" ON marina.notas_fiscais
   FOR SELECT TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
