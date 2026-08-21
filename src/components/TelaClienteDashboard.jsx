@@ -1,18 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconAnchor, IconLogout, IconSteeringWheel, IconClipboardList, IconGasStation, IconUsers, IconTrash,
-  IconArrowLeft, IconSettings, IconLifebuoy,
+  IconAnchor, IconLogout, IconSteeringWheel, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
+  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarResgateAgendamento, listarLaudosCliente, listarDespachosCliente,
-  criarDespacho, listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
+  criarDespacho, criarOrdemServico, listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
   listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
+
+// Tipos de ordem de serviço que o cliente pode pedir pelo botão "Manutenção"
+// — os mesmos tipos que a equipe usa na tela de Manutenção internamente
+// (marina.ordens_servico), exceto "combustivel", que agora é o botão
+// separado "Abastecimento".
+const TIPOS_MANUTENCAO = [
+  { key: 'limpeza', label: 'Limpeza do casco' },
+  { key: 'manutencao_motor', label: 'Manutenção de motor' },
+  { key: 'guincho', label: 'Guincho / reboque' },
+  { key: 'pintura', label: 'Pintura' },
+  { key: 'outro', label: 'Outro' },
+]
 
 const STATUS_LABEL = {
   solicitado: 'Solicitado',
@@ -87,9 +99,17 @@ export default function TelaClienteDashboard({ perfil }) {
   const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data_hora: '', observacoes: '' })
   const [enviandoAgendamento, setEnviandoAgendamento] = useState(false)
   const [modalServicosAberto, setModalServicosAberto] = useState(false)
-  const [servicoAtivo, setServicoAtivo] = useState(null) // item do catálogo selecionado
+  // Dentro do modal "Serviços": qual dos 3 tipos o cliente escolheu (null =
+  // ainda no seletor inicial), e, se for "regularizacao", qual categoria da
+  // Capitania dos Portos está sendo explorada (null = ainda na lista curta
+  // de categorias, sem descrições longas).
+  const [modoServicos, setModoServicos] = useState(null) // null | 'manutencao' | 'regularizacao'
+  const [categoriaAtiva, setCategoriaAtiva] = useState(null)
+  const [servicoAtivo, setServicoAtivo] = useState(null) // item do catálogo de regularização selecionado
   const [formServico, setFormServico] = useState({ embarcacao_id: '', observacoes: '' })
   const [enviandoServico, setEnviandoServico] = useState(false)
+  const [formManutencao, setFormManutencao] = useState({ embarcacao_id: '', tipo_servico: 'limpeza', descricao: '' })
+  const [enviandoManutencao, setEnviandoManutencao] = useState(false)
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
   const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '' })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
@@ -176,8 +196,24 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   function abrirModalServicos() {
+    setModoServicos(null)
+    setCategoriaAtiva(null)
     setServicoAtivo(null)
     setModalServicosAberto(true)
+  }
+
+  // "Voltar" dentro do modal Serviços: sempre um passo de cada vez —
+  // do formulário de um serviço específico volta pra lista da categoria,
+  // da lista de categorias volta pro seletor Abastecimento/Manutenção/
+  // Regularização.
+  function voltarServicos() {
+    if (servicoAtivo) { setServicoAtivo(null); return }
+    if (categoriaAtiva) { setCategoriaAtiva(null); return }
+    setModoServicos(null)
+  }
+
+  function selecionarCategoria(categoria) {
+    setCategoriaAtiva(categoria)
   }
 
   function selecionarServico(servico) {
@@ -206,6 +242,28 @@ export default function TelaClienteDashboard({ perfil }) {
       alert(err.message)
     } finally {
       setEnviandoServico(false)
+    }
+  }
+
+  async function enviarSolicitacaoManutencao(e) {
+    e.preventDefault()
+    if (!cliente) return
+    setEnviandoManutencao(true)
+    try {
+      await criarOrdemServico({
+        marina_id: cliente.marina_id,
+        cliente_id: cliente.id,
+        embarcacao_id: formManutencao.embarcacao_id,
+        tipo_servico: formManutencao.tipo_servico,
+        descricao: formManutencao.descricao || null,
+      })
+      setModalServicosAberto(false)
+      setFormManutencao({ embarcacao_id: '', tipo_servico: 'limpeza', descricao: '' })
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setEnviandoManutencao(false)
     }
   }
 
@@ -441,50 +499,98 @@ export default function TelaClienteDashboard({ perfil }) {
         <div className="modal-fundo" onClick={() => setModalServicosAberto(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
             <h3>Serviços</h3>
-            <p className="dica">
-              A marina conhece de perto os processos da Capitania dos Portos — cuidamos da burocracia de despacho da sua
-              embarcação. Alguns serviços exigem laudo técnico; se for o caso, a própria marina entra em contato com você.
-            </p>
 
-            {!servicoAtivo && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
-                <div>
-                  <h4 style={{ margin: '0 0 8px', color: 'var(--cor-primaria)' }}>Combustível</h4>
-                  <div className="lista-cards">
-                    <button type="button" className="cliente-card"
-                      style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', gap: 12 }}
-                      onClick={() => { setModalServicosAberto(false); abrirModalAbastecimento() }}
-                      disabled={combustiveis.length === 0}>
-                      <IconGasStation size={22} style={{ color: 'var(--cor-secundaria)', flexShrink: 0 }} />
-                      <div>
-                        <div className="linha"><b>Abastecimento</b></div>
-                        <div className="linha">{combustiveis.length === 0 ? 'Nenhum combustível disponível no momento' : 'Peça combustível e pague na hora via Pix'}</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-                {CATEGORIAS_SERVICOS.map((cat) => (
-                  <div key={cat.key}>
-                    <h4 style={{ margin: '0 0 8px', color: 'var(--cor-primaria)' }}>{cat.titulo}</h4>
-                    <div className="lista-cards">
-                      {SERVICOS_DESPACHO.filter((s) => s.categoria === cat.key).map((s) => (
-                        <button key={s.key} type="button" className="cliente-card"
-                          style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit' }}
-                          onClick={() => selecionarServico(s)}>
-                          <div className="linha"><b>{s.titulo}</b></div>
-                          <div className="linha">{s.resumo}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            {/* Nível 0: seletor curto, sem textos descritivos — escolhe o tipo */}
+            {!modoServicos && (
+              <div className="servicos-seletor">
+                <button type="button" onClick={() => { setModalServicosAberto(false); abrirModalAbastecimento() }} disabled={combustiveis.length === 0}>
+                  <IconGasStation size={22} />
+                  Abastecimento
+                </button>
+                <button type="button" onClick={() => setModoServicos('manutencao')}>
+                  <IconTools size={22} />
+                  Manutenção
+                </button>
+                <button type="button" onClick={() => setModoServicos('regularizacao')}>
+                  <IconFileCertificate size={22} />
+                  Regularização
+                </button>
               </div>
             )}
 
+            {/* Manutenção: formulário direto, sem catálogo */}
+            {modoServicos === 'manutencao' && (
+              <form onSubmit={enviarSolicitacaoManutencao} style={{ marginTop: 12 }}>
+                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }} onClick={voltarServicos}>
+                  <IconArrowLeft size={16} /> Voltar
+                </button>
+                {embarcacoes.length > 0 ? (
+                  <select required value={formManutencao.embarcacao_id}
+                    onChange={(e) => setFormManutencao({ ...formManutencao, embarcacao_id: e.target.value })}>
+                    <option value="">Selecione a embarcação</option>
+                    {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  </select>
+                ) : (
+                  <p className="dica">Você ainda não tem embarcações cadastradas.</p>
+                )}
+                <select value={formManutencao.tipo_servico}
+                  onChange={(e) => setFormManutencao({ ...formManutencao, tipo_servico: e.target.value })}>
+                  {TIPOS_MANUTENCAO.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                </select>
+                <input placeholder="Observações (opcional)"
+                  value={formManutencao.descricao}
+                  onChange={(e) => setFormManutencao({ ...formManutencao, descricao: e.target.value })} />
+                <div className="acoes-modal">
+                  <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
+                  <button type="submit" disabled={enviandoManutencao || embarcacoes.length === 0}>
+                    {enviandoManutencao ? 'Enviando...' : 'Solicitar este serviço'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Regularização, nível 1: categorias — só o nome, sem descrição */}
+            {modoServicos === 'regularizacao' && !categoriaAtiva && (
+              <div style={{ marginTop: 12 }}>
+                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }} onClick={voltarServicos}>
+                  <IconArrowLeft size={16} /> Voltar
+                </button>
+                <div className="lista-cards">
+                  {CATEGORIAS_SERVICOS.map((cat) => (
+                    <button key={cat.key} type="button" className="cliente-card"
+                      style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit' }}
+                      onClick={() => selecionarCategoria(cat)}>
+                      <div className="linha"><b>{cat.titulo}</b></div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Regularização, nível 2: serviços da categoria escolhida */}
+            {modoServicos === 'regularizacao' && categoriaAtiva && !servicoAtivo && (
+              <div style={{ marginTop: 12 }}>
+                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }} onClick={voltarServicos}>
+                  <IconArrowLeft size={16} /> Voltar
+                </button>
+                <p className="dica" style={{ marginTop: 0 }}><b>{categoriaAtiva.titulo}</b></p>
+                <div className="lista-cards">
+                  {SERVICOS_DESPACHO.filter((s) => s.categoria === categoriaAtiva.key).map((s) => (
+                    <button key={s.key} type="button" className="cliente-card"
+                      style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit' }}
+                      onClick={() => selecionarServico(s)}>
+                      <div className="linha"><b>{s.titulo}</b></div>
+                      <div className="linha">{s.resumo}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Regularização, nível 3: formulário do serviço escolhido */}
             {servicoAtivo && (
               <form onSubmit={enviarSolicitacaoServico} style={{ marginTop: 12 }}>
-                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}
-                  onClick={() => setServicoAtivo(null)}>
+                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }} onClick={voltarServicos}>
                   <IconArrowLeft size={16} /> Voltar
                 </button>
                 <p className="dica"><b>{servicoAtivo.titulo}</b><br />{servicoAtivo.resumo}</p>

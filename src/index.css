@@ -298,6 +298,18 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .painel-cliente-nota { font-size: 10.5px; color: var(--cor-texto-suave); text-align: center; margin: 6px 0 0; font-family: 'Inter', 'Segoe UI', sans-serif; }
 
+/* Seletor de nível 0 dentro do modal "Serviços" (Abastecimento / Manutenção
+   / Regularização) — só ícone + nome curto, sem texto descritivo; o
+   detalhamento fica pra dentro de cada opção. */
+.servicos-seletor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 8px; }
+.servicos-seletor button {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 16px 6px; border-radius: 14px; border: 1.5px solid var(--cor-secundaria-clara);
+  background: #fff; color: var(--cor-primaria); font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.servicos-seletor button:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Toggle estilo iOS, igual ao app de referência */
 .toggle { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
 .toggle input { opacity: 0; width: 0; height: 0; }
