@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconAnchor, IconLogout, IconSteeringWheel, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
+  IconAnchor, IconLogout, IconWheel, IconShip, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
   IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -324,7 +324,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const diarioDeBordo = [
     ...agendamentos.map((a) => ({
       id: `ag-${a.id}`,
-      icone: a.tipo === 'retirada' ? IconSteeringWheel : IconAnchor,
+      icone: a.tipo === 'retirada' ? IconWheel : IconAnchor,
       titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}`,
       detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       statusLabel: STATUS_LABEL[a.status] || a.status,
@@ -439,7 +439,7 @@ export default function TelaClienteDashboard({ perfil }) {
     <div style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cor-primaria)' }}>
-          <IconAnchor /> <strong>Marina Paulo Prates</strong>
+          <IconShip size={22} /> <strong style={{ fontSize: 17 }}>Marina Paulo Prates</strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} onClick={() => supabase.auth.signOut()}>
@@ -463,7 +463,7 @@ export default function TelaClienteDashboard({ perfil }) {
           <div className="painel-cliente-acoes">
             <div className="painel-cliente-linha">
               <button type="button" className="painel-cliente-btn painel-cliente-btn-primario" onClick={() => abrirModal('retirada')}>
-                <IconSteeringWheel size={20} /> Retirada
+                <IconWheel size={20} /> Retirada
               </button>
               <button type="button" className="painel-cliente-btn painel-cliente-btn-outline" onClick={() => abrirModal('retorno')}>
                 <IconAnchor size={20} /> Retorno
@@ -491,7 +491,7 @@ export default function TelaClienteDashboard({ perfil }) {
           </div>
 
           <h3 style={{ textAlign: 'center' }}>Diário de Bordo</h3>
-          <div className="lista-cards">
+          <div className="lista-cards diario-lista">
             {diarioDeBordo.length === 0 && <p className="dica">Nenhum registro ainda.</p>}
             {diarioDeBordo.map((item) => {
               const Icone = item.icone

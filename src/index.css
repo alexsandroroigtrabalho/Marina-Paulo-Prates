@@ -281,24 +281,30 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .painel-cliente-btn:disabled { cursor: not-allowed; }
 .painel-cliente-btn-primario {
-  flex: 1; padding: 16px 10px; font-size: 12.5px; font-weight: 600; flex-direction: column;
+  flex: 1; padding: 16px 10px; font-size: 13.5px; font-weight: 600; flex-direction: column;
   background: var(--cor-secundaria); color: #fff;
 }
 .painel-cliente-btn-outline {
-  flex: 1; padding: 16px 10px; font-size: 12.5px; font-weight: 600; flex-direction: column;
+  flex: 1; padding: 16px 10px; font-size: 13.5px; font-weight: 600; flex-direction: column;
   background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-secundaria);
 }
 .painel-cliente-btn-sos {
-  width: 100%; padding: 16px; font-size: 13.5px; font-weight: 600; margin-bottom: 10px;
+  width: 100%; padding: 16px; font-size: 14.5px; font-weight: 600; margin-bottom: 10px;
   background: linear-gradient(135deg, #D9713E, #A23B2E); color: #fff;
 }
 .painel-cliente-btn-sos:disabled { background: #DCE7EA; color: var(--cor-texto-suave); }
 .painel-cliente-btn-sos.enviado { background: #F1E3D6; color: #8B5A2B; }
 .painel-cliente-btn-servicos {
-  width: 100%; padding: 15px; font-size: 13px; font-weight: 600;
+  width: 100%; padding: 15px; font-size: 14.5px; font-weight: 600;
   background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-primaria);
 }
-.painel-cliente-nota { font-size: 10.5px; color: var(--cor-texto-suave); text-align: center; margin: 6px 0 0; font-family: 'Inter', 'Segoe UI', sans-serif; }
+.painel-cliente-nota { font-size: 11.5px; color: var(--cor-texto-suave); text-align: center; margin: 6px 0 0; font-family: 'Inter', 'Segoe UI', sans-serif; }
+
+/* Diário de Bordo: fonte um pouco maior só aqui — não mexe em .cliente-card
+   nem em .status-texto direto porque essas classes são compartilhadas com
+   as telas da equipe (TelaClientes/TelaFinanceiro/TelaVagas). */
+.diario-lista .linha { font-size: 14px; }
+.diario-lista .status-texto { font-size: 14px; }
 
 /* Seletor de nível 0 dentro do modal "Serviços" (Abastecimento / Manutenção
    / Regularização) — só ícone + nome curto, sem texto descritivo; o
