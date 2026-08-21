@@ -6,8 +6,30 @@ import {
 
 const STATUS_NF_LABEL = { pendente: 'Pendente de emissão', emitida: 'Emitida', cancelada: 'Cancelada' }
 
+const NOMES_MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+function formatarMes(mes) {
+  const [ano, m] = mes.split('-')
+  return `${NOMES_MES[Number(m) - 1]}/${ano}`
+}
+
+// Agrupa as cobranças por mês de vencimento para dar uma leitura de previsão
+// de caixa sem precisar de lançamento/programação separados — tudo nasce do
+// mesmo cadastro de cobrança.
+function agruparPorMes(cobrancas) {
+  const mapa = {}
+  cobrancas.forEach((c) => {
+    const mes = (c.vencimento || '').slice(0, 7)
+    if (!mes) return
+    if (!mapa[mes]) mapa[mes] = { mes, previsto: 0, recebido: 0 }
+    mapa[mes].previsto += Number(c.valor)
+    if (c.status === 'pago') mapa[mes].recebido += Number(c.valor)
+  })
+  return Object.values(mapa).sort((a, b) => a.mes.localeCompare(b.mes))
+}
+
 export default function TelaFinanceiro({ marinaId }) {
-  const [aba, setAba] = useState('cobrancas') // cobrancas | notas
+  const [aba, setAba] = useState('cobrancas') // cobrancas | caixa | notas
   const [cobrancas, setCobrancas] = useState([])
   const [clientes, setClientes] = useState([])
   const [notas, setNotas] = useState([])
@@ -48,6 +70,12 @@ export default function TelaFinanceiro({ marinaId }) {
 
   const totalPendente = cobrancas.filter((c) => c.status !== 'pago').reduce((s, c) => s + Number(c.valor), 0)
   const totalRecebido = cobrancas.filter((c) => c.status === 'pago').reduce((s, c) => s + Number(c.valor), 0)
+  const hoje = new Date().toISOString().slice(0, 10)
+  const resumoMensal = agruparPorMes(cobrancas)
+  const proximosVencimentos = cobrancas
+    .filter((c) => c.status !== 'pago')
+    .sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''))
+    .slice(0, 10)
 
   return (
     <div>
@@ -58,6 +86,7 @@ export default function TelaFinanceiro({ marinaId }) {
 
       <div className="abas">
         <button className={aba === 'cobrancas' ? 'ativo' : ''} onClick={() => setAba('cobrancas')}>Cobranças</button>
+        <button className={aba === 'caixa' ? 'ativo' : ''} onClick={() => setAba('caixa')}>Previsão de Caixa</button>
         <button className={aba === 'notas' ? 'ativo' : ''} onClick={() => setAba('notas')}>Notas fiscais (NFS-e)</button>
       </div>
 
@@ -102,6 +131,43 @@ export default function TelaFinanceiro({ marinaId }) {
             </tbody>
           </table>
           <p className="dica">Para cobrar via PIX/cartão/boleto automaticamente, use a Edge Function <code>payment</code> (Mercado Pago) — veja <code>supabase/functions/payment</code>.</p>
+        </>
+      )}
+
+      {aba === 'caixa' && (
+        <>
+          <p className="dica">
+            Previsão de entradas mês a mês, calculada direto a partir dos vencimentos já cadastrados nas cobranças —
+            sem precisar lançar nada de novo em outro lugar.
+          </p>
+          <table className="tabela">
+            <thead><tr><th>Mês</th><th>Previsto</th><th>Recebido</th><th>Em aberto</th></tr></thead>
+            <tbody>
+              {resumoMensal.length === 0 && <tr><td colSpan={4}>Nenhuma cobrança cadastrada ainda.</td></tr>}
+              {resumoMensal.map((m) => (
+                <tr key={m.mes}>
+                  <td>{formatarMes(m.mes)}</td>
+                  <td>R$ {m.previsto.toFixed(2)}</td>
+                  <td>R$ {m.recebido.toFixed(2)}</td>
+                  <td>R$ {(m.previsto - m.recebido).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h3 style={{ marginTop: 24 }}>Próximos vencimentos</h3>
+          <div className="lista-cards">
+            {proximosVencimentos.length === 0 && <p className="dica">Nada pendente por aqui.</p>}
+            {proximosVencimentos.map((c) => (
+              <div key={c.id} className="cliente-card">
+                <div className="linha"><b>{c.clientes?.nome}</b> — {c.descricao}</div>
+                <div className="linha">Vencimento: {c.vencimento} — R$ {Number(c.valor).toFixed(2)}</div>
+                <span className={`status-texto ${c.vencimento < hoje ? 'pendente' : ''}`}>
+                  {c.vencimento < hoje ? 'Atrasado' : 'A vencer'}
+                </span>
+              </div>
+            ))}
+          </div>
         </>
       )}
 

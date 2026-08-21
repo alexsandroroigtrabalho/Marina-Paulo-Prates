@@ -16,6 +16,16 @@ const TIPO_AGENDAMENTO_LABEL = {
   retorno: 'Atracação de retorno',
 }
 
+// Colunas da Fila de Rampa — painel visual do fluxo de retirada/retorno.
+// "em_andamento" cobre preparo, deslocamento e manobra, sem depender de
+// jargão específico de rampa/água — cada marina opera do seu jeito.
+const COLUNAS_FILA = [
+  { status: 'solicitado', titulo: 'Solicitado' },
+  { status: 'confirmado', titulo: 'Confirmado' },
+  { status: 'em_andamento', titulo: 'Em andamento' },
+  { status: 'concluido', titulo: 'Concluído' },
+]
+
 export default function TelaVagas({ marinaId }) {
   const [vagas, setVagas] = useState([])
   const [clientes, setClientes] = useState([])
@@ -24,6 +34,7 @@ export default function TelaVagas({ marinaId }) {
   const [agendamentos, setAgendamentos] = useState([])
   const [vagaSelecionada, setVagaSelecionada] = useState(null)
   const [form, setForm] = useState({ cliente_id: '', embarcacao_id: '', tipo: 'mensal', data_inicio: '', valor: '' })
+  const [mostrarCancelados, setMostrarCancelados] = useState(false)
 
   async function carregar() {
     if (!marinaId) return
@@ -96,38 +107,63 @@ export default function TelaVagas({ marinaId }) {
         </div>
       )}
 
-      <h2>Solicitações de retirada / retorno</h2>
-      <table className="tabela">
-        <thead>
-          <tr><th>Tipo</th><th>Cliente</th><th>Embarcação</th><th>Quem retira/entrega</th><th>Data/hora</th><th>Status</th><th></th></tr>
-        </thead>
-        <tbody>
-          {agendamentos.length === 0 && (
-            <tr><td colSpan={7}>Nenhuma solicitação de agendamento ainda.</td></tr>
+      <h2>Fila de Rampa</h2>
+      <p className="dica" style={{ marginTop: -8, marginBottom: 16 }}>
+        Acompanhe cada retirada e retorno em tempo real, do pedido do cliente até a conclusão.
+      </p>
+      <div className="fila-rampa">
+        {COLUNAS_FILA.map((coluna) => {
+          const itens = agendamentos.filter((a) => a.status === coluna.status)
+          return (
+            <div key={coluna.status} className="fila-coluna">
+              <h4>{coluna.titulo} <span className="contagem">{itens.length}</span></h4>
+              {itens.length === 0 && <p className="fila-vazia">Nada por aqui.</p>}
+              {itens.map((a) => (
+                <div key={a.id} className={`fila-card ${a.tipo === 'retorno' ? 'tipo-retorno' : ''}`}>
+                  <div className="fila-card-topo">
+                    <span>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span>
+                  </div>
+                  <div className="fila-card-meta"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
+                  <div className="fila-card-meta">{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'} vai buscar/entregar</div>
+                  <div className="fila-card-meta">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
+                  <div className="fila-card-acoes">
+                    {a.status === 'solicitado' && (
+                      <button onClick={() => mudarStatusAgendamento(a.id, 'confirmado')}>Confirmar</button>
+                    )}
+                    {a.status === 'confirmado' && (
+                      <button onClick={() => mudarStatusAgendamento(a.id, 'em_andamento')}>Iniciar atendimento</button>
+                    )}
+                    {a.status === 'em_andamento' && (
+                      <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Concluir</button>
+                    )}
+                    {a.status !== 'concluido' && a.status !== 'cancelado' && (
+                      <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+
+      {agendamentos.some((a) => a.status === 'cancelado') && (
+        <div style={{ marginBottom: 32 }}>
+          <button type="button" className="voltar" onClick={() => setMostrarCancelados(!mostrarCancelados)}>
+            {mostrarCancelados ? 'Ocultar' : 'Ver'} cancelados ({agendamentos.filter((a) => a.status === 'cancelado').length})
+          </button>
+          {mostrarCancelados && (
+            <div className="lista-cards" style={{ marginTop: 10 }}>
+              {agendamentos.filter((a) => a.status === 'cancelado').map((a) => (
+                <div key={a.id} className="cliente-card">
+                  <div className="linha"><b>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</b> — {a.clientes?.nome}{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
+                  <div className="linha">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
+                </div>
+              ))}
+            </div>
           )}
-          {agendamentos.map((a) => (
-            <tr key={a.id}>
-              <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
-              <td>{a.clientes?.nome}</td>
-              <td>{a.embarcacoes?.nome || '-'}</td>
-              <td>{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'}</td>
-              <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-              <td>{a.status}</td>
-              <td style={{ display: 'flex', gap: 6 }}>
-                {a.status === 'solicitado' && (
-                  <button onClick={() => mudarStatusAgendamento(a.id, 'confirmado')}>Confirmar</button>
-                )}
-                {a.status === 'confirmado' && (
-                  <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Concluir</button>
-                )}
-                {a.status !== 'concluido' && a.status !== 'cancelado' && (
-                  <button onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        </div>
+      )}
 
       <h2>Reservas ativas</h2>
       <table className="tabela">
