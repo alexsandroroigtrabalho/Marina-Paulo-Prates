@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento, listarDespachos, listarLaudos,
+  listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos,
 } from '../lib/db'
 import { ativarSons, tocarSinalDescida, tocarSinalRetorno } from '../lib/sons'
 
 // A cada quantos segundos o painel se atualiza sozinho — pensado para rodar
-// numa smart TV na marina, sem alguém precisando ficar dando refresh.
-const INTERVALO_ATUALIZACAO_MS = 45000
+// numa smart TV na marina, sem alguém precisando ficar dando refresh. Quanto
+// menor, mais rápido uma notificação nova aparece (e o apito toca), à custa
+// de mais requisições ao banco — 10s é um bom equilíbrio pro volume de uma
+// marina (bem tranquilo pro Supabase aguentar).
+const INTERVALO_ATUALIZACAO_MS = 10000
 
 const TIPO_AGENDAMENTO_LABEL = {
   retirada: 'Descida',
@@ -23,10 +26,8 @@ function statusLinha(a) {
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
-export default function TelaVagas({ marinaId, onResumo, onAcoes }) {
+export default function TelaVagas({ marinaId, onAcoes }) {
   const [agendamentos, setAgendamentos] = useState([])
-  const [despachos, setDespachos] = useState([])
-  const [laudos, setLaudos] = useState([])
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
   const [combustiveis, setCombustiveis] = useState([])
   const [documentos, setDocumentos] = useState([])
@@ -39,11 +40,11 @@ export default function TelaVagas({ marinaId, onResumo, onAcoes }) {
 
   async function carregar() {
     if (!marinaId) return
-    const [a, d, l, p, c, doc] = await Promise.all([
-      listarAgendamentos(marinaId), listarDespachos(marinaId), listarLaudos(marinaId),
+    const [a, p, c, doc] = await Promise.all([
+      listarAgendamentos(marinaId),
       listarPedidosAbastecimento(marinaId), listarCombustiveis(marinaId), listarDocumentos(marinaId),
     ])
-    setAgendamentos(a); setDespachos(d); setLaudos(l); setPedidosAbastecimento(p); setCombustiveis(c); setDocumentos(doc)
+    setAgendamentos(a); setPedidosAbastecimento(p); setCombustiveis(c); setDocumentos(doc)
   }
 
   useEffect(() => { carregar() }, [marinaId])
@@ -89,11 +90,6 @@ export default function TelaVagas({ marinaId, onResumo, onAcoes }) {
   })
   const naAgua = Object.values(ultimaPorEmbarcacao).filter((a) => a.tipo === 'retirada')
 
-  const pedidosServico = [
-    ...despachos.filter((d) => !['concluido', 'indeferido', 'cancelado'].includes(d.status)).map((d) => ({ ...d, origem: 'Despacho' })),
-    ...laudos.filter((l) => !['emitido', 'cancelado'].includes(l.status)).map((l) => ({ ...l, origem: 'Laudo' })),
-  ]
-
   // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
   // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
   // passa a aparecer na tabela "Navegando" logo abaixo.
@@ -124,12 +120,6 @@ export default function TelaVagas({ marinaId, onResumo, onAcoes }) {
     const temVencido = docs.some((d) => d.data_validade && new Date(d.data_validade) < agora)
     return temVencido ? 'pendente' : 'regular'
   }
-
-  // Repassa os contadores pro cabeçalho (Layout), que os mostra ao lado do
-  // nome da marina — economiza a linha inteira que os cards ocupavam aqui.
-  useEffect(() => {
-    onResumo?.({ naAgua: naAgua.length, servicos: pedidosServico.length, abastecimentos: abastecimentosAtivos.length })
-  }, [naAgua.length, pedidosServico.length, abastecimentosAtivos.length])
 
   // Sinal sonoro: toca sozinho assim que uma notificação NOVA entra na Fila
   // de Rampa — apito longo pra descida, três apitos curtos pra retorno. Na

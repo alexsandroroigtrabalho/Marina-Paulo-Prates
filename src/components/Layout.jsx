@@ -53,7 +53,7 @@ function MenuAcoesPainel({ acoes }) {
   )
 }
 
-export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titulo, headerExtra, acoesPainel }) {
+export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titulo, acoesPainel }) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -75,7 +75,6 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
       <main className="conteudo">
         <header className="topo">
           <h1>{titulo}</h1>
-          <div className="topo-centro">{headerExtra}</div>
           <div className="topo-direita">
             <span className="usuario">{perfil?.nome || 'Usuário'} ({perfil?.role || '...'})</span>
             <MenuAcoesPainel acoes={acoesPainel} />

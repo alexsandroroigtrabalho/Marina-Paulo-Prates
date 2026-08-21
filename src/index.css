@@ -108,20 +108,17 @@ body {
 .nav-item.sair { margin-top: auto; }
 
 .conteudo { padding: 24px 32px 24px 40px; }
-/* Título e usuário ficam do tamanho do próprio texto, cada um na sua ponta —
-   nunca encolhem, então o nome da marina nunca corta. As pílulas do meio
-   ficam no espaço que sobra entre os dois e se centralizam nesse espaço (ou
-   seja, centralizadas entre o título e o usuário, não no meio da página
-   inteira). Se a tela for estreita demais pra caber tudo numa linha só,
-   quebra pra uma segunda linha em vez de sobrepor/cortar. */
-.topo { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+/* Título numa ponta, usuário + engrenagem na outra — cada um do tamanho do
+   próprio texto, nunca encolhem (então o nome da marina nunca corta). Se a
+   tela for estreita demais pra caber tudo numa linha só, quebra pra uma
+   segunda linha em vez de sobrepor/cortar. */
+.topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
 .topo h1 {
-  flex: 0 0 auto; font-size: 32px; font-weight: 400;
+  font-size: 32px; font-weight: 400;
   font-family: 'Archivo Black', 'Arial Black', sans-serif;
   letter-spacing: 0.3px; color: var(--cor-rosa-dos-ventos); margin: 0;
 }
-.topo-centro { flex: 1 1 auto; display: flex; justify-content: center; }
-.topo-direita { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
+.topo-direita { display: flex; align-items: center; gap: 10px; }
 .usuario { text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
 
 /* Menu de engrenagem (ações do Painel de Controle), do lado do usuário. */
@@ -142,17 +139,6 @@ body {
   border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--cor-texto); white-space: nowrap;
 }
 .menu-acoes-dropdown button:hover { background: var(--cor-fundo); }
-
-/* Cards quantitativos do Painel de Controle, ao lado do nome da marina no
-   topo — economiza a linha que ocupavam antes, deixando mais espaço vertical
-   pras tabelas. */
-.resumo-topo { display: flex; gap: 10px; flex-wrap: wrap; }
-.resumo-topo .pill {
-  display: flex; align-items: center; gap: 6px; white-space: nowrap;
-  background: var(--cor-secundaria-clara); border-radius: 999px; padding: 5px 14px 5px 12px;
-  font-size: 12px; color: var(--cor-primaria);
-}
-.resumo-topo .pill strong { font-size: 15px; font-weight: 800; }
 
 /* ---------- Painel da marina (cards de navegação estilo app) ---------- */
 .painel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

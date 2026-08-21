@@ -30,9 +30,6 @@ export default function App() {
   const [carregando, setCarregando] = useState(true)
   const [entrada, setEntrada] = useState('home') // home | cliente | admin
   const [telaAtiva, setTelaAtiva] = useState('vagas')
-  // Contadores do Painel de Controle, repassados pelo próprio TelaVagas — vão
-  // no topo, ao lado do nome da marina, pra economizar a linha que ocupavam.
-  const [resumoVagas, setResumoVagas] = useState(null)
   // Ações do Painel de Controle (sons, histórico, combustíveis), repassadas
   // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
   // usuário, em vez de botões fixos em cima da Fila de Rampa.
@@ -77,23 +74,14 @@ export default function App() {
 
   // Admin / funcionário / operador: shell interno com sidebar
   const { titulo, Componente } = TELAS[telaAtiva]
-  const mostrarResumo = telaAtiva === 'vagas' && resumoVagas
 
   return (
     <Layout
       telaAtiva={telaAtiva} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
       acoesPainel={telaAtiva === 'vagas' ? acoesVagas : null}
-      headerExtra={mostrarResumo ? (
-        <div className="resumo-topo">
-          <div className="pill"><span>Embarcações na água</span><strong>{resumoVagas.naAgua}</strong></div>
-          <div className="pill"><span>Serviços em aberto</span><strong>{resumoVagas.servicos}</strong></div>
-          <div className="pill"><span>Abastecimentos pendentes</span><strong>{resumoVagas.abastecimentos}</strong></div>
-        </div>
-      ) : null}
     >
       <Componente
         marinaId={perfil?.marina_id} perfil={perfil}
-        onResumo={telaAtiva === 'vagas' ? setResumoVagas : undefined}
         onAcoes={telaAtiva === 'vagas' ? setAcoesVagas : undefined}
       />
     </Layout>
