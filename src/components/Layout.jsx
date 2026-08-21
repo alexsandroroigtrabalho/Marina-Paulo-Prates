@@ -11,7 +11,7 @@ const ITENS_MENU = [
   { chave: 'documentacao', label: 'Despachos', Icone: IconFileCertificate },
 ]
 
-export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titulo }) {
+export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titulo, headerExtra }) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -32,7 +32,10 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
       </aside>
       <main className="conteudo">
         <header className="topo">
-          <h1>{titulo}</h1>
+          <div className="topo-esquerda">
+            <h1>{titulo}</h1>
+            {headerExtra}
+          </div>
           <span className="usuario">{perfil?.nome || 'Usuário'} ({perfil?.role || '...'})</span>
         </header>
         <div className="corpo">{children}</div>

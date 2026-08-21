@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   listarAgendamentos, atualizarStatusAgendamento, listarDespachos, listarLaudos,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
+  listarDocumentos,
 } from '../lib/db'
 
 // A cada quantos segundos o painel se atualiza sozinho — pensado para rodar
@@ -21,18 +22,13 @@ function statusLinha(a) {
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
-const STATUS_LINHA_LABEL = {
-  aguardando_descida: 'Aguardando descida',
-  aguardando_retorno: 'Aguardando retorno',
-  navegando: 'Navegando',
-}
-
-export default function TelaVagas({ marinaId }) {
+export default function TelaVagas({ marinaId, onResumo }) {
   const [agendamentos, setAgendamentos] = useState([])
   const [despachos, setDespachos] = useState([])
   const [laudos, setLaudos] = useState([])
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
   const [combustiveis, setCombustiveis] = useState([])
+  const [documentos, setDocumentos] = useState([])
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalCombustiveisAberto, setModalCombustiveisAberto] = useState(false)
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
@@ -40,11 +36,11 @@ export default function TelaVagas({ marinaId }) {
 
   async function carregar() {
     if (!marinaId) return
-    const [a, d, l, p, c] = await Promise.all([
+    const [a, d, l, p, c, doc] = await Promise.all([
       listarAgendamentos(marinaId), listarDespachos(marinaId), listarLaudos(marinaId),
-      listarPedidosAbastecimento(marinaId), listarCombustiveis(marinaId),
+      listarPedidosAbastecimento(marinaId), listarCombustiveis(marinaId), listarDocumentos(marinaId),
     ])
-    setAgendamentos(a); setDespachos(d); setLaudos(l); setPedidosAbastecimento(p); setCombustiveis(c)
+    setAgendamentos(a); setDespachos(d); setLaudos(l); setPedidosAbastecimento(p); setCombustiveis(c); setDocumentos(doc)
   }
 
   useEffect(() => { carregar() }, [marinaId])
@@ -113,9 +109,26 @@ export default function TelaVagas({ marinaId }) {
     .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
 
+  // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
+  // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
+  // caber numa linha só na Fila de Rampa.
+  function statusDocumentacao(embarcacaoId) {
+    const docs = documentos.filter((d) => d.embarcacao_id === embarcacaoId)
+    if (docs.length === 0) return 'pendente'
+    const temVencido = docs.some((d) => d.data_validade && new Date(d.data_validade) < agora)
+    return temVencido ? 'pendente' : 'regular'
+  }
+
+  // Repassa os contadores pro cabeçalho (Layout), que os mostra ao lado do
+  // nome da marina — economiza a linha inteira que os cards ocupavam aqui.
+  useEffect(() => {
+    onResumo?.({ naAgua: naAgua.length, servicos: pedidosServico.length, abastecimentos: abastecimentosAtivos.length })
+  }, [naAgua.length, pedidosServico.length, abastecimentosAtivos.length])
+
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
   function linhaNotificacao(a) {
     const status = statusLinha(a)
+    const doc = statusDocumentacao(a.embarcacao_id)
     const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
     return (
       <tr key={a.id}>
@@ -123,7 +136,7 @@ export default function TelaVagas({ marinaId }) {
         <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
         <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-        <td>{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'}</td>
+        <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td>
           {abastecimentosDaLinha.length === 0 && '—'}
           {abastecimentosDaLinha.map((p) => (
@@ -134,7 +147,6 @@ export default function TelaVagas({ marinaId }) {
             </div>
           ))}
         </td>
-        <td><span className={`badge status-${status}`}>{STATUS_LINHA_LABEL[status]}</span></td>
         <td>
           <div className="fila-tabela-acoes">
             {status === 'aguardando_descida' && (
@@ -171,10 +183,7 @@ export default function TelaVagas({ marinaId }) {
     const classeStatus = classeStatusNavegando(a)
     return (
       <tr key={a.id}>
-        <td>
-          <b>{a.embarcacoes?.nome}</b>
-          <div className="linha-sub">{a.clientes?.nome}</div>
-        </td>
+        <td><b>{a.embarcacoes?.nome}</b>{a.clientes?.nome ? ` · ${a.clientes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
         <td><span className={`badge status-${classeStatus}`}>Navegando</span></td>
@@ -187,12 +196,6 @@ export default function TelaVagas({ marinaId }) {
       <p className="painel-controle-relogio">
         {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
       </p>
-
-      <div className="resumo-financeiro">
-        <div className="stat-card"><span>Embarcações na água</span><strong>{naAgua.length}</strong></div>
-        <div className="stat-card"><span>Pedidos de serviço em aberto</span><strong>{pedidosServico.length}</strong></div>
-        <div className="stat-card"><span>Abastecimentos pendentes</span><strong>{abastecimentosAtivos.length}</strong></div>
-      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
@@ -208,14 +211,13 @@ export default function TelaVagas({ marinaId }) {
             <th>Pedido</th>
             <th>Responsável</th>
             <th>Horário</th>
-            <th>Quem retira/entrega</th>
+            <th>Documentação</th>
             <th>Abastecimento</th>
-            <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {linhasFila.length === 0 && <tr><td colSpan={8}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
+          {linhasFila.length === 0 && <tr><td colSpan={7}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
