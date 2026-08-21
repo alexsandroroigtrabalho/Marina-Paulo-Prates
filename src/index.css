@@ -164,6 +164,7 @@ body {
 /* ---------- Fila de Rampa (tabela de notificações de descida/subida) ---------- */
 .tabela-fila { margin-bottom: 32px; }
 .tabela-fila td { vertical-align: middle; }
+.linha-sub { font-size: 12px; color: var(--cor-texto-suave); font-weight: 400; }
 .luz { display: inline-block; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 6px 1px currentColor; }
 .luz-verde { background: #2CB56D; color: #2CB56D; }
 .luz-vermelha { background: #D9432E; color: #D9432E; }

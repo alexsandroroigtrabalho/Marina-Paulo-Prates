@@ -108,14 +108,13 @@ export default function TelaVagas({ marinaId }) {
 
   // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
   // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
-  // passa a aparecer na tabela "Embarcações na Água" logo abaixo.
+  // passa a aparecer na tabela "Navegando" logo abaixo.
   const linhasFila = agendamentos
     .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
 
-  // Renderiza uma linha da tabela de notificações — reaproveitada tanto na
-  // Fila de Rampa (com ações) quanto em Embarcações na Água (só leitura).
-  function linhaNotificacao(a, { comAcoes }) {
+  // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
+  function linhaNotificacao(a) {
     const status = statusLinha(a)
     const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
     return (
@@ -136,19 +135,43 @@ export default function TelaVagas({ marinaId }) {
           ))}
         </td>
         <td><span className={`badge status-${status}`}>{STATUS_LINHA_LABEL[status]}</span></td>
-        {comAcoes && (
-          <td>
-            <div className="fila-tabela-acoes">
-              {status === 'aguardando_descida' && (
-                <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar saída</button>
-              )}
-              {status === 'aguardando_retorno' && (
-                <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar retorno</button>
-              )}
-              <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+        <td>
+          <div className="fila-tabela-acoes">
+            {status === 'aguardando_descida' && (
+              <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar saída</button>
+            )}
+            {status === 'aguardando_retorno' && (
+              <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar retorno</button>
+            )}
+            <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+          </div>
+        </td>
+      </tr>
+    )
+  }
+
+  // Linha de "Navegando" — só o essencial: quem está com a embarcação, desde
+  // quando, e o abastecimento pago vinculado a essa saída. Sem a natureza do
+  // pedido, sem o indicativo luminoso e sem status: aqui é sempre Navegando.
+  function linhaNavegando(a) {
+    const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
+    return (
+      <tr key={a.id}>
+        <td>
+          <b>{a.embarcacoes?.nome}</b>
+          <div className="linha-sub">{a.clientes?.nome}</div>
+        </td>
+        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+        <td>
+          {abastecimentosDaLinha.length === 0 && '—'}
+          {abastecimentosDaLinha.map((p) => (
+            <div key={p.id} className="fila-abastecimento-linha">
+              <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
+              <span className="badge status-pago">Pago</span>
+              <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
             </div>
-          </td>
-        )}
+          ))}
+        </td>
       </tr>
     )
   }
@@ -187,26 +210,22 @@ export default function TelaVagas({ marinaId }) {
         </thead>
         <tbody>
           {linhasFila.length === 0 && <tr><td colSpan={8}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
-          {linhasFila.map((a) => linhaNotificacao(a, { comAcoes: true }))}
+          {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
 
-      <h2>Embarcações na Água</h2>
+      <h2>Navegando</h2>
       <table className="tabela tabela-fila" style={{ marginBottom: 32 }}>
         <thead>
           <tr>
-            <th></th>
-            <th>Pedido</th>
             <th>Responsável</th>
             <th>Horário</th>
-            <th>Quem retira/entrega</th>
             <th>Abastecimento</th>
-            <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && <tr><td colSpan={7}>Nenhuma embarcação na água no momento.</td></tr>}
-          {naAgua.map((a) => linhaNotificacao(a, { comAcoes: false }))}
+          {naAgua.length === 0 && <tr><td colSpan={3}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.map((a) => linhaNavegando(a))}
         </tbody>
       </table>
 
