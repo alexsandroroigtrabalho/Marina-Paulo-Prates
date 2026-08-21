@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconAnchor, IconLogout, IconWheel, IconShip, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
+  IconAnchor, IconLogout, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
   IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -13,6 +13,43 @@ import {
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
+
+// A biblioteca de ícones do projeto (@tabler/icons-react) não tem um timão
+// de navio de verdade (só um volante de carro) nem um veleiro no estilo
+// "silhueta com ondas" — por isso os dois abaixo são desenhados à mão, no
+// mesmo espírito visual das referências que o cliente trouxe.
+const ANGULOS_TIMAO = [0, 45, 90, 135, 180, 225, 270, 315]
+
+function IconTimao({ size = 20, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="currentColor" style={style}>
+      {/* aro externo (donut, fill-rule evenodd) */}
+      <path fillRule="evenodd" d="M50,10 a40,40 0 1,0 0.01,0 Z M50,17 a33,33 0 1,1 -0.01,0 Z" />
+      {/* raios, do cubo até a face interna do aro */}
+      {ANGULOS_TIMAO.map((a) => (
+        <rect key={`sp-${a}`} x="47" y="17" width="6" height="25" rx="3" transform={`rotate(${a} 50 50)`} />
+      ))}
+      {/* alças pontudas, pra fora do aro */}
+      {ANGULOS_TIMAO.map((a) => (
+        <ellipse key={`h-${a}`} cx="50" cy="8" rx="4.5" ry="7" transform={`rotate(${a} 50 50)`} />
+      ))}
+      {/* cubo central com furo (donut) */}
+      <path fillRule="evenodd" d="M50,42 a8,8 0 1,0 0.01,0 Z M50,47 a3,3 0 1,1 -0.01,0 Z" />
+    </svg>
+  )
+}
+
+function IconVeleiro({ size = 20, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="currentColor" style={style}>
+      <rect x="49" y="8" width="2" height="58" />
+      <path d="M52,6 L52,64 L82,60 Z" />
+      <path d="M48,18 C40,30 32,45 22,56 L48,64 Z" />
+      <path d="M12,62 Q50,80 88,62 L84,68 Q50,84 16,68 Z" />
+      <path d="M10,84 Q20,80 30,84 T50,84 T70,84 T90,84 L90,87 Q70,91 50,87 T10,87 Z" />
+    </svg>
+  )
+}
 
 // Tipos de ordem de serviço que o cliente pode pedir pelo botão "Manutenção"
 // — os mesmos tipos que a equipe usa na tela de Manutenção internamente
@@ -324,7 +361,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const diarioDeBordo = [
     ...agendamentos.map((a) => ({
       id: `ag-${a.id}`,
-      icone: a.tipo === 'retirada' ? IconWheel : IconAnchor,
+      icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
       titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}`,
       detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       statusLabel: STATUS_LABEL[a.status] || a.status,
@@ -439,7 +476,7 @@ export default function TelaClienteDashboard({ perfil }) {
     <div style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cor-primaria)' }}>
-          <IconShip size={22} /> <strong style={{ fontSize: 17 }}>Marina Paulo Prates</strong>
+          <IconVeleiro size={22} /> <strong style={{ fontSize: 17 }}>Marina Paulo Prates</strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} onClick={() => supabase.auth.signOut()}>
@@ -463,7 +500,7 @@ export default function TelaClienteDashboard({ perfil }) {
           <div className="painel-cliente-acoes">
             <div className="painel-cliente-linha">
               <button type="button" className="painel-cliente-btn painel-cliente-btn-primario" onClick={() => abrirModal('retirada')}>
-                <IconWheel size={20} /> Retirada
+                <IconTimao size={20} /> Retirada
               </button>
               <button type="button" className="painel-cliente-btn painel-cliente-btn-outline" onClick={() => abrirModal('retorno')}>
                 <IconAnchor size={20} /> Retorno
