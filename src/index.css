@@ -12,6 +12,7 @@
   --cor-toggle-off: #D7D7DC;
   --cor-texto: #17313E;
   --cor-texto-suave: #5B7887;
+  --cor-rosa-dos-ventos: #8B5A2B; /* tom sépia da rosa dos ventos do fundo — usado no título */
   --raio: 16px;
   --sombra: 0 6px 20px rgba(14, 68, 97, 0.08);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -114,9 +115,9 @@ body {
    quebra pra uma segunda linha em vez de sobrepor. */
 .topo { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
 .topo h1 {
-  flex: 1 1 0; min-width: max-content; font-size: 34px; font-weight: 700;
-  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
-  letter-spacing: 0.3px; color: var(--cor-primaria); margin: 0;
+  flex: 1 1 0; min-width: max-content; font-size: 32px; font-weight: 400;
+  font-family: 'Archivo Black', 'Arial Black', sans-serif;
+  letter-spacing: 0.3px; color: var(--cor-rosa-dos-ventos); margin: 0;
 }
 .topo-centro { flex: 0 1 auto; display: flex; justify-content: center; }
 .usuario { flex: 1 1 0; min-width: max-content; text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
