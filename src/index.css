@@ -22,18 +22,14 @@ body {
   margin: 0;
   background-color: var(--cor-fundo);
   color: var(--cor-texto);
-  /* Fundo estilo carta náutica: uma rosa dos ventos menor (mais fácil de
-     reconhecer a olho nu) no canto inferior direito, sobre uma grade de
-     coordenadas + sondagens que repete por toda a tela — mais marcante que
-     a versão anterior, na paleta da marina, mas ainda deixando cards e
-     tabelas (fundo branco) totalmente legíveis por cima. */
-  background-image:
-    url('/fundo-rosa-dos-ventos.svg'),
-    url('/fundo-grade-nautica.svg');
-  background-repeat: no-repeat, repeat;
-  background-position: bottom -40px right -40px, top left;
-  background-size: 340px 340px, 240px 240px;
-  background-attachment: fixed, fixed;
+  /* Fundo estilo carta náutica antiga: só a rosa dos ventos (em tom sépia,
+     com os 4 pontos cardeais), fixa no canto inferior direito — sem a grade
+     de coordenadas/sondagens, a pedido do cliente. */
+  background-image: url('/fundo-rosa-dos-ventos.svg');
+  background-repeat: no-repeat;
+  background-position: bottom -40px right -40px;
+  background-size: 340px 340px;
+  background-attachment: fixed;
 }
 
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }

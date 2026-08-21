@@ -28,11 +28,10 @@ e `src/lib/tema.js`:
 | Fundo geral (com watermark sutil) | `#EEF7FA` |
 | Pendências / inadimplência | `#D9713E` |
 
-O fundo de toda a plataforma tem uma textura discreta de carta náutica — uma
-rosa dos ventos no canto inferior direito, curvas batimétricas suaves e
-pontinhos de sondagem espalhados pela tela (`public/fundo-rosa-dos-ventos.svg`
-e `public/fundo-grade-nautica.svg`, aplicados em `src/index.css`) — bem leve
-e transparente, na cor primária da marina, só pra dar textura sem atrapalhar
+O fundo de toda a plataforma tem uma rosa dos ventos no canto inferior
+direito, em tom sépia (como numa carta náutica antiga) e com os 4 pontos
+cardeais marcados — N, S, E, W (`public/fundo-rosa-dos-ventos.svg`, aplicado
+em `src/index.css`) — visível o bastante pra ter presença, mas sem atrapalhar
 a leitura de nenhuma tela.
 
 Fluxo de telas replicado: **Home** (seleção "Sou cliente" / "Administração") →

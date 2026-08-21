@@ -1,19 +1,27 @@
 <svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Rosa dos ventos — elemento clássico de carta náutica, usado como marca
-    d'água de fundo da plataforma. Renderizada menor (ver background-size no
-    CSS) e com opacidade mais alta que a versão anterior, pra ficar bem mais
-    visível/reconhecível como rosa dos ventos, na cor primária da marina.
+    Rosa dos ventos — único elemento do fundo da plataforma (a grade de
+    coordenadas/sondagens foi removida a pedido do cliente). Tom sépia, como
+    numa carta náutica antiga, com opacidade alta o bastante pra realmente
+    ler como sépia (não só um cinza neutro) e os 4 pontos cardeais marcados
+    (N S E W, como pedido).
   -->
-  <g fill="#0E4461">
-    <path opacity="0.16" d="M300,300 L296.7,266.2 L300,30 L303.3,266.2 Z M300,300 L333.8,296.7 L570,300 L333.8,303.3 Z M300,300 L303.3,333.8 L300,570 L296.7,333.8 Z M300,300 L266.2,303.3 L30,300 L266.2,296.7 Z" />
-    <path opacity="0.10" d="M300,300 L322.1,274.1 L437.9,162.1 L325.9,277.9 Z M300,300 L325.9,322.1 L437.9,437.9 L322.1,325.9 Z M300,300 L277.9,325.9 L162.1,437.9 L274.1,322.1 Z M300,300 L274.1,277.9 L162.1,162.1 L277.9,274.1 Z" />
+  <g fill="#8B5A2B">
+    <path opacity="0.38" d="M300,300 L296.7,266.2 L300,30 L303.3,266.2 Z M300,300 L333.8,296.7 L570,300 L333.8,303.3 Z M300,300 L303.3,333.8 L300,570 L296.7,333.8 Z M300,300 L266.2,303.3 L30,300 L266.2,296.7 Z" />
+    <path opacity="0.24" d="M300,300 L322.1,274.1 L437.9,162.1 L325.9,277.9 Z M300,300 L325.9,322.1 L437.9,437.9 L322.1,325.9 Z M300,300 L277.9,325.9 L162.1,437.9 L274.1,322.1 Z M300,300 L274.1,277.9 L162.1,162.1 L277.9,274.1 Z" />
   </g>
-  <g stroke="#0E4461" stroke-width="1.8" opacity="0.14" fill="none">
+  <g stroke="#8B5A2B" stroke-width="1.8" opacity="0.32" fill="none">
     <path d="M348.4,56.8 L350.7,45 M391.1,80.1 L399.5,59.8 M437.8,93.8 L444.4,83.8 M506.2,162.2 L516.2,155.6 M519.9,208.9 L540.2,200.5 M543.2,251.6 L555,249.3 M543.2,348.4 L555,350.7 M519.9,391.1 L540.2,399.5 M506.2,437.8 L516.2,444.4 M437.8,506.2 L444.4,516.2 M391.1,519.9 L399.5,540.2 M348.4,543.2 L350.7,555 M251.6,543.2 L249.3,555 M208.9,519.9 L200.5,540.2 M162.2,506.2 L155.6,516.2 M93.8,437.8 L83.8,444.4 M80.1,391.1 L59.8,399.5 M56.8,348.4 L45,350.7 M56.8,251.6 L45,249.3 M80.1,208.9 L59.8,200.5 M93.8,162.2 L83.8,155.6 M162.2,93.8 L155.6,83.8 M208.9,80.1 L200.5,59.8 M251.6,56.8 L249.3,45" />
-    <circle cx="300" cy="300" r="260" stroke-width="2.2" />
-    <circle cx="300" cy="300" r="195" stroke-width="2.2" />
+    <circle cx="300" cy="300" r="260" stroke-width="2.4" />
+    <circle cx="300" cy="300" r="195" stroke-width="2.4" />
   </g>
-  <circle cx="300" cy="300" r="6" fill="#0E4461" opacity="0.18" />
-  <text x="300" y="30" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="bold" fill="#0E4461" opacity="0.2">N</text>
+  <circle cx="300" cy="300" r="6" fill="#8B5A2B" opacity="0.42" />
+
+  <!-- Pontos cardeais -->
+  <g font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="bold" fill="#8B5A2B" opacity="0.48">
+    <text x="300" y="26" text-anchor="middle">N</text>
+    <text x="300" y="590" text-anchor="middle">S</text>
+    <text x="580" y="300" text-anchor="start" dominant-baseline="middle">E</text>
+    <text x="20" y="300" text-anchor="end" dominant-baseline="middle">W</text>
+  </g>
 </svg>
