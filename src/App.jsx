@@ -16,7 +16,7 @@ import TelaClienteDashboard from './components/TelaClienteDashboard'
 
 const TELAS = {
   painel: { titulo: 'Painel da marina', Componente: null },
-  vagas: { titulo: 'Vagas e Atracação', Componente: TelaVagas },
+  vagas: { titulo: 'Painel de Controle', Componente: TelaVagas },
   clientes: { titulo: 'Planilha de cadastros', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },

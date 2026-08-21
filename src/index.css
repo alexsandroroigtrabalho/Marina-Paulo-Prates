@@ -143,6 +143,10 @@ body {
 .status-vencendo { background: #FCE6DA; color: var(--cor-alerta); }
 .status-valido { background: #DCEEF4; color: var(--cor-secundaria); }
 
+/* ---------- Abastecimento ---------- */
+.status-aguardando_pagamento, .status-confirmado { background: #FCE6DA; color: var(--cor-alerta); }
+.status-entregue { background: #DCEEF4; color: var(--cor-secundaria); }
+
 /* ---------- Vagas ---------- */
 .grid-vagas { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }
 .vaga-card {
@@ -150,6 +154,13 @@ body {
   display: flex; flex-direction: column; gap: 6px; cursor: pointer; text-align: left;
 }
 .vaga-card:disabled, .vaga-card[disabled] { cursor: not-allowed; opacity: 0.7; }
+
+/* ---------- Painel de Controle (visão TV da marina) ---------- */
+.painel-controle-relogio {
+  color: var(--cor-texto-suave); font-size: 14px; font-weight: 600; text-transform: capitalize; margin: 0 0 16px;
+}
+.painel-controle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px; }
+.painel-controle-grid h3 { margin: 0 0 10px; font-size: 16px; color: var(--cor-primaria); }
 
 /* ---------- Fila de Rampa (painel visual de retirada/retorno) ---------- */
 .fila-rampa { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 32px; }

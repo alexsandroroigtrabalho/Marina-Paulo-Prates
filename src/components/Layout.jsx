@@ -1,11 +1,11 @@
 import {
-  IconLayoutGrid, IconAnchor, IconUsers, IconCash, IconTool, IconLogout, IconFileCertificate, IconGasStation,
+  IconLayoutGrid, IconAnchor, IconUsers, IconCash, IconTool, IconLogout, IconFileCertificate, IconGasStation, IconDeviceTv,
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 
 const ITENS_MENU = [
   { chave: 'painel', label: 'Painel da marina', Icone: IconLayoutGrid },
-  { chave: 'vagas', label: 'Vagas / Atracação', Icone: IconAnchor },
+  { chave: 'vagas', label: 'Painel de Controle', Icone: IconDeviceTv },
   { chave: 'clientes', label: 'Planilha de cadastros', Icone: IconUsers },
   { chave: 'financeiro', label: 'Financeiro', Icone: IconCash },
   { chave: 'manutencao', label: 'Manutenção', Icone: IconTool },
