@@ -23,7 +23,7 @@ function statusLinha(a) {
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
-export default function TelaVagas({ marinaId, onResumo }) {
+export default function TelaVagas({ marinaId, onResumo, onAcoes }) {
   const [agendamentos, setAgendamentos] = useState([])
   const [despachos, setDespachos] = useState([])
   const [laudos, setLaudos] = useState([])
@@ -158,6 +158,18 @@ export default function TelaVagas({ marinaId, onResumo }) {
     setSonsAtivados(true)
   }
 
+  // Repassa as ações do painel (ativar sons, histórico, combustíveis) pro
+  // menu de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
+  // esses botões não moram mais fixos em cima da Fila de Rampa.
+  useEffect(() => {
+    onAcoes?.({
+      sonsAtivados,
+      ativarSons: ativarSonsPainel,
+      abrirHistorico: () => setModalHistoricoAberto(true),
+      abrirCombustiveis: () => setModalCombustiveisAberto(true),
+    })
+  }, [sonsAtivados])
+
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
   function linhaNotificacao(a) {
     const status = statusLinha(a)
@@ -167,7 +179,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
       <tr key={a.id}>
         <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
         <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
-        <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
+        <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td>
@@ -222,7 +234,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
     const status = statusNavegando(a)
     return (
       <tr key={a.id}>
-        <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
+        <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
         <td>
@@ -245,27 +257,14 @@ export default function TelaVagas({ marinaId, onResumo }) {
         {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
       </p>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" className="voltar" onClick={ativarSonsPainel} title="O navegador só libera o som depois de um clique — ative uma vez ao abrir o painel">
-            {sonsAtivados ? '🔔 Sons ativados' : '🔔 Ativar sons'}
-          </button>
-          <button type="button" className="voltar" onClick={() => setModalHistoricoAberto(true)}>
-            Histórico de manobras
-          </button>
-          <button type="button" className="voltar" onClick={() => setModalCombustiveisAberto(true)}>
-            Gerenciar combustíveis
-          </button>
-        </div>
-      </div>
+      <h2 style={{ margin: '0 0 16px' }}>Fila de Rampa</h2>
 
       <table className="tabela tabela-fila">
         <thead>
           <tr>
             <th></th>
             <th>Pedido</th>
-            <th>Responsável</th>
+            <th className="col-responsavel">Responsável</th>
             <th>Horário</th>
             <th>Documentação</th>
             <th>Abastecimento</th>
@@ -282,7 +281,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
       <table className="tabela tabela-fila" style={{ marginBottom: 32 }}>
         <thead>
           <tr>
-            <th>Responsável</th>
+            <th className="col-responsavel">Responsável</th>
             <th>Horário de saída</th>
             <th>Previsão de retorno</th>
             <th>Status</th>
@@ -372,7 +371,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
                 <tr>
                   <th></th>
                   <th>Pedido</th>
-                  <th>Responsável</th>
+                  <th className="col-responsavel">Responsável</th>
                   <th>Horário</th>
                 </tr>
               </thead>
@@ -382,7 +381,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
                   <tr key={a.id}>
                     <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
                     <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
-                    <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
+                    <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
                     <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
                   </tr>
                 ))}

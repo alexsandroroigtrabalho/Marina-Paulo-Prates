@@ -33,6 +33,10 @@ export default function App() {
   // Contadores do Painel de Controle, repassados pelo próprio TelaVagas — vão
   // no topo, ao lado do nome da marina, pra economizar a linha que ocupavam.
   const [resumoVagas, setResumoVagas] = useState(null)
+  // Ações do Painel de Controle (sons, histórico, combustíveis), repassadas
+  // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
+  // usuário, em vez de botões fixos em cima da Fila de Rampa.
+  const [acoesVagas, setAcoesVagas] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -78,6 +82,7 @@ export default function App() {
   return (
     <Layout
       telaAtiva={telaAtiva} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
+      acoesPainel={telaAtiva === 'vagas' ? acoesVagas : null}
       headerExtra={mostrarResumo ? (
         <div className="resumo-topo">
           <div className="pill"><span>Embarcações na água</span><strong>{resumoVagas.naAgua}</strong></div>
@@ -86,7 +91,11 @@ export default function App() {
         </div>
       ) : null}
     >
-      <Componente marinaId={perfil?.marina_id} perfil={perfil} onResumo={telaAtiva === 'vagas' ? setResumoVagas : undefined} />
+      <Componente
+        marinaId={perfil?.marina_id} perfil={perfil}
+        onResumo={telaAtiva === 'vagas' ? setResumoVagas : undefined}
+        onAcoes={telaAtiva === 'vagas' ? setAcoesVagas : undefined}
+      />
     </Layout>
   )
 }
