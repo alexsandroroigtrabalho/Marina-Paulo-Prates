@@ -9,36 +9,22 @@ import {
 const INTERVALO_ATUALIZACAO_MS = 45000
 
 const TIPO_AGENDAMENTO_LABEL = {
-  retirada: 'Retirada para água',
-  retorno: 'Atracação de retorno',
+  retirada: 'Pedido de descida',
+  retorno: 'Pedido de subida',
 }
 
-// Colunas da Fila de Rampa — painel visual do fluxo de retirada/retorno.
-// "em_andamento" cobre preparo, deslocamento e manobra, sem depender de
-// jargão específico de rampa/água — cada marina opera do seu jeito.
-const COLUNAS_FILA = [
-  { status: 'solicitado', titulo: 'Solicitado' },
-  { status: 'confirmado', titulo: 'Confirmado' },
-  { status: 'em_andamento', titulo: 'Em andamento' },
-  { status: 'concluido', titulo: 'Concluído' },
-]
-
-const STATUS_ABASTECIMENTO_LABEL = {
-  solicitado: 'Solicitado',
-  confirmado: 'Confirmado',
-  aguardando_pagamento: 'Aguardando pagamento',
-  pago: 'Pago',
-  entregue: 'Entregue',
-  cancelado: 'Cancelado',
+// Cada notificação da Fila de Rampa só existe em 3 estados — sem etapas
+// intermediárias de "confirmado"/"em andamento": o operador dá um clique só
+// quando a embarcação de fato desce ou sobe, e o status muda na hora.
+function statusLinha(a) {
+  if (a.status === 'concluido') return a.tipo === 'retirada' ? 'navegando' : null
+  return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
-// Próximo status sugerido para o pedido de abastecimento, num clique só —
-// evita ficar abrindo tela separada só pra avançar o status.
-const PROXIMO_STATUS_ABASTECIMENTO = {
-  solicitado: 'confirmado',
-  confirmado: 'aguardando_pagamento',
-  aguardando_pagamento: 'pago',
-  pago: 'entregue',
+const STATUS_LINHA_LABEL = {
+  aguardando_descida: 'Aguardando descida',
+  aguardando_retorno: 'Aguardando retorno',
+  navegando: 'Navegando',
 }
 
 export default function TelaVagas({ marinaId }) {
@@ -76,8 +62,10 @@ export default function TelaVagas({ marinaId }) {
     carregar()
   }
 
-  async function mudarStatusAbastecimento(id, status) {
-    await atualizarStatusAbastecimento(id, status)
+  // O único status que o painel altera aqui é "entregue" — o pedido só
+  // aparece no painel depois de já estar pago via Pix (ver abastecimentosAtivos).
+  async function marcarAbastecimentoEntregue(id) {
+    await atualizarStatusAbastecimento(id, 'entregue')
     carregar()
   }
 
@@ -107,12 +95,23 @@ export default function TelaVagas({ marinaId }) {
     ...laudos.filter((l) => !['emitido', 'cancelado'].includes(l.status)).map((l) => ({ ...l, origem: 'Laudo' })),
   ]
 
-  const abastecimentosAtivos = pedidosAbastecimento.filter((p) => !['entregue', 'cancelado'].includes(p.status))
+  // Só aparece no painel o pedido já pago via Pix — não existe aqui opção de
+  // marcar "aguardando pagamento" ou "pago", isso é automático quando o
+  // pagamento real for confirmado. A única ação do operador é dar baixa
+  // (marcar entregue) depois de abastecer.
+  const abastecimentosAtivos = pedidosAbastecimento.filter((p) => p.status === 'pago')
   // Pedidos sem vínculo com nenhuma descida/subida atualmente visível na Fila
   // de Rampa (pedido antigo, ou feito antes de existir o agendamento) — ainda
   // precisam aparecer em algum lugar pra não passar batido.
   const idsAgendamentosVisiveis = new Set(agendamentos.map((a) => a.id))
   const abastecimentosSemVinculo = abastecimentosAtivos.filter((p) => !p.agendamento_id || !idsAgendamentosVisiveis.has(p.agendamento_id))
+
+  // Linhas ativas da Fila de Rampa: tudo que não foi cancelado, e sem contar
+  // retornos já concluídos (embarcação de volta e atracada — não precisa mais
+  // aparecer). Ordenadas pelo horário do pedido.
+  const linhasFila = agendamentos
+    .filter((a) => a.status !== 'cancelado' && statusLinha(a))
+    .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
 
   return (
     <div>
@@ -130,8 +129,8 @@ export default function TelaVagas({ marinaId }) {
         <div>
           <h2 style={{ marginBottom: 4 }}>Fila de Rampa</h2>
           <p className="dica" style={{ marginTop: 0, marginBottom: 16 }}>
-            Acompanhe cada retirada e retorno em tempo real, do pedido do cliente até a conclusão — com o abastecimento
-            pedido para aquela descida ou subida direto no card.
+            🟢 pedido de descida · 🔴 pedido de subida. Acompanhe cada notificação em tempo real, com o abastecimento
+            já pago pedido para aquela descida ou subida direto na linha.
           </p>
         </div>
         <button type="button" className="voltar" onClick={() => setModalCombustiveisAberto(true)} style={{ marginBottom: 16 }}>
@@ -139,59 +138,60 @@ export default function TelaVagas({ marinaId }) {
         </button>
       </div>
 
-      <div className="fila-rampa">
-        {COLUNAS_FILA.map((coluna) => {
-          const itens = agendamentos.filter((a) => a.status === coluna.status)
-          return (
-            <div key={coluna.status} className="fila-coluna">
-              <h4>{coluna.titulo} <span className="contagem">{itens.length}</span></h4>
-              {itens.length === 0 && <p className="fila-vazia">Nada por aqui.</p>}
-              {itens.map((a) => {
-                const abastecimentosDoCard = pedidosAbastecimento.filter((p) => p.agendamento_id === a.id)
-                return (
-                  <div key={a.id} className={`fila-card ${a.tipo === 'retorno' ? 'tipo-retorno' : ''}`}>
-                    <div className="fila-card-topo">
-                      <span>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span>
+      <table className="tabela tabela-fila">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Pedido</th>
+            <th>Cliente / Embarcação</th>
+            <th>Horário</th>
+            <th>Quem retira/entrega</th>
+            <th>Abastecimento</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {linhasFila.length === 0 && <tr><td colSpan={8}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
+          {linhasFila.map((a) => {
+            const status = statusLinha(a)
+            const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
+            return (
+              <tr key={a.id}>
+                <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
+                <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
+                <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</td>
+                <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+                <td>{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'}</td>
+                <td>
+                  {abastecimentosDaLinha.length === 0 && '—'}
+                  {abastecimentosDaLinha.map((p) => (
+                    <div key={p.id} className="fila-abastecimento-linha">
+                      <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
+                      <span className="badge status-pago">Pago</span>
+                      <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
                     </div>
-                    <div className="fila-card-meta"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
-                    <div className="fila-card-meta">{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'} vai buscar/entregar</div>
-                    <div className="fila-card-meta">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
-                    {abastecimentosDoCard.length > 0 && (
-                      <div className="fila-card-abastecimento">
-                        {abastecimentosDoCard.map((p) => (
-                          <div key={p.id} className="fila-card-abastecimento-item">
-                            <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
-                            <span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>
-                            {PROXIMO_STATUS_ABASTECIMENTO[p.status] && (
-                              <button type="button" onClick={() => mudarStatusAbastecimento(p.id, PROXIMO_STATUS_ABASTECIMENTO[p.status])}>
-                                Marcar {STATUS_ABASTECIMENTO_LABEL[PROXIMO_STATUS_ABASTECIMENTO[p.status]].toLowerCase()}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                  ))}
+                </td>
+                <td><span className={`badge status-${status}`}>{STATUS_LINHA_LABEL[status]}</span></td>
+                <td>
+                  <div className="fila-tabela-acoes">
+                    {status === 'aguardando_descida' && (
+                      <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar saída</button>
                     )}
-                    <div className="fila-card-acoes">
-                      {a.status === 'solicitado' && (
-                        <button onClick={() => mudarStatusAgendamento(a.id, 'confirmado')}>Confirmar</button>
-                      )}
-                      {a.status === 'confirmado' && (
-                        <button onClick={() => mudarStatusAgendamento(a.id, 'em_andamento')}>Iniciar atendimento</button>
-                      )}
-                      {a.status === 'em_andamento' && (
-                        <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Concluir</button>
-                      )}
-                      {a.status !== 'concluido' && a.status !== 'cancelado' && (
-                        <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
-                      )}
-                    </div>
+                    {status === 'aguardando_retorno' && (
+                      <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar retorno</button>
+                    )}
+                    {status !== 'navegando' && (
+                      <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+                    )}
                   </div>
-                )
-              })}
-            </div>
-          )
-        })}
-      </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
 
       {agendamentos.some((a) => a.status === 'cancelado') && (
         <div style={{ marginBottom: 32 }}>
@@ -249,7 +249,8 @@ export default function TelaVagas({ marinaId }) {
                 <div key={p.id} className="cliente-card">
                   <div className="linha"><b>{p.combustiveis?.nome}</b> — {Number(p.quantidade_litros).toFixed(2)} L</div>
                   <div className="linha">{p.clientes?.nome}{p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}</div>
-                  <span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>
+                  <span className="badge status-pago">Pago</span>
+                  <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
                 </div>
               ))}
             </div>

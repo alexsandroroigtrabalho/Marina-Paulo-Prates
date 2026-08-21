@@ -171,10 +171,12 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   // Encontra o agendamento (retirada/retorno) em aberto mais próximo para essa
-  // embarcação, pra já vincular o pedido de abastecimento ao card certo no
-  // Painel de Controle — sem precisar perguntar isso ao cliente.
+  // embarcação, pra já vincular o pedido de abastecimento à linha certa no
+  // Painel de Controle — sem precisar perguntar isso ao cliente. "solicitado"
+  // é o único status de espera hoje: a notificação vira direto "concluído"
+  // (Navegando) quando o operador confirma a saída ou o retorno.
   function agendamentoRelevante(embarcacaoId) {
-    const ativos = agendamentos.filter((a) => a.embarcacao_id === embarcacaoId && ['solicitado', 'confirmado', 'em_andamento'].includes(a.status))
+    const ativos = agendamentos.filter((a) => a.embarcacao_id === embarcacaoId && a.status === 'solicitado')
     if (ativos.length === 0) return null
     return ativos.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))[0]
   }
