@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  listarAgendamentos, atualizarStatusAgendamento, listarDespachos, listarLaudos,
+  listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento, listarDespachos, listarLaudos,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos,
 } from '../lib/db'
@@ -134,7 +134,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
       <tr key={a.id}>
         <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
         <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
-        <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</td>
+        <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td>
@@ -162,31 +162,44 @@ export default function TelaVagas({ marinaId, onResumo }) {
     )
   }
 
-  // Classe do status "Navegando": muda de cor sozinha conforme o relógio
-  // passa da previsão de retorno informada pelo cliente — amarelo assim que
-  // atrasa, vermelho depois de 2h de atraso. Sem previsão informada, fica no
-  // azul padrão (não dá pra saber se está atrasado).
-  function classeStatusNavegando(a) {
-    if (!a.previsao_retorno) return 'navegando'
-    const previsto = new Date(a.previsao_retorno).getTime()
-    if (agora.getTime() >= previsto + 2 * 60 * 60 * 1000) return 'navegando-critico'
-    if (agora.getTime() >= previsto) return 'navegando-atrasado'
-    return 'navegando'
+  // Status da embarcação navegando: 3 estados. "Solicita resgate" é um alerta
+  // manual (fica assim até alguém desmarcar) e tem prioridade sobre o resto;
+  // sem isso, o relógio decide sozinho — Navegando (verde) até completar 2h
+  // de atraso sobre a previsão de retorno, daí vira Excedeu retorno (vermelho).
+  function statusNavegando(a) {
+    if (a.resgate_solicitado) return { classe: 'resgate', texto: 'Solicita resgate' }
+    if (a.previsao_retorno) {
+      const previsto = new Date(a.previsao_retorno).getTime()
+      if (agora.getTime() >= previsto + 2 * 60 * 60 * 1000) return { classe: 'excedeu_retorno', texto: 'Excedeu retorno' }
+    }
+    return { classe: 'navegando', texto: 'Navegando' }
+  }
+
+  async function alternarResgate(id, valorAtual) {
+    await atualizarResgateAgendamento(id, !valorAtual)
+    carregar()
   }
 
   // Linha de "Navegando" — só o essencial: quem está com a embarcação, desde
-  // quando, e a previsão de retorno (com o status mudando de cor sozinho se
+  // quando, e a previsão de retorno (com o status mudando sozinho se
   // atrasar). Sem a natureza do pedido, sem o indicativo luminoso e sem
   // informação de abastecimento — isso já fica na Fila de Rampa, antes de sair
   // pra água.
   function linhaNavegando(a) {
-    const classeStatus = classeStatusNavegando(a)
+    const status = statusNavegando(a)
     return (
       <tr key={a.id}>
-        <td><b>{a.embarcacoes?.nome}</b>{a.clientes?.nome ? ` · ${a.clientes.nome}` : ''}</td>
+        <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
-        <td><span className={`badge status-${classeStatus}`}>Navegando</span></td>
+        <td><span className={`badge status-${status.classe}`}>{status.texto}</span></td>
+        <td>
+          <div className="fila-tabela-acoes">
+            <button type="button" className={a.resgate_solicitado ? 'cancelar' : ''} onClick={() => alternarResgate(a.id, a.resgate_solicitado)}>
+              {a.resgate_solicitado ? 'Cancelar alerta' : 'Solicitar resgate'}
+            </button>
+          </div>
+        </td>
       </tr>
     )
   }
@@ -230,10 +243,11 @@ export default function TelaVagas({ marinaId, onResumo }) {
             <th>Horário de saída</th>
             <th>Previsão de retorno</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.length === 0 && <tr><td colSpan={5}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
         </tbody>
       </table>

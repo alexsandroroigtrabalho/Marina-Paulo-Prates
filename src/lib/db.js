@@ -162,6 +162,11 @@ export async function atualizarStatusAgendamento(id, status) {
   if (error) throw error
 }
 
+export async function atualizarResgateAgendamento(id, resgateSolicitado) {
+  const { error } = await db.from('agendamentos').update({ resgate_solicitado: resgateSolicitado }).eq('id', id)
+  if (error) throw error
+}
+
 /* ---------- Documentação (TIE, seguro, habilitação, vistoria...) ---------- */
 export async function listarDocumentos(marinaId) {
   const { data, error } = await db

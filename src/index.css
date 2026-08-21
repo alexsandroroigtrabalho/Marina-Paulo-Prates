@@ -182,9 +182,9 @@ body {
 .luz-verde { background: #2CB56D; color: #2CB56D; }
 .luz-vermelha { background: #D9432E; color: #D9432E; }
 .status-aguardando_descida, .status-aguardando_retorno { background: #FCE6DA; color: var(--cor-alerta); }
-.status-navegando { background: #DCEEF4; color: var(--cor-secundaria); }
-.status-navegando-atrasado { background: #FFF3C4; color: #8A6D00; font-weight: 700; }
-.status-navegando-critico { background: #FCE0D6; color: #B0472A; font-weight: 700; }
+.status-navegando { background: #DCF3E3; color: #1E7B3C; font-weight: 700; }
+.status-excedeu_retorno { background: #FCE0D6; color: #B0472A; font-weight: 700; }
+.status-resgate { background: #B00020; color: #fff; font-weight: 800; }
 .fila-abastecimento-linha { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
 .fila-abastecimento-linha button, .fila-tabela-acoes button {
   font-size: 12px; padding: 6px 12px; border: none; border-radius: 999px;
