@@ -28,6 +28,13 @@ e `src/lib/tema.js`:
 | Fundo geral (com watermark sutil) | `#EEF7FA` |
 | Pendências / inadimplência | `#D9713E` |
 
+O fundo de toda a plataforma tem uma textura discreta de carta náutica — uma
+rosa dos ventos no canto inferior direito, curvas batimétricas suaves e
+pontinhos de sondagem espalhados pela tela (`public/fundo-rosa-dos-ventos.svg`
+e `public/fundo-grade-nautica.svg`, aplicados em `src/index.css`) — bem leve
+e transparente, na cor primária da marina, só pra dar textura sem atrapalhar
+a leitura de nenhuma tela.
+
 Fluxo de telas replicado: **Home** (seleção "Sou cliente" / "Administração") →
 **Área do cliente** (login ou ficha de autocadastro) ou **Área da administração**
 (login) → direto no **Painel de Controle** (menu lateral com os módulos), com a
@@ -97,6 +104,7 @@ copie `.env.local.example` para `.env.local` e preencha com as chaves do seu pro
   - Na solicitação de retirada, o cliente pode informar (opcional) a **previsão de retorno**. Na tabela Navegando, o status tem 3 estados, todos na própria coluna Status (sem coluna de ação separada): **Navegando** (🟢 verde, padrão), **Excedeu retorno** (🔴 vermelho, automático — muda sozinho quando passam 2h da previsão de retorno) e **Solicita resgate** (alerta manual, vermelho forte) — clicando no próprio badge de status a equipe liga/desliga o alerta de resgate quando a embarcação precisa de ajuda. O nome do cliente e da embarcação (coluna Responsável) segue a mesma formatação nas duas tabelas.
   - Não existe mais uma tela separada de Abastecimento: o pedido de combustível aparece **direto na linha da descida ou subida da embarcação**, mas só depois de já estar pago via Pix — o painel não tem opção de marcar "aguardando pagamento" ou "pago" (isso acontece automaticamente quando o pagamento real for confirmado). A única ação aqui é dar baixa: "Marcar entregue" depois de abastecer. Um pedido pago sem uma descida/subida em aberto correspondente aparece à parte, na seção "Abastecimento sem descida/subida em aberto". O botão "Gerenciar combustíveis", no topo do Painel de Controle, abre o cadastro de combustíveis (nome, preço por litro, estoque).
   - O botão **"Histórico de manobras"**, ao lado de "Gerenciar combustíveis", abre o registro permanente de toda descida e subida já confirmada (mais recente primeiro) — diferente da tabela Navegando, o registro fica ali mesmo depois que a embarcação retorna.
+  - **Sinal sonoro**: assim que uma notificação nova entra na Fila de Rampa, o painel toca sozinho um apito — **um apito longo para pedido de descida** e **três apitos curtos para pedido de retorno** —, útil pra equipe perceber sem precisar ficar olhando pra TV o tempo todo. O som é sintetizado na hora (Web Audio API, sem arquivo de áudio externo). Como o navegador só libera áudio depois de uma interação da pessoa na página, o botão **"Ativar sons"** no topo do painel precisa ser clicado uma vez ao abrir a TV/tela — depois disso fica ativo enquanto a página estiver aberta. Só toca para notificações que chegam *depois* da ativação — o que já estava esperando quando o painel foi aberto não dispara som.
 - **Clientes / Embarcações** — cadastro de sócios e das embarcações vinculadas a cada um.
 - **Financeiro** — cobranças (mensalidade, serviço, multa), controle de pendente/pago, integração com Mercado Pago via Edge Function, mais a aba **Previsão de Caixa**: resumo de entradas previstas x recebidas por mês e lista de próximos vencimentos, calculado direto a partir das cobranças (sem precisar de lançamento/programação separados).
 - **Manutenção** — ordens de serviço por embarcação (limpeza, motor, guincho, combustível, pintura), com status e prioridade.

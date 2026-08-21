@@ -20,13 +20,19 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  background: var(--cor-fundo);
+  background-color: var(--cor-fundo);
   color: var(--cor-texto);
-  /* watermark sutil de âncoras, como no app de referência */
-  background-image: radial-gradient(circle at 12% 18%, rgba(14,68,97,0.05) 0 3px, transparent 4px),
-    radial-gradient(circle at 68% 62%, rgba(14,68,97,0.05) 0 3px, transparent 4px),
-    radial-gradient(circle at 40% 85%, rgba(14,68,97,0.05) 0 3px, transparent 4px);
-  background-size: 220px 220px;
+  /* Fundo estilo carta náutica: uma rosa dos ventos grande, fixa no canto
+     inferior direito, sobre uma grade fina de coordenadas + sondagens que
+     repete por toda a tela — tudo bem sutil (baixa opacidade), na paleta da
+     marina, pra não atrapalhar a leitura de nenhuma tela. */
+  background-image:
+    url('/fundo-rosa-dos-ventos.svg'),
+    url('/fundo-grade-nautica.svg');
+  background-repeat: no-repeat, repeat;
+  background-position: bottom -80px right -80px, top left;
+  background-size: 640px 640px, 240px 240px;
+  background-attachment: fixed, fixed;
 }
 
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento, listarDespachos, listarLaudos,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos,
 } from '../lib/db'
+import { ativarSons, tocarSinalDescida, tocarSinalRetorno } from '../lib/sons'
 
 // A cada quantos segundos o painel se atualiza sozinho — pensado para rodar
 // numa smart TV na marina, sem alguém precisando ficar dando refresh.
@@ -34,6 +35,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
+  const [sonsAtivados, setSonsAtivados] = useState(false)
 
   async function carregar() {
     if (!marinaId) return
@@ -92,23 +94,24 @@ export default function TelaVagas({ marinaId, onResumo }) {
     ...laudos.filter((l) => !['emitido', 'cancelado'].includes(l.status)).map((l) => ({ ...l, origem: 'Laudo' })),
   ]
 
-  // Só aparece no painel o pedido já pago via Pix — não existe aqui opção de
-  // marcar "aguardando pagamento" ou "pago", isso é automático quando o
-  // pagamento real for confirmado. A única ação do operador é dar baixa
-  // (marcar entregue) depois de abastecer.
-  const abastecimentosAtivos = pedidosAbastecimento.filter((p) => p.status === 'pago')
-  // Pedidos sem vínculo com nenhuma descida/subida atualmente visível na Fila
-  // de Rampa (pedido antigo, ou feito antes de existir o agendamento) — ainda
-  // precisam aparecer em algum lugar pra não passar batido.
-  const idsAgendamentosVisiveis = new Set(agendamentos.map((a) => a.id))
-  const abastecimentosSemVinculo = abastecimentosAtivos.filter((p) => !p.agendamento_id || !idsAgendamentosVisiveis.has(p.agendamento_id))
-
   // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
   // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
   // passa a aparecer na tabela "Navegando" logo abaixo.
   const linhasFila = agendamentos
     .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
+
+  // Só aparece no painel o pedido já pago via Pix — não existe aqui opção de
+  // marcar "aguardando pagamento" ou "pago", isso é automático quando o
+  // pagamento real for confirmado. A única ação do operador é dar baixa
+  // (marcar entregue) depois de abastecer.
+  const abastecimentosAtivos = pedidosAbastecimento.filter((p) => p.status === 'pago')
+  // Pedidos sem vínculo com nenhuma descida/subida atualmente visível na Fila
+  // de Rampa (pedido antigo, pedido feito antes de existir o agendamento, ou
+  // cujo agendamento já foi concluído/cancelado) — ainda precisam aparecer em
+  // algum lugar pra não passar batido.
+  const idsAgendamentosNaFila = new Set(linhasFila.map((a) => a.id))
+  const abastecimentosSemVinculo = abastecimentosAtivos.filter((p) => !p.agendamento_id || !idsAgendamentosNaFila.has(p.agendamento_id))
 
   // Histórico de manobras: toda descida ou subida já confirmada, mais recente
   // primeiro — vira o registro permanente assim que o operador confirma a
@@ -133,6 +136,33 @@ export default function TelaVagas({ marinaId, onResumo }) {
   useEffect(() => {
     onResumo?.({ naAgua: naAgua.length, servicos: pedidosServico.length, abastecimentos: abastecimentosAtivos.length })
   }, [naAgua.length, pedidosServico.length, abastecimentosAtivos.length])
+
+  // Sinal sonoro: toca sozinho assim que uma notificação NOVA entra na Fila
+  // de Rampa — apito longo pra descida, três apitos curtos pra retorno. Na
+  // primeira carga do painel não toca nada (senão dispararia pra tudo que já
+  // estava esperando quando a TV foi ligada) — só a partir da atualização
+  // seguinte, comparando com o que já tinha sido visto.
+  const idsConhecidosRef = useRef(null)
+  const idsLinhaFilaAtual = linhasFila.map((a) => a.id).sort().join(',')
+  useEffect(() => {
+    const idsAtuais = new Set(linhasFila.map((a) => a.id))
+    if (idsConhecidosRef.current === null) {
+      idsConhecidosRef.current = idsAtuais
+      return
+    }
+    linhasFila.forEach((a) => {
+      if (!idsConhecidosRef.current.has(a.id)) {
+        if (a.tipo === 'retirada') tocarSinalDescida()
+        else tocarSinalRetorno()
+      }
+    })
+    idsConhecidosRef.current = idsAtuais
+  }, [idsLinhaFilaAtual])
+
+  function ativarSonsPainel() {
+    ativarSons()
+    setSonsAtivados(true)
+  }
 
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
   function linhaNotificacao(a) {
@@ -224,6 +254,9 @@ export default function TelaVagas({ marinaId, onResumo }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
         <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" className="voltar" onClick={ativarSonsPainel} title="O navegador só libera o som depois de um clique — ative uma vez ao abrir o painel">
+            {sonsAtivados ? '🔔 Sons ativados' : '🔔 Ativar sons'}
+          </button>
           <button type="button" className="voltar" onClick={() => setModalHistoricoAberto(true)}>
             Histórico de manobras
           </button>

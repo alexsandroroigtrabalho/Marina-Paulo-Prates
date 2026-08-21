@@ -1,0 +1,18 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Rosa dos ventos — elemento clássico de carta náutica, usado como marca
+    d'água de fundo da plataforma. Bem sutil (baixíssima opacidade) pra não
+    atrapalhar a leitura das telas, na cor primária da marina.
+  -->
+  <g fill="#0E4461">
+    <path opacity="0.05" d="M300,300 L296.7,266.2 L300,30 L303.3,266.2 Z M300,300 L333.8,296.7 L570,300 L333.8,303.3 Z M300,300 L303.3,333.8 L300,570 L296.7,333.8 Z M300,300 L266.2,303.3 L30,300 L266.2,296.7 Z" />
+    <path opacity="0.035" d="M300,300 L322.1,274.1 L437.9,162.1 L325.9,277.9 Z M300,300 L325.9,322.1 L437.9,437.9 L322.1,325.9 Z M300,300 L277.9,325.9 L162.1,437.9 L274.1,322.1 Z M300,300 L274.1,277.9 L162.1,162.1 L277.9,274.1 Z" />
+  </g>
+  <g stroke="#0E4461" stroke-width="1" opacity="0.05" fill="none">
+    <path d="M348.4,56.8 L350.7,45 M391.1,80.1 L399.5,59.8 M437.8,93.8 L444.4,83.8 M506.2,162.2 L516.2,155.6 M519.9,208.9 L540.2,200.5 M543.2,251.6 L555,249.3 M543.2,348.4 L555,350.7 M519.9,391.1 L540.2,399.5 M506.2,437.8 L516.2,444.4 M437.8,506.2 L444.4,516.2 M391.1,519.9 L399.5,540.2 M348.4,543.2 L350.7,555 M251.6,543.2 L249.3,555 M208.9,519.9 L200.5,540.2 M162.2,506.2 L155.6,516.2 M93.8,437.8 L83.8,444.4 M80.1,391.1 L59.8,399.5 M56.8,348.4 L45,350.7 M56.8,251.6 L45,249.3 M80.1,208.9 L59.8,200.5 M93.8,162.2 L83.8,155.6 M162.2,93.8 L155.6,83.8 M208.9,80.1 L200.5,59.8 M251.6,56.8 L249.3,45" />
+    <circle cx="300" cy="300" r="260" />
+    <circle cx="300" cy="300" r="195" />
+  </g>
+  <circle cx="300" cy="300" r="5" fill="#0E4461" opacity="0.06" />
+  <text x="300" y="24" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="20" fill="#0E4461" opacity="0.08">N</text>
+</svg>
