@@ -12,10 +12,10 @@
   --cor-toggle-off: #D7D7DC;
   --cor-texto: #17313E;
   --cor-texto-suave: #5B7887;
-  --cor-rosa-dos-ventos: #8B5A2B; /* tom sépia da rosa dos ventos do fundo — usado no título */
+  --cor-rosa-dos-ventos: #8B5A2B; /* tom sépia da rosa dos ventos do fundo (o título agora usa --cor-primaria) */
   --raio: 16px;
   --sombra: 0 6px 20px rgba(14, 68, 97, 0.08);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -114,9 +114,9 @@ body {
    segunda linha em vez de sobrepor/cortar. */
 .topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
 .topo h1 {
-  font-size: 32px; font-weight: 400;
-  font-family: 'Archivo Black', 'Arial Black', sans-serif;
-  letter-spacing: 0.3px; color: var(--cor-rosa-dos-ventos); margin: 0;
+  font-size: 30px; font-weight: 800;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: -0.2px; color: var(--cor-primaria); margin: 0;
 }
 .topo-direita { display: flex; align-items: center; gap: 10px; }
 .usuario { text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
@@ -266,6 +266,37 @@ button.badge:hover { filter: brightness(0.95); }
 .status-texto { font-size: 13px; font-weight: 600; }
 .status-texto.em-dia { color: var(--cor-secundaria); }
 .status-texto.pendente { color: var(--cor-alerta); }
+
+/* ---------- Painel do cliente: ações principais (retirada/retorno/S.O.S./serviços) ----------
+   Cards de cantos bem arredondados, fonte Poppins (mais arredondada/amigável
+   que o Inter do resto do app) — escolhido pelo cliente entre algumas
+   variações de formato de botão apresentadas. */
+.painel-cliente-acoes { font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif; margin: 4px 0 20px; }
+.painel-cliente-linha { display: flex; gap: 8px; margin-bottom: 10px; }
+.painel-cliente-btn {
+  border: none; cursor: pointer; border-radius: 14px; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.painel-cliente-btn:disabled { cursor: not-allowed; }
+.painel-cliente-btn-primario {
+  flex: 1; padding: 16px 10px; font-size: 12.5px; font-weight: 600; flex-direction: column;
+  background: var(--cor-secundaria); color: #fff;
+}
+.painel-cliente-btn-outline {
+  flex: 1; padding: 16px 10px; font-size: 12.5px; font-weight: 600; flex-direction: column;
+  background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-secundaria);
+}
+.painel-cliente-btn-sos {
+  width: 100%; padding: 16px; font-size: 13.5px; font-weight: 600; margin-bottom: 10px;
+  background: linear-gradient(135deg, #D9713E, #A23B2E); color: #fff;
+}
+.painel-cliente-btn-sos:disabled { background: #DCE7EA; color: var(--cor-texto-suave); }
+.painel-cliente-btn-sos.enviado { background: #F1E3D6; color: #8B5A2B; }
+.painel-cliente-btn-servicos {
+  width: 100%; padding: 15px; font-size: 13px; font-weight: 600;
+  background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-primaria);
+}
+.painel-cliente-nota { font-size: 10.5px; color: var(--cor-texto-suave); text-align: center; margin: 6px 0 0; font-family: 'Inter', 'Segoe UI', sans-serif; }
 
 /* Toggle estilo iOS, igual ao app de referência */
 .toggle { position: relative; width: 46px; height: 26px; flex-shrink: 0; }

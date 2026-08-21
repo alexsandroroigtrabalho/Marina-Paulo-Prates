@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
-import { IconAnchor, IconLogout, IconShip, IconAnchorOff, IconClipboardList, IconGasStation, IconUsers, IconTrash, IconArrowLeft } from '@tabler/icons-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  IconAnchor, IconLogout, IconSteeringWheel, IconClipboardList, IconGasStation, IconUsers, IconTrash,
+  IconArrowLeft, IconSettings, IconLifebuoy,
+} from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
-  listarAgendamentosCliente, solicitarAgendamento, listarLaudosCliente, listarDespachosCliente, criarDespacho,
-  listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
+  listarAgendamentosCliente, solicitarAgendamento, atualizarResgateAgendamento, listarLaudosCliente, listarDespachosCliente,
+  criarDespacho, listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
   listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
@@ -27,6 +30,44 @@ const STATUS_LABEL = {
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
   entregue: 'Entregue',
+}
+
+// Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
+// configurações da conta (hoje só "Pessoas autorizadas", que antes era um
+// botão fixo no meio do painel). Mesmo padrão visual do menu de ações do
+// Painel de Controle da equipe (classes .menu-acoes* já existentes).
+function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados }) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!aberto) return
+    function aoClicarFora(e) {
+      if (ref.current && !ref.current.contains(e.target)) setAberto(false)
+    }
+    document.addEventListener('mousedown', aoClicarFora)
+    return () => document.removeEventListener('mousedown', aoClicarFora)
+  }, [aberto])
+
+  function executar(acao) {
+    acao()
+    setAberto(false)
+  }
+
+  return (
+    <div className="menu-acoes" ref={ref}>
+      <button type="button" className="menu-acoes-botao" onClick={() => setAberto(!aberto)} title="Configurações">
+        <IconSettings size={18} />
+      </button>
+      {aberto && (
+        <div className="menu-acoes-dropdown">
+          <button type="button" onClick={() => executar(onAbrirAutorizados)}>
+            <IconUsers size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Pessoas autorizadas ({autorizadosCount})
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function TelaClienteDashboard({ perfil }) {
@@ -168,6 +209,28 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
+  // Embarcação do cliente que está navegando agora — mesma lógica do Painel
+  // de Controle da marina (a manobra concluída mais recente de cada
+  // embarcação): se a última foi uma retirada, o barco ainda está na água.
+  // É essa linha que o botão S.O.S. atualiza com resgate_solicitado = true.
+  const ultimaPorEmbarcacaoCliente = {}
+  agendamentos.filter((a) => a.status === 'concluido' && a.embarcacao_id).forEach((a) => {
+    const atual = ultimaPorEmbarcacaoCliente[a.embarcacao_id]
+    if (!atual || new Date(a.data_hora) > new Date(atual.data_hora)) ultimaPorEmbarcacaoCliente[a.embarcacao_id] = a
+  })
+  const agendamentoNavegando = Object.values(ultimaPorEmbarcacaoCliente).find((a) => a.tipo === 'retirada') || null
+
+  async function solicitarResgate() {
+    if (!agendamentoNavegando) return
+    if (!confirm('Confirma que deseja solicitar resgate para sua embarcação? A equipe da marina será avisada imediatamente no Painel de Controle.')) return
+    try {
+      await atualizarResgateAgendamento(agendamentoNavegando.id, true)
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   function abrirModalAbastecimento() {
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '' })
     setModalAbastecimentoAberto(true)
@@ -226,44 +289,51 @@ export default function TelaClienteDashboard({ perfil }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cor-primaria)' }}>
           <IconAnchor /> <strong>Marina Paulo Prates</strong>
         </div>
-        <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} onClick={() => supabase.auth.signOut()}>
-          <IconLogout size={16} /> Sair
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} onClick={() => supabase.auth.signOut()}>
+            <IconLogout size={16} /> Sair
+          </button>
+          {cliente && (
+            <MenuConfigCliente
+              autorizadosCount={autorizados.filter((a) => a.ativo).length}
+              onAbrirAutorizados={abrirModalAutorizados}
+            />
+          )}
+        </div>
       </header>
 
       {!cliente && <p>Seu cadastro ainda está em análise pela administração da marina.</p>}
 
       {cliente && (
         <>
-          <h2>Olá, {cliente.nome}</h2>
-          <p style={{ color: cliente.status === 'ativo' ? 'var(--cor-secundaria)' : 'var(--cor-alerta)' }}>
-            Status: {cliente.status}
-          </p>
+          <div className="painel-cliente-acoes">
+            <div className="painel-cliente-linha">
+              <button type="button" className="painel-cliente-btn painel-cliente-btn-primario" onClick={() => abrirModal('retirada')}>
+                <IconSteeringWheel size={20} /> Retirada
+              </button>
+              <button type="button" className="painel-cliente-btn painel-cliente-btn-outline" onClick={() => abrirModal('retorno')}>
+                <IconAnchor size={20} /> Retorno
+              </button>
+            </div>
 
-          <div style={{ display: 'flex', gap: 10, margin: '4px 0 20px' }}>
-            <button className="btn-primario" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              onClick={() => abrirModal('retirada')}>
-              <IconShip size={18} /> Solicitar retirada
+            <button
+              type="button"
+              className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando?.resgate_solicitado ? 'enviado' : ''}`}
+              disabled={!agendamentoNavegando || agendamentoNavegando.resgate_solicitado}
+              onClick={solicitarResgate}
+            >
+              <IconLifebuoy size={20} />
+              {!agendamentoNavegando
+                ? 'S.O.S. — nenhuma embarcação no mar'
+                : agendamentoNavegando.resgate_solicitado
+                  ? 'Resgate solicitado — aguarde a equipe'
+                  : 'S.O.S. — Solicitar resgate'}
             </button>
-            <button className="btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              onClick={() => abrirModal('retorno')}>
-              <IconAnchorOff size={18} /> Agendar retorno
-            </button>
-          </div>
 
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-            <button className="btn-outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textAlign: 'center', fontSize: 13, padding: '10px 6px' }}
-              onClick={abrirModalServicos}>
-              <IconClipboardList size={18} /> Serviços
+            <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
+              <IconClipboardList size={20} /> Serviços
             </button>
-            <button className="btn-outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textAlign: 'center', fontSize: 13, padding: '10px 6px' }}
-              onClick={abrirModalAutorizados}>
-              <IconUsers size={18} /> Pessoas autorizadas ({autorizados.filter((a) => a.ativo).length})
-            </button>
-            <button className="btn-outline" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textAlign: 'center', fontSize: 13, padding: '10px 6px' }}
-              onClick={abrirModalAbastecimento} disabled={combustiveis.length === 0}>
-              <IconGasStation size={18} /> Abastecimento
-            </button>
+            <p className="painel-cliente-nota">inclui despachos, laudos e abastecimento</p>
           </div>
 
           {abastecimentos.length > 0 && (
@@ -378,6 +448,21 @@ export default function TelaClienteDashboard({ perfil }) {
 
             {!servicoAtivo && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                <div>
+                  <h4 style={{ margin: '0 0 8px', color: 'var(--cor-primaria)' }}>Combustível</h4>
+                  <div className="lista-cards">
+                    <button type="button" className="cliente-card"
+                      style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', gap: 12 }}
+                      onClick={() => { setModalServicosAberto(false); abrirModalAbastecimento() }}
+                      disabled={combustiveis.length === 0}>
+                      <IconGasStation size={22} style={{ color: 'var(--cor-secundaria)', flexShrink: 0 }} />
+                      <div>
+                        <div className="linha"><b>Abastecimento</b></div>
+                        <div className="linha">{combustiveis.length === 0 ? 'Nenhum combustível disponível no momento' : 'Peça combustível e pague na hora via Pix'}</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
                 {CATEGORIAS_SERVICOS.map((cat) => (
                   <div key={cat.key}>
                     <h4 style={{ margin: '0 0 8px', color: 'var(--cor-primaria)' }}>{cat.titulo}</h4>
