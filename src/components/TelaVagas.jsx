@@ -31,6 +31,7 @@ export default function TelaVagas({ marinaId, onResumo }) {
   const [documentos, setDocumentos] = useState([])
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalCombustiveisAberto, setModalCombustiveisAberto] = useState(false)
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
 
@@ -108,6 +109,14 @@ export default function TelaVagas({ marinaId, onResumo }) {
   const linhasFila = agendamentos
     .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
+
+  // Histórico de manobras: toda descida ou subida já confirmada, mais recente
+  // primeiro — vira o registro permanente assim que o operador confirma a
+  // notificação na Fila de Rampa (não some quando a embarcação volta, como
+  // acontece com a tabela Navegando).
+  const historicoManobras = agendamentos
+    .filter((a) => a.status === 'concluido')
+    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
 
   // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
   // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
@@ -192,13 +201,15 @@ export default function TelaVagas({ marinaId, onResumo }) {
         <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
-        <td><span className={`badge status-${status.classe}`}>{status.texto}</span></td>
         <td>
-          <div className="fila-tabela-acoes">
-            <button type="button" className={a.resgate_solicitado ? 'cancelar' : ''} onClick={() => alternarResgate(a.id, a.resgate_solicitado)}>
-              {a.resgate_solicitado ? 'Cancelar alerta' : 'Solicitar resgate'}
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`badge status-${status.classe}`}
+            title={a.resgate_solicitado ? 'Clique para cancelar o alerta' : 'Clique para marcar Solicita resgate'}
+            onClick={() => alternarResgate(a.id, a.resgate_solicitado)}
+          >
+            {status.texto}
+          </button>
         </td>
       </tr>
     )
@@ -212,9 +223,14 @@ export default function TelaVagas({ marinaId, onResumo }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
-        <button type="button" className="voltar" onClick={() => setModalCombustiveisAberto(true)}>
-          Gerenciar combustíveis
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" className="voltar" onClick={() => setModalHistoricoAberto(true)}>
+            Histórico de manobras
+          </button>
+          <button type="button" className="voltar" onClick={() => setModalCombustiveisAberto(true)}>
+            Gerenciar combustíveis
+          </button>
+        </div>
       </div>
 
       <table className="tabela tabela-fila">
@@ -243,11 +259,10 @@ export default function TelaVagas({ marinaId, onResumo }) {
             <th>Horário de saída</th>
             <th>Previsão de retorno</th>
             <th>Status</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && <tr><td colSpan={5}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
         </tbody>
       </table>
@@ -331,6 +346,41 @@ export default function TelaVagas({ marinaId, onResumo }) {
 
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalCombustiveisAberto(false)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalHistoricoAberto && (
+        <div className="modal-fundo" onClick={() => setModalHistoricoAberto(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', maxWidth: 720 }}>
+            <h3>Histórico de manobras</h3>
+            <p className="dica">Toda descida e subida já confirmada na Fila de Rampa, mais recente primeiro.</p>
+
+            <table className="tabela tabela-fila">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Pedido</th>
+                  <th>Responsável</th>
+                  <th>Horário</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historicoManobras.length === 0 && <tr><td colSpan={4}>Nenhuma manobra confirmada ainda.</td></tr>}
+                {historicoManobras.map((a) => (
+                  <tr key={a.id}>
+                    <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
+                    <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
+                    <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
+                    <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalHistoricoAberto(false)}>Fechar</button>
             </div>
           </div>
         </div>

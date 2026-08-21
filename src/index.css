@@ -146,6 +146,8 @@ body {
 .tabela th { background: #F5FAFC; color: var(--cor-texto-suave); font-weight: 600; }
 
 .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+button.badge { border: none; cursor: pointer; font-family: inherit; }
+button.badge:hover { filter: brightness(0.95); }
 .status-pendente, .status-aberta { background: #FCE6DA; color: var(--cor-alerta); }
 .status-regular { background: #DCEEF4; color: var(--cor-secundaria); }
 .status-pago, .status-concluida, .status-disponivel { background: #DCEEF4; color: var(--cor-secundaria); }
