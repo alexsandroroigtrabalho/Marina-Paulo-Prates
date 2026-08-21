@@ -167,8 +167,7 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
     return (
       <tr key={a.id}>
-        <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
-        <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
+        <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
@@ -252,7 +251,6 @@ export default function TelaVagas({ marinaId, onAcoes }) {
       <table className="tabela tabela-fila">
         <thead>
           <tr>
-            <th></th>
             <th>Pedido</th>
             <th className="col-responsavel">Responsável</th>
             <th>Horário</th>
@@ -262,7 +260,7 @@ export default function TelaVagas({ marinaId, onAcoes }) {
           </tr>
         </thead>
         <tbody>
-          {linhasFila.length === 0 && <tr><td colSpan={7}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
+          {linhasFila.length === 0 && <tr><td colSpan={6}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
@@ -359,18 +357,16 @@ export default function TelaVagas({ marinaId, onAcoes }) {
             <table className="tabela tabela-fila">
               <thead>
                 <tr>
-                  <th></th>
                   <th>Pedido</th>
                   <th className="col-responsavel">Responsável</th>
                   <th>Horário</th>
                 </tr>
               </thead>
               <tbody>
-                {historicoManobras.length === 0 && <tr><td colSpan={4}>Nenhuma manobra confirmada ainda.</td></tr>}
+                {historicoManobras.length === 0 && <tr><td colSpan={3}>Nenhuma manobra confirmada ainda.</td></tr>}
                 {historicoManobras.map((a) => (
                   <tr key={a.id}>
-                    <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
-                    <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
+                    <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
                     <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
                     <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
                   </tr>

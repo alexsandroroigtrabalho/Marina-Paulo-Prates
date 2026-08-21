@@ -206,9 +206,10 @@ button.badge:hover { filter: brightness(0.95); }
 .tabela-fila { margin-bottom: 32px; }
 .tabela-fila td { vertical-align: middle; white-space: nowrap; }
 .linha-sub { font-size: 12px; color: var(--cor-texto-suave); font-weight: 400; }
-.luz { display: inline-block; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 6px 1px currentColor; }
-.luz-verde { background: #2CB56D; color: #2CB56D; }
-.luz-vermelha { background: #D9432E; color: #D9432E; }
+/* Descida/Subida: sem bolinha de indicador — o texto do pedido já diz qual
+   é, então só ele fica colorido (mesmos tons terrosos dos selos). */
+.pedido.tipo-descida { color: #55702F; }
+.pedido.tipo-subida { color: #8B5A2B; }
 .status-aguardando_descida, .status-aguardando_retorno { background: #F1E3D6; color: #8B5A2B; }
 .status-navegando { background: #E4EBDD; color: #55702F; font-weight: 700; }
 .status-excedeu_retorno { background: #F1E3D6; color: #8B5A2B; font-weight: 700; }
