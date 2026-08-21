@@ -265,6 +265,7 @@ CREATE TABLE marina.pedidos_abastecimento (
   marina_id              UUID REFERENCES marina.marinas(id) NOT NULL,
   cliente_id             UUID REFERENCES marina.clientes(id) NOT NULL,
   embarcacao_id          UUID REFERENCES marina.embarcacoes(id),
+  agendamento_id         UUID REFERENCES marina.agendamentos(id), -- vincula ao card de retirada/retorno certo no Painel de Controle
   combustivel_id         UUID REFERENCES marina.combustiveis(id) NOT NULL,
   quantidade_litros      NUMERIC(10,2) NOT NULL,
   preco_litro_no_pedido  NUMERIC(10,2) NOT NULL, -- snapshot do preço no momento do pedido

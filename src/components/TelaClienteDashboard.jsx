@@ -170,6 +170,15 @@ export default function TelaClienteDashboard({ perfil }) {
     setModalAbastecimentoAberto(true)
   }
 
+  // Encontra o agendamento (retirada/retorno) em aberto mais próximo para essa
+  // embarcação, pra já vincular o pedido de abastecimento ao card certo no
+  // Painel de Controle — sem precisar perguntar isso ao cliente.
+  function agendamentoRelevante(embarcacaoId) {
+    const ativos = agendamentos.filter((a) => a.embarcacao_id === embarcacaoId && ['solicitado', 'confirmado', 'em_andamento'].includes(a.status))
+    if (ativos.length === 0) return null
+    return ativos.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))[0]
+  }
+
   async function enviarAbastecimento(e) {
     e.preventDefault()
     if (!cliente) return
@@ -182,10 +191,12 @@ export default function TelaClienteDashboard({ perfil }) {
       // QR "Pix copia e cola" de demonstração — o pagamento real será conectado
       // quando a marina configurar sua própria conta Mercado Pago.
       const qrDemo = `00020126DEMO-PIX-MARINA5204000053039865406${valorTotal.toFixed(2)}5802BR5913Marina Manager6009DEMO-QR`
+      const agendamento = agendamentoRelevante(formAbastecimento.embarcacao_id)
       const pedido = await solicitarAbastecimento({
         marina_id: cliente.marina_id,
         cliente_id: cliente.id,
         embarcacao_id: formAbastecimento.embarcacao_id || null,
+        agendamento_id: agendamento?.id || null,
         combustivel_id: combustivel.id,
         quantidade_litros: litros,
         preco_litro_no_pedido: combustivel.preco_litro,

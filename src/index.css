@@ -176,6 +176,12 @@ body {
 }
 .fila-card button.cancelar { background: #F5FAFC; color: var(--cor-alerta); }
 .fila-vazia { font-size: 12px; color: var(--cor-texto-suave); font-style: italic; margin: 0; }
+.fila-card-abastecimento {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 2px; padding: 8px;
+  background: var(--cor-secundaria-clara); border-radius: 8px;
+}
+.fila-card-abastecimento-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.fila-card-abastecimento-item button { background: var(--cor-primaria); }
 
 .modal-fundo {
   position: fixed; inset: 0; background: rgba(14,68,97,0.35);

@@ -5,23 +5,19 @@ import Home from './components/Home'
 import AreaCliente from './components/AreaCliente'
 import AdminLogin from './components/AdminLogin'
 import Layout from './components/Layout'
-import PainelMarina from './components/PainelMarina'
 import TelaVagas from './components/TelaVagas'
 import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
 import TelaDocumentacao from './components/TelaDocumentacao'
-import TelaAbastecimento from './components/TelaAbastecimento'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
 const TELAS = {
-  painel: { titulo: 'Painel da marina', Componente: null },
   vagas: { titulo: 'Painel de Controle', Componente: TelaVagas },
-  clientes: { titulo: 'Planilha de cadastros', Componente: TelaClientes },
+  clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
-  documentacao: { titulo: 'Documentação e Regularização', Componente: TelaDocumentacao },
-  abastecimento: { titulo: 'Abastecimento', Componente: TelaAbastecimento },
+  documentacao: { titulo: 'Despachos', Componente: TelaDocumentacao },
 }
 
 const PAPEIS_INTERNOS = ['admin', 'funcionario', 'operador']
@@ -31,7 +27,7 @@ export default function App() {
   const [perfil, setPerfil] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [entrada, setEntrada] = useState('home') // home | cliente | admin
-  const [telaAtiva, setTelaAtiva] = useState('painel')
+  const [telaAtiva, setTelaAtiva] = useState('vagas')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -75,9 +71,7 @@ export default function App() {
 
   return (
     <Layout telaAtiva={telaAtiva} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}>
-      {telaAtiva === 'painel'
-        ? <PainelMarina irPara={setTelaAtiva} />
-        : <Componente marinaId={perfil?.marina_id} perfil={perfil} />}
+      <Componente marinaId={perfil?.marina_id} perfil={perfil} />
     </Layout>
   )
 }
