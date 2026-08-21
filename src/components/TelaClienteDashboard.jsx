@@ -31,7 +31,6 @@ const STATUS_LABEL = {
 
 export default function TelaClienteDashboard({ perfil }) {
   const [cliente, setCliente] = useState(null)
-  const [reservas, setReservas] = useState([])
   const [cobrancas, setCobrancas] = useState([])
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [agendamentos, setAgendamentos] = useState([])
@@ -59,8 +58,6 @@ export default function TelaClienteDashboard({ perfil }) {
     const { data: cli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
     setCliente(cli)
     if (!cli) return
-    const { data: res } = await db.from('reservas').select('*, vagas(codigo)').eq('cliente_id', cli.id)
-    setReservas(res || [])
     const { data: cob } = await db.from('cobrancas').select('*').eq('cliente_id', cli.id)
     setCobrancas(cob || [])
     const { data: emb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
@@ -295,18 +292,6 @@ export default function TelaClienteDashboard({ perfil }) {
               </div>
             </>
           )}
-
-          <h3>Minhas reservas</h3>
-          <div className="lista-cards">
-            {reservas.length === 0 && <p className="dica">Nenhuma reserva ainda.</p>}
-            {reservas.map((r) => (
-              <div key={r.id} className="cliente-card">
-                <div className="linha"><b>Vaga:</b> {r.vagas?.codigo}</div>
-                <div className="linha"><b>Início:</b> {r.data_inicio}</div>
-                <span className={`status-texto ${r.status === 'confirmada' ? 'em-dia' : 'pendente'}`}>{r.status}</span>
-              </div>
-            ))}
-          </div>
 
           <h3>Minhas cobranças</h3>
           <div className="lista-cards">

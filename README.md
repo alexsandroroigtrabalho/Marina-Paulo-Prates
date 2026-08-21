@@ -1,6 +1,6 @@
 # ⚓ Marina Manager
 
-Plataforma de gerenciamento de marina — reservas de vagas/atracação, cadastro de clientes e embarcações, financeiro/cobrança e manutenção/serviços.
+Plataforma de gerenciamento de marina — fila de rampa (retirada/retorno), cadastro de clientes e embarcações, financeiro/cobrança e manutenção/serviços.
 
 Construída com a mesma stack usada no projeto RV Invictus (escola náutica):
 
@@ -45,9 +45,9 @@ src/
 │   ├── FichaCadastro.jsx      → Autocadastro do cliente + embarcações
 │   ├── AdminLogin.jsx         → Login da administração
 │   ├── PainelMarina.jsx       → Cards de navegação (painel interno)
-│   ├── TelaClienteDashboard.jsx → Visão do cliente logado (reservas/cobranças)
+│   ├── TelaClienteDashboard.jsx → Visão do cliente logado (agendamentos/cobranças)
 │   ├── Layout.jsx             → Menu lateral + navegação (área interna)
-│   ├── TelaVagas.jsx          → Painel de Controle (Fila de Rampa + gestão de vagas)
+│   ├── TelaVagas.jsx          → Painel de Controle (visão TV: Fila de Rampa e status ao vivo)
 │   ├── TelaClientes.jsx       → Planilha de cadastros (clientes e embarcações)
 │   ├── TelaFinanceiro.jsx     → Cobranças e pagamentos
 │   └── TelaManutencao.jsx    → Ordens de serviço
@@ -91,14 +91,14 @@ copie `.env.local.example` para `.env.local` e preencha com as chaves do seu pro
 
 ## Módulos
 
-- **Painel de Controle** *(diferencial competitivo — pensado para ficar aberto numa smart TV na marina)* — relógio ao vivo, contadores de embarcações na água / pedidos de serviço em aberto / abastecimentos pendentes, a **Fila de Rampa** (ver abaixo), listas de pedidos de serviço e de abastecimento em tempo real, e a gestão de vagas/atracação (grade visual, reserva vinculando cliente + embarcação + período). Atualiza sozinho a cada 45s. Tela em `TelaVagas.jsx`.
+- **Painel de Controle** *(diferencial competitivo — pensado para ficar aberto numa smart TV na marina)* — relógio ao vivo, contadores de embarcações na água / pedidos de serviço em aberto / abastecimentos pendentes, a **Fila de Rampa** (quadro visual do fluxo de retirada/retorno: Solicitado → Confirmado → Em andamento → Concluído) e listas de pedidos de serviço e de abastecimento em tempo real. Atualiza sozinho a cada 45s. Tela em `TelaVagas.jsx`. *Esta marina não trabalha com reserva de vaga/pier — só com a fila de retirada e retorno.*
 - **Clientes / Embarcações** — cadastro de sócios e das embarcações vinculadas a cada um.
 - **Financeiro** — cobranças (mensalidade, serviço, multa), controle de pendente/pago, integração com Mercado Pago via Edge Function, mais a aba **Previsão de Caixa**: resumo de entradas previstas x recebidas por mês e lista de próximos vencimentos, calculado direto a partir das cobranças (sem precisar de lançamento/programação separados).
 - **Manutenção** — ordens de serviço por embarcação (limpeza, motor, guincho, combustível, pintura), com status e prioridade.
 - **Documentação e Regularização** *(diferencial competitivo)* — controle de vencimento de documentos da embarcação (TIE, seguro, habilitação, vistoria), laudos técnicos emitidos por engenheiro responsável da marina, e acompanhamento de despachos junto à Capitania dos Portos.
 - **Botão "Serviços" (dashboard do cliente)** — catálogo de serviços de despacho junto à Capitania dos Portos (registro/TIE, transferência de propriedade, alteração cadastral, baixa, CSN, CHA, regularizações etc.), curado a partir da Carta de Serviços ao Usuário da Agência da Capitania dos Portos em Tramandaí (`src/lib/servicosDespacho.js`). O cliente escolhe o serviço e a solicitação vira um registro em "despachos" para a equipe da marina tratar com a Capitania. *A solicitação de laudo técnico foi retirada do app do cliente* — como o laudo é pré-requisito de alguns desses serviços, é a própria marina que entra em contato quando ele for necessário.
 - **Abastecimento** — o gestor controla o catálogo de combustíveis (nome, preço por litro, estoque); o cliente solicita abastecimento pelo app e recebe um QR de pagamento (Pix). *Hoje o QR é de demonstração* — para ativar o Pix real é preciso configurar uma conta Mercado Pago própria da marina (ver nota abaixo).
-- **Pessoas autorizadas** — o próprio cliente cadastra quem mais pode retirar/devolver a embarcação em seu nome (filho, sócio, funcionário...). Ao pedir retirada/retorno, ele escolhe quem vai de fato buscar/entregar, e a administração vê esse nome na tela de Vagas para conferir na rampa.
+- **Pessoas autorizadas** — o próprio cliente cadastra quem mais pode retirar/devolver a embarcação em seu nome (filho, sócio, funcionário...). Ao pedir retirada/retorno, ele escolhe quem vai de fato buscar/entregar, e a administração vê esse nome na Fila de Rampa do Painel de Controle para conferir.
 - **Notas fiscais (NFS-e)** — aba dentro do Financeiro para controlar quais cobranças precisam de nota fiscal de serviço. *Emissão real ainda não conectada* (ver nota abaixo) — hoje é um controle interno onde você registra o número da nota emitida pelo canal que já usa.
 
 ### ⚠️ Emissão real de NFS-e
