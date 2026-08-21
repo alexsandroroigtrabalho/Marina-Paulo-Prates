@@ -108,19 +108,20 @@ body {
 .nav-item.sair { margin-top: auto; }
 
 .conteudo { padding: 24px 32px 24px 40px; }
-/* Título e usuário dividem o espaço nas pontas em partes iguais (por isso
-   as pílulas do meio ficam centralizadas de verdade na página, não só no
-   espaço sobrando) — e cada ponta nunca fica menor que o próprio texto, pra
-   nunca sobrepor. Se a tela for estreita demais pra caber tudo numa linha só,
-   quebra pra uma segunda linha em vez de sobrepor. */
-.topo { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+/* Título e usuário ficam do tamanho do próprio texto, cada um na sua ponta —
+   nunca encolhem, então o nome da marina nunca corta. As pílulas do meio
+   ficam no espaço que sobra entre os dois e se centralizam nesse espaço (ou
+   seja, centralizadas entre o título e o usuário, não no meio da página
+   inteira). Se a tela for estreita demais pra caber tudo numa linha só,
+   quebra pra uma segunda linha em vez de sobrepor/cortar. */
+.topo { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
 .topo h1 {
-  flex: 1 1 0; min-width: max-content; font-size: 32px; font-weight: 400;
+  flex: 0 0 auto; font-size: 32px; font-weight: 400;
   font-family: 'Archivo Black', 'Arial Black', sans-serif;
   letter-spacing: 0.3px; color: var(--cor-rosa-dos-ventos); margin: 0;
 }
-.topo-centro { flex: 0 1 auto; display: flex; justify-content: center; }
-.usuario { flex: 1 1 0; min-width: max-content; text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
+.topo-centro { flex: 1 1 auto; display: flex; justify-content: center; }
+.usuario { flex: 0 0 auto; text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
 
 /* Cards quantitativos do Painel de Controle, ao lado do nome da marina no
    topo — economiza a linha que ocupavam antes, deixando mais espaço vertical
