@@ -5,11 +5,28 @@
  *  - Descida  → um apito longo (sinal de partida)
  *  - Retorno  → três apitos curtos
  *
- * O som é sintetizado na hora com a Web Audio API — não depende de nenhum
- * arquivo de áudio externo (nem de licença de uso). Osciladores numa oitava
- * grave, levemente dessintonizados entre si, dão o timbre "metálico" de
- * buzina de navio.
+ * Duas fontes de som, nessa ordem de preferência:
+ *
+ *  1) Gravação real: se existirem os arquivos `public/sons/buzina-longa.mp3`
+ *     (descida) e `public/sons/buzina-curta.mp3` (retorno — este é tocado 3x
+ *     em sequência), o painel toca essa gravação. Não vêm nenhum arquivo
+ *     junto por padrão — o ambiente onde este código é escrito não tem
+ *     acesso à internet pra baixar um som de buzina de verdade com licença
+ *     verificada. Pra usar uma gravação real: baixe um efeito sonoro de
+ *     buzina de navio de um banco de som livre (ex: bigsoundbank.com,
+ *     orangefreesounds.com, freesound.org — prefira licença CC0/domínio
+ *     público) e salve os arquivos com esses dois nomes exatos dentro de
+ *     `public/sons/`. Não precisa mexer em nenhum código depois disso.
+ *
+ *  2) Som sintetizado (fallback automático): se os arquivos acima não
+ *     existirem (ou falharem ao carregar), o painel gera o som na hora via
+ *     Web Audio API — fundamental grave + harmônicos + uma camada de ruído
+ *     filtrado por baixo do tom, imitando o "ar comprimido" de uma buzina
+ *     pneumática real. Não depende de nenhum arquivo externo.
  * ============================================================ */
+
+const ARQUIVO_LONGO = '/sons/buzina-longa.mp3'
+const ARQUIVO_CURTO = '/sons/buzina-curta.mp3'
 
 let contexto = null
 function getContexto() {
@@ -17,9 +34,37 @@ function getContexto() {
   return contexto
 }
 
-// Um apito: 3 osciladores (fundamental + 2 harmônicos) com envelope de
-// ataque rápido e corte suave, pra não estourar nem cortar seco.
-function tocarApito({ duracao, volume = 0.28, atraso = 0 }) {
+// Toca um arquivo de áudio e resolve quando termina; rejeita se o arquivo
+// não existir/não carregar (aí quem chamou cai pro som sintetizado).
+function tocarArquivo(caminho, volume = 0.6) {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(caminho)
+    audio.volume = volume
+    audio.addEventListener('ended', () => resolve(), { once: true })
+    audio.addEventListener('error', () => reject(new Error('arquivo indisponível')), { once: true })
+    audio.play().catch(reject)
+  })
+}
+
+function pausa(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Buffer de ruído branco (usado só pra dar textura de "ar" por baixo do tom
+// sintetizado — não é o som inteiro, só uma camada bem discreta).
+function ruidoBuffer(c, duracaoSegundos) {
+  const tamanho = Math.ceil(c.sampleRate * duracaoSegundos)
+  const buffer = c.createBuffer(1, tamanho, c.sampleRate)
+  const dados = buffer.getChannelData(0)
+  for (let i = 0; i < tamanho; i++) dados[i] = Math.random() * 2 - 1
+  return buffer
+}
+
+// Um apito sintetizado: fundamental + harmônicos com leve variação de
+// afinação ao longo do tempo (como um compressor de ar real, que nunca
+// segura a nota perfeitamente estável) e uma camada de ruído filtrado por
+// baixo — dá a sensação de ar comprimido saindo, em vez de um tom digital puro.
+function tocarApitoSintetizado({ duracao, volume = 0.28, atraso = 0 }) {
   const c = getContexto()
   if (c.state === 'suspended') c.resume()
   const inicio = c.currentTime + atraso
@@ -28,22 +73,26 @@ function tocarApito({ duracao, volume = 0.28, atraso = 0 }) {
   const saida = c.createGain()
   saida.connect(c.destination)
 
+  const fundamental = 115
   const harmonicos = [
-    { freq: 138, ganho: 1 },
-    { freq: 207, ganho: 0.45 },
-    { freq: 276, ganho: 0.18 },
+    { mult: 1, ganho: 1 },
+    { mult: 1.5, ganho: 0.4 },
+    { mult: 2, ganho: 0.22 },
+    { mult: 3, ganho: 0.09 },
   ]
 
-  harmonicos.forEach(({ freq, ganho }) => {
+  harmonicos.forEach(({ mult, ganho }) => {
+    const freq = fundamental * mult
     const osc = c.createOscillator()
     osc.type = 'sawtooth'
-    osc.frequency.value = freq
+    osc.frequency.setValueAtTime(freq, inicio)
+    osc.frequency.linearRampToValueAtTime(freq * 1.006, fim)
 
     const envelope = c.createGain()
     const pico = volume * ganho
     envelope.gain.setValueAtTime(0.0001, inicio)
-    envelope.gain.exponentialRampToValueAtTime(pico, inicio + 0.09)
-    envelope.gain.setValueAtTime(pico, Math.max(inicio + 0.09, fim - 0.15))
+    envelope.gain.exponentialRampToValueAtTime(pico, inicio + 0.07)
+    envelope.gain.setValueAtTime(pico, Math.max(inicio + 0.07, fim - 0.15))
     envelope.gain.exponentialRampToValueAtTime(0.0001, fim)
 
     osc.connect(envelope)
@@ -52,6 +101,25 @@ function tocarApito({ duracao, volume = 0.28, atraso = 0 }) {
     osc.stop(fim + 0.05)
   })
 
+  // Camada de ruído (ar comprimido) — bem baixa, só pra textura.
+  const ruido = c.createBufferSource()
+  ruido.buffer = ruidoBuffer(c, duracao + 0.1)
+  const filtro = c.createBiquadFilter()
+  filtro.type = 'bandpass'
+  filtro.frequency.value = 850
+  filtro.Q.value = 0.5
+  const ganhoRuido = c.createGain()
+  const picoRuido = volume * 0.06
+  ganhoRuido.gain.setValueAtTime(0.0001, inicio)
+  ganhoRuido.gain.exponentialRampToValueAtTime(picoRuido, inicio + 0.08)
+  ganhoRuido.gain.setValueAtTime(picoRuido, Math.max(inicio + 0.08, fim - 0.15))
+  ganhoRuido.gain.exponentialRampToValueAtTime(0.0001, fim)
+  ruido.connect(filtro)
+  filtro.connect(ganhoRuido)
+  ganhoRuido.connect(saida)
+  ruido.start(inicio)
+  ruido.stop(fim + 0.05)
+
   return fim
 }
 
@@ -59,19 +127,33 @@ function tocarApito({ duracao, volume = 0.28, atraso = 0 }) {
 // página — por isso o painel mostra um botão "Ativar sons" que chama isso
 // uma vez (e toca um apito curtinho de confirmação).
 export function ativarSons() {
-  tocarApito({ duracao: 0.2, volume: 0.15 })
+  tocarApitoSintetizado({ duracao: 0.2, volume: 0.15 })
 }
 
-// Descida: um apito longo (~4s) — sinal de partida.
-export function tocarSinalDescida() {
-  tocarApito({ duracao: 4, volume: 0.28 })
+// Descida: um apito longo (~4s) — sinal de partida. Tenta a gravação real
+// primeiro; se não existir, usa o som sintetizado.
+export async function tocarSinalDescida() {
+  try {
+    await tocarArquivo(ARQUIVO_LONGO)
+  } catch {
+    tocarApitoSintetizado({ duracao: 4, volume: 0.28 })
+  }
 }
 
-// Retorno: três apitos curtos, com pausa entre eles.
-export function tocarSinalRetorno() {
-  const duracao = 0.5
-  const pausa = 0.28
-  tocarApito({ duracao, volume: 0.28, atraso: 0 })
-  tocarApito({ duracao, volume: 0.28, atraso: duracao + pausa })
-  tocarApito({ duracao, volume: 0.28, atraso: 2 * (duracao + pausa) })
+// Retorno: três apitos curtos, com pausa entre eles. Mesma lógica: gravação
+// real (tocada 3x em sequência) ou, se não existir, som sintetizado.
+export async function tocarSinalRetorno() {
+  try {
+    await tocarArquivo(ARQUIVO_CURTO)
+    await pausa(280)
+    await tocarArquivo(ARQUIVO_CURTO)
+    await pausa(280)
+    await tocarArquivo(ARQUIVO_CURTO)
+  } catch {
+    const duracao = 0.5
+    const intervalo = 0.28
+    tocarApitoSintetizado({ duracao, volume: 0.28, atraso: 0 })
+    tocarApitoSintetizado({ duracao, volume: 0.28, atraso: duracao + intervalo })
+    tocarApitoSintetizado({ duracao, volume: 0.28, atraso: 2 * (duracao + intervalo) })
+  }
 }

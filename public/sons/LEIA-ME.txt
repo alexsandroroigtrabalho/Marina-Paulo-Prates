@@ -1,0 +1,23 @@
+Sons reais da Fila de Rampa (opcional)
+=======================================
+
+Por padrão, o Painel de Controle toca um apito de buzina SINTETIZADO (gerado
+na hora pelo navegador, sem depender de nenhum arquivo). Ele já imita bem o
+timbre de uma buzina de ar comprimido, mas se você quiser usar uma GRAVAÇÃO
+REAL de buzina de navio, é só colocar os arquivos abaixo nesta pasta, com
+esses nomes exatos — o painel detecta e passa a usar eles automaticamente,
+sem precisar mudar nada no código:
+
+  buzina-longa.mp3   → tocado no pedido de DESCIDA (um apito longo)
+  buzina-curta.mp3   → tocado no pedido de RETORNO (o painel toca este
+                        arquivo 3 vezes seguidas, com uma pausa curta entre
+                        cada uma — não precisa gravar as 3 juntas)
+
+Onde encontrar um som de buzina de navio de graça (verifique a licença antes
+de usar comercialmente — prefira "domínio público" ou "CC0"):
+  - bigsoundbank.com        (busque "horn of a ship" / "ocean liner horn")
+  - orangefreesounds.com    (busque "boat horn")
+  - freesound.org           (filtre por licença CC0)
+
+Se os arquivos não estiverem aqui (ou não carregarem por algum motivo), o
+painel volta sozinho pro som sintetizado — nada quebra.
