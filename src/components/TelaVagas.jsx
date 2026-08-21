@@ -150,11 +150,25 @@ export default function TelaVagas({ marinaId }) {
     )
   }
 
+  // Classe do status "Navegando": muda de cor sozinha conforme o relógio
+  // passa da previsão de retorno informada pelo cliente — amarelo assim que
+  // atrasa, vermelho depois de 2h de atraso. Sem previsão informada, fica no
+  // azul padrão (não dá pra saber se está atrasado).
+  function classeStatusNavegando(a) {
+    if (!a.previsao_retorno) return 'navegando'
+    const previsto = new Date(a.previsao_retorno).getTime()
+    if (agora.getTime() >= previsto + 2 * 60 * 60 * 1000) return 'navegando-critico'
+    if (agora.getTime() >= previsto) return 'navegando-atrasado'
+    return 'navegando'
+  }
+
   // Linha de "Navegando" — só o essencial: quem está com a embarcação, desde
-  // quando, e o abastecimento pago vinculado a essa saída. Sem a natureza do
-  // pedido, sem o indicativo luminoso e sem status: aqui é sempre Navegando.
+  // quando, e a previsão de retorno (com o status mudando de cor sozinho se
+  // atrasar). Sem a natureza do pedido, sem o indicativo luminoso e sem
+  // informação de abastecimento — isso já fica na Fila de Rampa, antes de sair
+  // pra água.
   function linhaNavegando(a) {
-    const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
+    const classeStatus = classeStatusNavegando(a)
     return (
       <tr key={a.id}>
         <td>
@@ -162,16 +176,8 @@ export default function TelaVagas({ marinaId }) {
           <div className="linha-sub">{a.clientes?.nome}</div>
         </td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-        <td>
-          {abastecimentosDaLinha.length === 0 && '—'}
-          {abastecimentosDaLinha.map((p) => (
-            <div key={p.id} className="fila-abastecimento-linha">
-              <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
-              <span className="badge status-pago">Pago</span>
-              <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
-            </div>
-          ))}
-        </td>
+        <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
+        <td><span className={`badge status-${classeStatus}`}>Navegando</span></td>
       </tr>
     )
   }
@@ -219,12 +225,13 @@ export default function TelaVagas({ marinaId }) {
         <thead>
           <tr>
             <th>Responsável</th>
-            <th>Horário</th>
-            <th>Abastecimento</th>
+            <th>Horário de saída</th>
+            <th>Previsão de retorno</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && <tr><td colSpan={3}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
         </tbody>
       </table>

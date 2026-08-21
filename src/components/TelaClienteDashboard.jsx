@@ -73,7 +73,7 @@ export default function TelaClienteDashboard({ perfil }) {
   useEffect(() => { carregar() }, [perfil])
 
   function abrirModal(tipo) {
-    setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data_hora: '', observacoes: '', autorizado_id: '' })
+    setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data_hora: '', observacoes: '', autorizado_id: '', previsao_retorno: '' })
     setModalTipo(tipo)
   }
 
@@ -90,6 +90,9 @@ export default function TelaClienteDashboard({ perfil }) {
         data_hora: formAgendamento.data_hora,
         observacoes: formAgendamento.observacoes || null,
         autorizado_id: formAgendamento.autorizado_id || null,
+        // Só faz sentido prever retorno numa descida — é o que o Painel de
+        // Controle usa pra avisar quando a embarcação está demorando.
+        previsao_retorno: modalTipo === 'retirada' && formAgendamento.previsao_retorno ? formAgendamento.previsao_retorno : null,
       })
       setModalTipo(null)
       await carregar()
@@ -338,6 +341,14 @@ export default function TelaClienteDashboard({ perfil }) {
             <input type="datetime-local" required
               value={formAgendamento.data_hora}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, data_hora: e.target.value })} />
+            {modalTipo === 'retirada' && (
+              <>
+                <label className="dica" style={{ marginBottom: -8 }}>Previsão de retorno (opcional)</label>
+                <input type="datetime-local"
+                  value={formAgendamento.previsao_retorno}
+                  onChange={(e) => setFormAgendamento({ ...formAgendamento, previsao_retorno: e.target.value })} />
+              </>
+            )}
             <select value={formAgendamento.autorizado_id}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, autorizado_id: e.target.value })}>
               <option value="">Quem vai buscar/entregar: eu mesmo</option>
