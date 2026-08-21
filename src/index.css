@@ -110,10 +110,15 @@ body {
 .nav-item.sair { margin-top: auto; }
 
 .conteudo { padding: 24px 32px 24px 40px; }
-.topo { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-.topo-esquerda { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-.topo h1 { font-size: 22px; color: var(--cor-primaria); margin: 0; }
-.usuario { font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
+/* Título e usuário dividem o espaço nas pontas em partes iguais (por isso
+   as pílulas do meio ficam centralizadas de verdade na página, não só no
+   espaço sobrando) — e cada ponta nunca fica menor que o próprio texto, pra
+   nunca sobrepor. Se a tela for estreita demais pra caber tudo numa linha só,
+   quebra pra uma segunda linha em vez de sobrepor. */
+.topo { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+.topo h1 { flex: 1 1 0; min-width: max-content; font-size: 34px; font-weight: 800; color: var(--cor-primaria); margin: 0; }
+.topo-centro { flex: 0 1 auto; display: flex; justify-content: center; }
+.usuario { flex: 1 1 0; min-width: max-content; text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
 
 /* Cards quantitativos do Painel de Controle, ao lado do nome da marina no
    topo — economiza a linha que ocupavam antes, deixando mais espaço vertical
@@ -148,7 +153,7 @@ body {
 
 /* ---------- Tabela (telas administrativas mais densas) ---------- */
 .tabela { width: 100%; border-collapse: collapse; background: var(--cor-card); border-radius: var(--raio); overflow: hidden; box-shadow: var(--sombra); }
-.tabela th, .tabela td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #EAF2F5; font-size: 14px; }
+.tabela th, .tabela td { text-align: center; padding: 12px 14px; border-bottom: 1px solid #EAF2F5; font-size: 14px; }
 .tabela th { background: #F5FAFC; color: var(--cor-texto-suave); font-weight: 600; }
 
 .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -193,12 +198,12 @@ button.badge:hover { filter: brightness(0.95); }
 .status-navegando { background: #DCF3E3; color: #1E7B3C; font-weight: 700; }
 .status-excedeu_retorno { background: #FCE0D6; color: #B0472A; font-weight: 700; }
 .status-resgate { background: #B00020; color: #fff; font-weight: 800; }
-.fila-abastecimento-linha { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
+.fila-abastecimento-linha { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
 .fila-abastecimento-linha button, .fila-tabela-acoes button {
   font-size: 12px; padding: 6px 12px; border: none; border-radius: 999px;
   background: var(--cor-secundaria); color: #fff; cursor: pointer; font-weight: 600;
 }
-.fila-tabela-acoes { display: flex; gap: 6px; flex-wrap: nowrap; }
+.fila-tabela-acoes { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; }
 .fila-tabela-acoes button.cancelar { background: #F5FAFC; color: var(--cor-alerta); }
 
 .modal-fundo {

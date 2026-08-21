@@ -32,10 +32,8 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
       </aside>
       <main className="conteudo">
         <header className="topo">
-          <div className="topo-esquerda">
-            <h1>{titulo}</h1>
-            {headerExtra}
-          </div>
+          <h1>{titulo}</h1>
+          <div className="topo-centro">{headerExtra}</div>
           <span className="usuario">{perfil?.nome || 'Usuário'} ({perfil?.role || '...'})</span>
         </header>
         <div className="corpo">{children}</div>
