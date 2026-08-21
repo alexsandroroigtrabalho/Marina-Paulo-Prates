@@ -113,7 +113,11 @@ body {
    nunca sobrepor. Se a tela for estreita demais pra caber tudo numa linha só,
    quebra pra uma segunda linha em vez de sobrepor. */
 .topo { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
-.topo h1 { flex: 1 1 0; min-width: max-content; font-size: 34px; font-weight: 800; color: var(--cor-primaria); margin: 0; }
+.topo h1 {
+  flex: 1 1 0; min-width: max-content; font-size: 34px; font-weight: 700;
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.3px; color: var(--cor-primaria); margin: 0;
+}
 .topo-centro { flex: 0 1 auto; display: flex; justify-content: center; }
 .usuario { flex: 1 1 0; min-width: max-content; text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
 
