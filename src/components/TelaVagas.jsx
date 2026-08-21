@@ -106,12 +106,6 @@ export default function TelaVagas({ marinaId, onResumo }) {
   // pagamento real for confirmado. A única ação do operador é dar baixa
   // (marcar entregue) depois de abastecer.
   const abastecimentosAtivos = pedidosAbastecimento.filter((p) => p.status === 'pago')
-  // Pedidos sem vínculo com nenhuma descida/subida atualmente visível na Fila
-  // de Rampa (pedido antigo, pedido feito antes de existir o agendamento, ou
-  // cujo agendamento já foi concluído/cancelado) — ainda precisam aparecer em
-  // algum lugar pra não passar batido.
-  const idsAgendamentosNaFila = new Set(linhasFila.map((a) => a.id))
-  const abastecimentosSemVinculo = abastecimentosAtivos.filter((p) => !p.agendamento_id || !idsAgendamentosNaFila.has(p.agendamento_id))
 
   // Histórico de manobras: toda descida ou subida já confirmada, mais recente
   // primeiro — vira o registro permanente assim que o operador confirma a
@@ -315,23 +309,6 @@ export default function TelaVagas({ marinaId, onResumo }) {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {abastecimentosSemVinculo.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
-          <h3>Abastecimento sem descida/subida em aberto</h3>
-          <p className="dica" style={{ marginTop: 0 }}>Pedido feito sem uma retirada/retorno correspondente na Fila de Rampa no momento.</p>
-          <div className="lista-cards">
-            {abastecimentosSemVinculo.map((p) => (
-              <div key={p.id} className="cliente-card">
-                <div className="linha"><b>{p.combustiveis?.nome}</b> — {Number(p.quantidade_litros).toFixed(2)} L</div>
-                <div className="linha">{p.clientes?.nome}{p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}</div>
-                <span className="badge status-pago">Pago</span>
-                <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
