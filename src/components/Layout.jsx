@@ -1,5 +1,5 @@
 import {
-  IconAnchor, IconUsers, IconCash, IconTool, IconLogout, IconFileCertificate, IconDeviceTv,
+  IconUsers, IconCash, IconTool, IconLogout, IconFileCertificate, IconDeviceTv,
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 
@@ -15,7 +15,6 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="logo"><IconAnchor size={20} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Marina Manager</div>
         <nav>
           {ITENS_MENU.map(({ chave, label, Icone }) => (
             <button

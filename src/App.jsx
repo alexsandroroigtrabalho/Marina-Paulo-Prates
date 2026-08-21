@@ -13,7 +13,9 @@ import TelaDocumentacao from './components/TelaDocumentacao'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
 const TELAS = {
-  vagas: { titulo: 'Painel de Controle', Componente: TelaVagas },
+  // O título mostrado no topo da tela é o nome da marina (não "Painel de
+  // Controle" — esse nome já aparece no item do menu lateral).
+  vagas: { titulo: TEMA_PADRAO.nomeExibicao, Componente: TelaVagas },
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },

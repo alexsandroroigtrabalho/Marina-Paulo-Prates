@@ -9,8 +9,8 @@ import {
 const INTERVALO_ATUALIZACAO_MS = 45000
 
 const TIPO_AGENDAMENTO_LABEL = {
-  retirada: 'Pedido de descida',
-  retorno: 'Pedido de subida',
+  retirada: 'Descida',
+  retorno: 'Subida',
 }
 
 // Cada notificação da Fila de Rampa só existe em 3 estados — sem etapas
@@ -106,12 +106,52 @@ export default function TelaVagas({ marinaId }) {
   const idsAgendamentosVisiveis = new Set(agendamentos.map((a) => a.id))
   const abastecimentosSemVinculo = abastecimentosAtivos.filter((p) => !p.agendamento_id || !idsAgendamentosVisiveis.has(p.agendamento_id))
 
-  // Linhas ativas da Fila de Rampa: tudo que não foi cancelado, e sem contar
-  // retornos já concluídos (embarcação de volta e atracada — não precisa mais
-  // aparecer). Ordenadas pelo horário do pedido.
+  // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
+  // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
+  // passa a aparecer na tabela "Embarcações na Água" logo abaixo.
   const linhasFila = agendamentos
-    .filter((a) => a.status !== 'cancelado' && statusLinha(a))
+    .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
+
+  // Renderiza uma linha da tabela de notificações — reaproveitada tanto na
+  // Fila de Rampa (com ações) quanto em Embarcações na Água (só leitura).
+  function linhaNotificacao(a, { comAcoes }) {
+    const status = statusLinha(a)
+    const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
+    return (
+      <tr key={a.id}>
+        <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
+        <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
+        <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</td>
+        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+        <td>{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'}</td>
+        <td>
+          {abastecimentosDaLinha.length === 0 && '—'}
+          {abastecimentosDaLinha.map((p) => (
+            <div key={p.id} className="fila-abastecimento-linha">
+              <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
+              <span className="badge status-pago">Pago</span>
+              <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
+            </div>
+          ))}
+        </td>
+        <td><span className={`badge status-${status}`}>{STATUS_LINHA_LABEL[status]}</span></td>
+        {comAcoes && (
+          <td>
+            <div className="fila-tabela-acoes">
+              {status === 'aguardando_descida' && (
+                <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar saída</button>
+              )}
+              {status === 'aguardando_retorno' && (
+                <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar retorno</button>
+              )}
+              <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+            </div>
+          </td>
+        )}
+      </tr>
+    )
+  }
 
   return (
     <div>
@@ -125,15 +165,9 @@ export default function TelaVagas({ marinaId }) {
         <div className="stat-card"><span>Abastecimentos pendentes</span><strong>{abastecimentosAtivos.length}</strong></div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h2 style={{ marginBottom: 4 }}>Fila de Rampa</h2>
-          <p className="dica" style={{ marginTop: 0, marginBottom: 16 }}>
-            🟢 pedido de descida · 🔴 pedido de subida. Acompanhe cada notificação em tempo real, com o abastecimento
-            já pago pedido para aquela descida ou subida direto na linha.
-          </p>
-        </div>
-        <button type="button" className="voltar" onClick={() => setModalCombustiveisAberto(true)} style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
+        <button type="button" className="voltar" onClick={() => setModalCombustiveisAberto(true)}>
           Gerenciar combustíveis
         </button>
       </div>
@@ -143,7 +177,7 @@ export default function TelaVagas({ marinaId }) {
           <tr>
             <th></th>
             <th>Pedido</th>
-            <th>Cliente / Embarcação</th>
+            <th>Responsável</th>
             <th>Horário</th>
             <th>Quem retira/entrega</th>
             <th>Abastecimento</th>
@@ -153,43 +187,26 @@ export default function TelaVagas({ marinaId }) {
         </thead>
         <tbody>
           {linhasFila.length === 0 && <tr><td colSpan={8}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
-          {linhasFila.map((a) => {
-            const status = statusLinha(a)
-            const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
-            return (
-              <tr key={a.id}>
-                <td><span className={`luz ${a.tipo === 'retirada' ? 'luz-verde' : 'luz-vermelha'}`} title={a.tipo === 'retirada' ? 'Descida' : 'Subida'} /></td>
-                <td>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
-                <td><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</td>
-                <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-                <td>{a.autorizados ? `${a.autorizados.nome} (${a.autorizados.parentesco})` : 'O próprio cliente'}</td>
-                <td>
-                  {abastecimentosDaLinha.length === 0 && '—'}
-                  {abastecimentosDaLinha.map((p) => (
-                    <div key={p.id} className="fila-abastecimento-linha">
-                      <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
-                      <span className="badge status-pago">Pago</span>
-                      <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
-                    </div>
-                  ))}
-                </td>
-                <td><span className={`badge status-${status}`}>{STATUS_LINHA_LABEL[status]}</span></td>
-                <td>
-                  <div className="fila-tabela-acoes">
-                    {status === 'aguardando_descida' && (
-                      <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar saída</button>
-                    )}
-                    {status === 'aguardando_retorno' && (
-                      <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar retorno</button>
-                    )}
-                    {status !== 'navegando' && (
-                      <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
+          {linhasFila.map((a) => linhaNotificacao(a, { comAcoes: true }))}
+        </tbody>
+      </table>
+
+      <h2>Embarcações na Água</h2>
+      <table className="tabela tabela-fila" style={{ marginBottom: 32 }}>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Pedido</th>
+            <th>Responsável</th>
+            <th>Horário</th>
+            <th>Quem retira/entrega</th>
+            <th>Abastecimento</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {naAgua.length === 0 && <tr><td colSpan={7}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.map((a) => linhaNotificacao(a, { comAcoes: false }))}
         </tbody>
       </table>
 
@@ -211,52 +228,22 @@ export default function TelaVagas({ marinaId }) {
         </div>
       )}
 
-      <div className="painel-controle-grid">
-        <div>
-          <h3>Embarcações na água</h3>
+      {abastecimentosSemVinculo.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <h3>Abastecimento sem descida/subida em aberto</h3>
+          <p className="dica" style={{ marginTop: 0 }}>Pedido feito sem uma retirada/retorno correspondente na Fila de Rampa no momento.</p>
           <div className="lista-cards">
-            {naAgua.length === 0 && <p className="dica" style={{ marginTop: 0 }}>Nenhuma embarcação na água no momento.</p>}
-            {naAgua.map((a) => (
-              <div key={a.id} className="cliente-card">
-                <div className="linha"><b>{a.embarcacoes?.nome}</b></div>
-                <div className="linha">{a.clientes?.nome}</div>
-                <div className="linha">Saiu às {new Date(a.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h3>Pedidos de serviço</h3>
-          <div className="lista-cards">
-            {pedidosServico.length === 0 && <p className="dica" style={{ marginTop: 0 }}>Nenhum pedido de serviço em aberto.</p>}
-            {pedidosServico.map((p) => (
-              <div key={`${p.origem}-${p.id}`} className="cliente-card">
-                <div className="linha"><b>{p.origem} — {(p.tipo || '').replace('_', ' ')}</b></div>
+            {abastecimentosSemVinculo.map((p) => (
+              <div key={p.id} className="cliente-card">
+                <div className="linha"><b>{p.combustiveis?.nome}</b> — {Number(p.quantidade_litros).toFixed(2)} L</div>
                 <div className="linha">{p.clientes?.nome}{p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}</div>
-                <span className={`badge status-${p.status}`}>{(p.status || '').replace('_', ' ')}</span>
+                <span className="badge status-pago">Pago</span>
+                <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
               </div>
             ))}
           </div>
         </div>
-
-        {abastecimentosSemVinculo.length > 0 && (
-          <div>
-            <h3>Abastecimento sem descida/subida em aberto</h3>
-            <p className="dica" style={{ marginTop: 0 }}>Pedido feito sem uma retirada/retorno correspondente na Fila de Rampa no momento.</p>
-            <div className="lista-cards">
-              {abastecimentosSemVinculo.map((p) => (
-                <div key={p.id} className="cliente-card">
-                  <div className="linha"><b>{p.combustiveis?.nome}</b> — {Number(p.quantidade_litros).toFixed(2)} L</div>
-                  <div className="linha">{p.clientes?.nome}{p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}</div>
-                  <span className="badge status-pago">Pago</span>
-                  <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {modalCombustiveisAberto && (
         <div className="modal-fundo" onClick={() => setModalCombustiveisAberto(false)}>

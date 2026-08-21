@@ -81,22 +81,29 @@ body {
 .erro { color: #B00020; font-size: 13px; }
 
 /* ---------- Shell interno (área administrativa) ---------- */
-.app-shell { display: flex; min-height: 100vh; }
+.app-shell { min-height: 100vh; }
 
+/* Menu lateral de visualização dinâmica: some, deixando só uma faixa fina na
+   borda; passar o mouse por cima revela o menu completo por cima do
+   conteúdo, sem empurrar o Painel de Controle — maximiza o espaço de tela. */
 .sidebar {
-  width: 240px; background: var(--cor-primaria); color: #fff;
+  position: fixed; top: 0; left: 0; height: 100vh; width: 220px; z-index: 40;
+  background: var(--cor-primaria); color: #fff;
   display: flex; flex-direction: column; padding: 20px 12px;
+  transform: translateX(-208px); transition: transform .2s ease-out;
+  box-shadow: 3px 0 16px rgba(0,0,0,0.25);
 }
-.logo { font-weight: 700; font-size: 18px; margin-bottom: 24px; padding: 0 8px; }
+.sidebar:hover, .sidebar:focus-within { transform: translateX(0); }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   background: none; border: none; color: #BFE0EC; text-align: left;
   padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
+  white-space: nowrap;
 }
 .nav-item:hover, .nav-item.ativo { background: rgba(255,255,255,0.14); color: #fff; }
 .nav-item.sair { margin-top: auto; }
 
-.conteudo { flex: 1; padding: 24px 32px; }
+.conteudo { padding: 24px 32px 24px 40px; }
 .topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .topo h1 { font-size: 22px; color: var(--cor-primaria); margin: 0; }
 .usuario { font-size: 13px; color: var(--cor-texto-suave); }
