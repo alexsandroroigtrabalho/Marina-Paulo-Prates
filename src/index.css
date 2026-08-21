@@ -228,7 +228,7 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .modal-card {
   background: var(--cor-card); padding: 24px; border-radius: var(--raio); width: 340px;
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; gap: 10px; overflow-x: hidden;
 }
 .modal-card input, .modal-card select { padding: 10px 12px; border: 1px solid #D8E6EC; border-radius: 10px; }
 .acoes-modal { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
@@ -266,6 +266,8 @@ button.badge:hover { filter: brightness(0.95); }
 .status-texto { font-size: 13px; font-weight: 600; }
 .status-texto.em-dia { color: var(--cor-secundaria); }
 .status-texto.pendente { color: var(--cor-alerta); }
+.status-texto.cancelado { color: var(--cor-texto-suave); }
+.status-texto.sos { color: #A23B2E; }
 
 /* ---------- Painel do cliente: ações principais (retirada/retorno/S.O.S./serviços) ----------
    Cards de cantos bem arredondados, fonte Poppins (mais arredondada/amigável
@@ -301,12 +303,12 @@ button.badge:hover { filter: brightness(0.95); }
 /* Seletor de nível 0 dentro do modal "Serviços" (Abastecimento / Manutenção
    / Regularização) — só ícone + nome curto, sem texto descritivo; o
    detalhamento fica pra dentro de cada opção. */
-.servicos-seletor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 8px; }
+.servicos-seletor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
 .servicos-seletor button {
-  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
-  padding: 16px 6px; border-radius: 14px; border: 1.5px solid var(--cor-secundaria-clara);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+  min-height: 76px; padding: 12px 4px; border-radius: 14px; border: 1.5px solid var(--cor-secundaria-clara);
   background: #fff; color: var(--cor-primaria); font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
-  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-size: 11.5px; font-weight: 600; line-height: 1.2; cursor: pointer; overflow-wrap: break-word;
 }
 .servicos-seletor button:disabled { opacity: 0.5; cursor: not-allowed; }
 

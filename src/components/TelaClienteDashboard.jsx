@@ -7,8 +7,8 @@ import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarResgateAgendamento, listarLaudosCliente, listarDespachosCliente,
-  criarDespacho, criarOrdemServico, listarCombustiveis, listarPedidosAbastecimentoCliente, solicitarAbastecimento,
-  listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
+  criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
+  solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
@@ -42,6 +42,26 @@ const STATUS_LABEL = {
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
   entregue: 'Entregue',
+  // Status de ordens_servico (marina.ordens_servico) — grafia feminina,
+  // distintos dos de agendamentos ("concluido"/"cancelado").
+  aberta: 'Aberta',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada',
+}
+
+// Nomes por extenso dos tipos de manobra, usados no Diário de Bordo (o
+// Painel de Controle da equipe tem seu próprio TIPO_AGENDAMENTO_LABEL igual
+// a este, em TelaVagas.jsx).
+const TIPO_AGENDAMENTO_LABEL = { retirada: 'Retirada', retorno: 'Retorno' }
+
+// Agrupa os status de todas as origens (agendamentos, abastecimento,
+// manutenção, despachos, laudos) em 3 cores só, pro Diário de Bordo não
+// virar uma sopa de badges diferentes — mesmo padrão minimalista (texto
+// colorido, sem bolinha/pill) já usado no resto do painel do cliente.
+function classeStatusDiario(status) {
+  if (['concluido', 'concluida', 'confirmado', 'pago', 'entregue', 'emitido', 'aprovado'].includes(status)) return 'em-dia'
+  if (['cancelado', 'cancelada', 'indeferido'].includes(status)) return 'cancelado'
+  return 'pendente'
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
@@ -89,6 +109,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const [agendamentos, setAgendamentos] = useState([])
   const [laudos, setLaudos] = useState([])
   const [despachos, setDespachos] = useState([])
+  const [ordensServico, setOrdensServico] = useState([])
   const [combustiveis, setCombustiveis] = useState([])
   const [abastecimentos, setAbastecimentos] = useState([])
   const [autorizados, setAutorizados] = useState([])
@@ -126,6 +147,7 @@ export default function TelaClienteDashboard({ perfil }) {
     setAgendamentos(await listarAgendamentosCliente(cli.id))
     setLaudos(await listarLaudosCliente(cli.id))
     setDespachos(await listarDespachosCliente(cli.id))
+    setOrdensServico(await listarOrdensServicoCliente(cli.id))
     setCombustiveis((await listarCombustiveis(cli.marina_id)).filter((c) => c.ativo))
     setAbastecimentos(await listarPedidosAbastecimentoCliente(cli.id))
     setAutorizados(await listarAutorizados(cli.id))
@@ -289,6 +311,73 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
+  // Diário de Bordo: junta retiradas/retornos, abastecimentos, manutenção,
+  // regularização, laudos e o S.O.S. (quando ativo) numa única linha do
+  // tempo, mais recente primeiro. Cada origem tem seu próprio campo de
+  // data — não existe uma coluna "created_at" em comum entre todas as
+  // tabelas, por isso cada map já resolve pro melhor campo disponível.
+  const diarioDeBordo = [
+    ...agendamentos.map((a) => ({
+      id: `ag-${a.id}`,
+      icone: a.tipo === 'retirada' ? IconSteeringWheel : IconAnchor,
+      titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}`,
+      detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      statusLabel: STATUS_LABEL[a.status] || a.status,
+      statusClasse: classeStatusDiario(a.status),
+      quando: a.data_hora,
+    })),
+    ...abastecimentos.map((p) => ({
+      id: `ab-${p.id}`,
+      icone: IconGasStation,
+      titulo: `Abastecimento — ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}`,
+      detalhe: `${Number(p.quantidade_litros).toFixed(2)} L — R$ ${Number(p.valor_total).toFixed(2)}`,
+      statusLabel: STATUS_LABEL[p.status] || p.status,
+      statusClasse: classeStatusDiario(p.status),
+      quando: p.created_at,
+    })),
+    ...ordensServico.map((os) => ({
+      id: `os-${os.id}`,
+      icone: IconTools,
+      titulo: `Manutenção — ${TIPOS_MANUTENCAO.find((t) => t.key === os.tipo_servico)?.label || os.tipo_servico}${os.embarcacoes?.nome ? ` — ${os.embarcacoes.nome}` : ''}`,
+      detalhe: os.descricao || '',
+      statusLabel: STATUS_LABEL[os.status] || os.status,
+      statusClasse: classeStatusDiario(os.status),
+      quando: os.data_abertura,
+    })),
+    ...despachos.map((d) => ({
+      id: `de-${d.id}`,
+      icone: IconFileCertificate,
+      titulo: `Regularização — ${d.tipo?.replace(/_/g, ' ') || ''}${d.embarcacoes?.nome ? ` — ${d.embarcacoes.nome}` : ''}`,
+      detalhe: `${d.orgao || ''}${d.numero_protocolo ? ` · Protocolo ${d.numero_protocolo}` : ''}`,
+      statusLabel: STATUS_LABEL[d.status] || d.status,
+      statusClasse: classeStatusDiario(d.status),
+      quando: d.created_at,
+    })),
+    ...laudos.map((l) => ({
+      id: `la-${l.id}`,
+      icone: IconFileCertificate,
+      titulo: `Laudo técnico — ${l.tipo}${l.embarcacoes?.nome ? ` — ${l.embarcacoes.nome}` : ''}`,
+      detalhe: l.finalidade || '',
+      statusLabel: STATUS_LABEL[l.status] || l.status,
+      statusClasse: classeStatusDiario(l.status),
+      quando: l.data_solicitacao,
+    })),
+    // S.O.S.: só mostra o estado ATUAL (não existe histórico com data/hora
+    // de pedidos de resgate anteriores — resgate_solicitado é um booleano
+    // na própria linha do agendamento em navegação).
+    ...(agendamentoNavegando?.resgate_solicitado
+      ? [{
+          id: `sos-${agendamentoNavegando.id}`,
+          icone: IconLifebuoy,
+          titulo: `S.O.S. — ${agendamentoNavegando.embarcacoes?.nome || 'embarcação'}`,
+          detalhe: 'Resgate solicitado à equipe da marina',
+          statusLabel: 'Aguardando equipe',
+          statusClasse: 'sos',
+          quando: agendamentoNavegando.data_hora,
+        }]
+      : []),
+  ].sort((a, b) => new Date(b.quando) - new Date(a.quando))
+
   function abrirModalAbastecimento() {
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '' })
     setModalAbastecimentoAberto(true)
@@ -394,48 +483,23 @@ export default function TelaClienteDashboard({ perfil }) {
             <p className="painel-cliente-nota">inclui despachos, laudos e abastecimento</p>
           </div>
 
-          {abastecimentos.length > 0 && (
-            <>
-              <h3>Meus abastecimentos</h3>
-              <div className="lista-cards">
-                {abastecimentos.map((p) => (
-                  <div key={p.id} className="cliente-card">
-                    <div className="linha"><b>{p.combustiveis?.nome}</b> — {Number(p.quantidade_litros).toFixed(2)} L{p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}</div>
-                    <div className="linha">Total: R$ {Number(p.valor_total).toFixed(2)}</div>
-                    <span className={`status-texto ${p.status === 'pago' || p.status === 'entregue' ? 'em-dia' : 'pendente'}`}>
-                      {STATUS_LABEL[p.status] || p.status}
-                    </span>
+          <h3>Diário de Bordo</h3>
+          <div className="lista-cards">
+            {diarioDeBordo.length === 0 && <p className="dica">Nenhum registro ainda.</p>}
+            {diarioDeBordo.map((item) => {
+              const Icone = item.icone
+              return (
+                <div key={item.id} className="cliente-card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <Icone size={20} style={{ color: 'var(--cor-secundaria)', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="linha"><b>{item.titulo}</b></div>
+                    {item.detalhe && <div className="linha">{item.detalhe}</div>}
+                    <span className={`status-texto ${item.statusClasse}`}>{item.statusLabel}</span>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {(laudos.length > 0 || despachos.length > 0) && (
-            <>
-              <h3>Serviços solicitados</h3>
-              <div className="lista-cards">
-                {laudos.map((l) => (
-                  <div key={`laudo-${l.id}`} className="cliente-card">
-                    <div className="linha"><b>Laudo — {l.tipo}</b>{l.embarcacoes?.nome ? ` — ${l.embarcacoes.nome}` : ''}</div>
-                    <div className="linha">Finalidade: {l.finalidade || '-'}</div>
-                    <span className={`status-texto ${l.status === 'emitido' ? 'em-dia' : 'pendente'}`}>
-                      {STATUS_LABEL[l.status] || l.status}
-                    </span>
-                  </div>
-                ))}
-                {despachos.map((d) => (
-                  <div key={`despacho-${d.id}`} className="cliente-card">
-                    <div className="linha"><b>Despacho — {d.tipo?.replace('_', ' ')}</b>{d.embarcacoes?.nome ? ` — ${d.embarcacoes.nome}` : ''}</div>
-                    <div className="linha">{d.orgao}{d.numero_protocolo ? ` · Protocolo ${d.numero_protocolo}` : ''}</div>
-                    <span className={`status-texto ${d.status === 'concluido' || d.status === 'aprovado' ? 'em-dia' : 'pendente'}`}>
-                      {STATUS_LABEL[d.status] || d.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+                </div>
+              )
+            })}
+          </div>
 
           <h3>Minhas cobranças</h3>
           <div className="lista-cards">

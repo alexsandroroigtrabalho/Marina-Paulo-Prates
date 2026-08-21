@@ -123,6 +123,16 @@ export async function criarOrdemServico(os) {
   return data[0]
 }
 
+export async function listarOrdensServicoCliente(clienteId) {
+  const { data, error } = await db
+    .from('ordens_servico')
+    .select('*, embarcacoes(nome)')
+    .eq('cliente_id', clienteId)
+    .order('data_abertura', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export async function atualizarStatusOS(osId, status) {
   const patch = { status }
   if (status === 'concluida') patch.data_conclusao = new Date().toISOString()
