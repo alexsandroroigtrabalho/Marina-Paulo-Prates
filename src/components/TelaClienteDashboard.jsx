@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAnchor, IconLogout, IconSteeringWheel, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
-  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy,
+  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
@@ -68,7 +68,7 @@ function classeStatusDiario(status) {
 // configurações da conta (hoje só "Pessoas autorizadas", que antes era um
 // botão fixo no meio do painel). Mesmo padrão visual do menu de ações do
 // Painel de Controle da equipe (classes .menu-acoes* já existentes).
-function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados }) {
+function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, cobrancasPendentes, onAbrirCobrancas }) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef(null)
 
@@ -96,6 +96,10 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados }) {
           <button type="button" onClick={() => executar(onAbrirAutorizados)}>
             <IconUsers size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Pessoas autorizadas ({autorizadosCount})
           </button>
+          <button type="button" onClick={() => executar(onAbrirCobrancas)}>
+            <IconReceipt2 size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+            Minhas cobranças{cobrancasPendentes > 0 ? ` (${cobrancasPendentes} pendente${cobrancasPendentes > 1 ? 's' : ''})` : ''}
+          </button>
         </div>
       )}
     </div>
@@ -114,6 +118,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const [abastecimentos, setAbastecimentos] = useState([])
   const [autorizados, setAutorizados] = useState([])
   const [modalAutorizadosAberto, setModalAutorizadosAberto] = useState(false)
+  const [modalCobrancasAberto, setModalCobrancasAberto] = useState(false)
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
@@ -444,6 +449,8 @@ export default function TelaClienteDashboard({ perfil }) {
             <MenuConfigCliente
               autorizadosCount={autorizados.filter((a) => a.ativo).length}
               onAbrirAutorizados={abrirModalAutorizados}
+              cobrancasPendentes={cobrancas.filter((c) => c.status !== 'pago').length}
+              onAbrirCobrancas={() => setModalCobrancasAberto(true)}
             />
           )}
         </div>
@@ -480,10 +487,10 @@ export default function TelaClienteDashboard({ perfil }) {
             <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
               <IconClipboardList size={20} /> Serviços
             </button>
-            <p className="painel-cliente-nota">inclui despachos, laudos e abastecimento</p>
+            <p className="painel-cliente-nota">Abastecimento, Manutenção e Regularização</p>
           </div>
 
-          <h3>Diário de Bordo</h3>
+          <h3 style={{ textAlign: 'center' }}>Diário de Bordo</h3>
           <div className="lista-cards">
             {diarioDeBordo.length === 0 && <p className="dica">Nenhum registro ainda.</p>}
             {diarioDeBordo.map((item) => {
@@ -499,20 +506,6 @@ export default function TelaClienteDashboard({ perfil }) {
                 </div>
               )
             })}
-          </div>
-
-          <h3>Minhas cobranças</h3>
-          <div className="lista-cards">
-            {cobrancas.length === 0 && <p className="dica">Nenhuma cobrança ainda.</p>}
-            {cobrancas.map((c) => (
-              <div key={c.id} className="cliente-card">
-                <div className="linha"><b>{c.descricao}</b></div>
-                <div className="linha">Vencimento: {c.vencimento} — R$ {Number(c.valor).toFixed(2)}</div>
-                <span className={`status-texto ${c.status === 'pago' ? 'em-dia' : 'pendente'}`}>
-                  {c.status === 'pago' ? 'Pagamento em dia' : 'Pagamento pendente'}
-                </span>
-              </div>
-            ))}
           </div>
         </>
       )}
@@ -773,6 +766,29 @@ export default function TelaClienteDashboard({ perfil }) {
 
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalAutorizadosAberto(false)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalCobrancasAberto && (
+        <div className="modal-fundo" onClick={() => setModalCobrancasAberto(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Minhas cobranças</h3>
+            <div className="lista-cards">
+              {cobrancas.length === 0 && <p className="dica">Nenhuma cobrança ainda.</p>}
+              {cobrancas.map((c) => (
+                <div key={c.id} className="cliente-card">
+                  <div className="linha"><b>{c.descricao}</b></div>
+                  <div className="linha">Vencimento: {c.vencimento} — R$ {Number(c.valor).toFixed(2)}</div>
+                  <span className={`status-texto ${c.status === 'pago' ? 'em-dia' : 'pendente'}`}>
+                    {c.status === 'pago' ? 'Pagamento em dia' : 'Pagamento pendente'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalCobrancasAberto(false)}>Fechar</button>
             </div>
           </div>
         </div>
