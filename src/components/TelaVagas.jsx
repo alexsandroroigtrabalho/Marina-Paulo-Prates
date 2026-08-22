@@ -38,6 +38,13 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   const [agora, setAgora] = useState(new Date())
   const [sonsAtivados, setSonsAtivados] = useState(false)
 
+  // Conta quantas vezes carregar() já terminou de verdade — usado pra
+  // distinguir "página acabou de abrir, dados ainda nem chegaram" (0) de
+  // "primeira leva de dados reais acabou de chegar" (1) de "isso é uma
+  // atualização de verdade, pode ter notificação nova" (2+). Sem isso, o som
+  // tocava sozinho ao abrir a página pra tudo que já estava esperando.
+  const cargasCompletadasRef = useRef(0)
+
   async function carregar() {
     if (!marinaId) return
     const [a, p, c, doc] = await Promise.all([
@@ -45,6 +52,7 @@ export default function TelaVagas({ marinaId, onAcoes }) {
       listarPedidosAbastecimento(marinaId), listarCombustiveis(marinaId), listarDocumentos(marinaId),
     ])
     setAgendamentos(a); setPedidosAbastecimento(p); setCombustiveis(c); setDocumentos(doc)
+    cargasCompletadasRef.current += 1
   }
 
   useEffect(() => { carregar() }, [marinaId])
@@ -122,15 +130,16 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   }
 
   // Sinal sonoro: toca sozinho assim que uma notificação NOVA entra na Fila
-  // de Rampa — apito longo pra descida, três apitos curtos pra retorno. Na
-  // primeira carga do painel não toca nada (senão dispararia pra tudo que já
-  // estava esperando quando a TV foi ligada) — só a partir da atualização
-  // seguinte, comparando com o que já tinha sido visto.
+  // de Rampa — apito longo pra descida, três apitos curtos pra retorno. Não
+  // toca nada nem no instante em que a página abre (dados ainda vazios) nem
+  // na primeira leva de dados reais que chega logo em seguida (senão
+  // dispararia pra tudo que já estava esperando quando a TV foi ligada) — só
+  // a partir da atualização seguinte, comparando com o que já tinha sido visto.
   const idsConhecidosRef = useRef(null)
   const idsLinhaFilaAtual = linhasFila.map((a) => a.id).sort().join(',')
   useEffect(() => {
     const idsAtuais = new Set(linhasFila.map((a) => a.id))
-    if (idsConhecidosRef.current === null) {
+    if (idsConhecidosRef.current === null || cargasCompletadasRef.current <= 1) {
       idsConhecidosRef.current = idsAtuais
       return
     }
