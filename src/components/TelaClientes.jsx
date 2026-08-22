@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listarClientes, salvarCliente, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas } from '../lib/db'
+import { listarClientes, salvarCliente, removerCliente, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas } from '../lib/db'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
@@ -31,6 +31,7 @@ export default function TelaClientes({ marinaId }) {
   const [clienteExpandido, setClienteExpandido] = useState(null)
   const [formEmbarcacaoExtra, setFormEmbarcacaoExtra] = useState({ ...EMBARCACAO_VAZIA })
   const [salvandoExtra, setSalvandoExtra] = useState(false)
+  const [removendoId, setRemovendoId] = useState(null)
 
   async function carregar() {
     if (!marinaId) return
@@ -95,6 +96,30 @@ export default function TelaClientes({ marinaId }) {
   async function alternarSuspensao(cliente) {
     await salvarCliente({ id: cliente.id, acesso_suspenso: !cliente.acesso_suspenso })
     carregar()
+  }
+
+  // Remoção definitiva do cadastro. Pede confirmação por ser irreversível;
+  // se o cliente tiver embarcações, cobranças ou outros registros
+  // vinculados, o banco recusa a remoção (chave estrangeira) e mostramos
+  // uma mensagem orientando a usar "Suspender acesso" nesse caso.
+  async function removerClienteConfirmado(cliente) {
+    const confirmado = window.confirm(
+      `Remover ${cliente.nome} definitivamente? Essa ação não pode ser desfeita.`
+    )
+    if (!confirmado) return
+    setRemovendoId(cliente.id)
+    try {
+      await removerCliente(cliente.id)
+      await carregar()
+    } catch (err) {
+      if (err.code === '23503' || /foreign key/i.test(err.message || '')) {
+        alert('Não é possível remover: este cliente ainda tem embarcações, cobranças ou outros registros vinculados. Remova-os primeiro ou use "Suspender acesso" em vez de remover.')
+      } else {
+        alert('Não foi possível remover o cliente: ' + err.message)
+      }
+    } finally {
+      setRemovendoId(null)
+    }
   }
 
   function abrirFormEmbarcacaoExtra(clienteId) {
@@ -190,6 +215,9 @@ export default function TelaClientes({ marinaId }) {
                     </button>
                     <button type="button" onClick={() => alternarSuspensao(c)}>
                       {c.acesso_suspenso ? 'Reativar acesso' : 'Suspender acesso'}
+                    </button>
+                    <button type="button" onClick={() => removerClienteConfirmado(c)} disabled={removendoId === c.id}>
+                      {removendoId === c.id ? 'Removendo...' : 'Remover cliente'}
                     </button>
                     <button type="button" className="voltar" onClick={() => abrirFormEmbarcacaoExtra(c.id)}>
                       {clienteExpandido === c.id ? 'Cancelar' : '+ Embarcação'}

@@ -55,6 +55,17 @@ export async function salvarCliente(cliente) {
   return data[0]
 }
 
+// Remove o cadastro do cliente definitivamente. Não há ON DELETE CASCADE
+// nas tabelas relacionadas (embarcações, cobranças, ordens de serviço,
+// despachos, laudos etc. — ver schema.sql), então o banco recusa a remoção
+// (violação de chave estrangeira) enquanto existir algum registro vinculado
+// a esse cliente; quem chama trata esse erro e orienta a usar "Suspender
+// acesso" nesse caso, em vez de tentar apagar o histórico em cascata.
+export async function removerCliente(id) {
+  const { error } = await db.from('clientes').delete().eq('id', id)
+  if (error) throw error
+}
+
 /* ---------- Embarcações ---------- */
 export async function listarEmbarcacoes(marinaId) {
   const { data, error } = await db
