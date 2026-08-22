@@ -92,6 +92,20 @@ export async function listarCobrancas(marinaId) {
   return data
 }
 
+// Versão "achatada" das cobranças pra tela "Arrecadação detalhada": junta o
+// nome do cliente e, quando a cobrança nasceu de uma reserva (vaga) ou de uma
+// ordem de serviço, o nome da embarcação vinculada a uma delas — os dois
+// únicos jeitos hoje de uma cobrança carregar uma embarcação/jet específico.
+export async function listarCobrancasDetalhado(marinaId) {
+  const { data, error } = await db
+    .from('cobrancas')
+    .select('*, clientes(nome), reservas(embarcacoes(nome)), ordens_servico(embarcacoes(nome))')
+    .eq('marina_id', marinaId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export async function criarCobranca(cobranca) {
   const { data, error } = await db.from('cobrancas').insert(cobranca).select()
   if (error) throw error
