@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listarClientes, salvarCliente, removerCliente, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas } from '../lib/db'
+import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas } from '../lib/db'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
@@ -98,25 +98,47 @@ export default function TelaClientes({ marinaId }) {
     carregar()
   }
 
-  // Remoção definitiva do cadastro. Pede confirmação por ser irreversível;
-  // se o cliente tiver embarcações, cobranças ou outros registros
-  // vinculados, o banco recusa a remoção (chave estrangeira) e mostramos
-  // uma mensagem orientando a usar "Suspender acesso" nesse caso.
+  // Remoção definitiva do cadastro. Pede confirmação por ser irreversível.
+  // Se o cliente tiver embarcações, cobranças ou outros registros
+  // vinculados, o banco recusa a remoção só do cadastro (chave estrangeira)
+  // — nesse caso oferecemos ao administrador a opção de remover também
+  // todos esses vínculos junto (apaga o histórico inteiro do cliente), ou
+  // cancelar e usar "Suspender acesso" em vez de remover.
   async function removerClienteConfirmado(cliente) {
     const confirmado = window.confirm(
       `Remover ${cliente.nome} definitivamente? Essa ação não pode ser desfeita.`
     )
     if (!confirmado) return
+
     setRemovendoId(cliente.id)
     try {
       await removerCliente(cliente.id)
       await carregar()
+      return
     } catch (err) {
-      if (err.code === '23503' || /foreign key/i.test(err.message || '')) {
-        alert('Não é possível remover: este cliente ainda tem embarcações, cobranças ou outros registros vinculados. Remova-os primeiro ou use "Suspender acesso" em vez de remover.')
-      } else {
+      const temVinculos = err.code === '23503' || /foreign key/i.test(err.message || '')
+      if (!temVinculos) {
         alert('Não foi possível remover o cliente: ' + err.message)
+        setRemovendoId(null)
+        return
       }
+    }
+
+    const removerTudo = window.confirm(
+      `${cliente.nome} tem embarcações, cobranças, ordens de serviço ou outros registros vinculados — por isso não dá pra remover só o cadastro.\n\n` +
+      'Clique em OK para remover o cliente E todos esses vínculos (apaga todo o histórico dele, ação irreversível), ' +
+      'ou em Cancelar para manter tudo como está e usar "Suspender acesso" em vez de remover.'
+    )
+    if (!removerTudo) {
+      setRemovendoId(null)
+      return
+    }
+
+    try {
+      await removerClienteComVinculos(cliente.id)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível remover o cliente e os vínculos: ' + err.message)
     } finally {
       setRemovendoId(null)
     }

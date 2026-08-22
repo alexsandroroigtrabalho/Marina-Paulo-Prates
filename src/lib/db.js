@@ -59,11 +59,58 @@ export async function salvarCliente(cliente) {
 // nas tabelas relacionadas (embarcações, cobranças, ordens de serviço,
 // despachos, laudos etc. — ver schema.sql), então o banco recusa a remoção
 // (violação de chave estrangeira) enquanto existir algum registro vinculado
-// a esse cliente; quem chama trata esse erro e orienta a usar "Suspender
-// acesso" nesse caso, em vez de tentar apagar o histórico em cascata.
+// a esse cliente; quem chama trata esse erro e oferece a opção de remover
+// os vínculos junto (removerClienteComVinculos, abaixo) ou usar "Suspender
+// acesso" em vez de remover.
 export async function removerCliente(id) {
   const { error } = await db.from('clientes').delete().eq('id', id)
   if (error) throw error
+}
+
+async function excluirPorCliente(tabela, clienteId) {
+  const { error } = await db.from(tabela).delete().eq('cliente_id', clienteId)
+  if (error) throw error
+}
+
+// Remove o cliente E todos os registros vinculados a ele em cascata —
+// usada quando o administrador confirma explicitamente que quer apagar
+// também o histórico (embarcações, cobranças, ordens de serviço,
+// despachos, laudos, notas fiscais, agendamentos, pedidos de
+// abastecimento, autorizados, documentos das embarcações).
+//
+// A ordem das exclusões segue o mapa de chaves estrangeiras do
+// schema.sql: cada passo remove primeiro quem referencia o que o próximo
+// passo vai apagar (ex.: notas_fiscais referencia cobrancas, então sai
+// antes de cobrancas; cobrancas referencia reservas/ordens_servico, então
+// sai antes delas). Sem essa ordem o Postgres recusa a exclusão por
+// violação de chave estrangeira.
+export async function removerClienteComVinculos(clienteId) {
+  const { data: embarcacoesCliente, error: erroEmb } = await db
+    .from('embarcacoes')
+    .select('id')
+    .eq('cliente_id', clienteId)
+  if (erroEmb) throw erroEmb
+  const idsEmbarcacoes = (embarcacoesCliente || []).map((e) => e.id)
+
+  await excluirPorCliente('notas_fiscais', clienteId)
+  await excluirPorCliente('pedidos_abastecimento', clienteId)
+  await excluirPorCliente('cobrancas', clienteId)
+  await excluirPorCliente('agendamentos', clienteId)
+
+  if (idsEmbarcacoes.length > 0) {
+    const { error } = await db.from('documentos_embarcacao').delete().in('embarcacao_id', idsEmbarcacoes)
+    if (error) throw error
+  }
+
+  await excluirPorCliente('laudos', clienteId)
+  await excluirPorCliente('despachos', clienteId)
+  await excluirPorCliente('ordens_servico', clienteId)
+  await excluirPorCliente('reservas', clienteId)
+  await excluirPorCliente('autorizados', clienteId)
+  await excluirPorCliente('embarcacoes', clienteId)
+
+  const { error: erroCliente } = await db.from('clientes').delete().eq('id', clienteId)
+  if (erroCliente) throw erroCliente
 }
 
 /* ---------- Embarcações ---------- */
