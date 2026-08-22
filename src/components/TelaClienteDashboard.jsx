@@ -81,6 +81,7 @@ function IconVeleiro({ size = 20, style }) {
 const TIPOS_MANUTENCAO = [
   { key: 'limpeza', label: 'Limpeza do casco' },
   { key: 'manutencao_motor', label: 'Manutenção de motor' },
+  { key: 'jet_ski', label: 'Manutenção de jet ski' },
   { key: 'guincho', label: 'Guincho / reboque' },
   { key: 'pintura', label: 'Pintura' },
   { key: 'outro', label: 'Outro' },

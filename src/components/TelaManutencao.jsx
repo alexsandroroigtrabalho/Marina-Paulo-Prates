@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listarOrdensServico, criarOrdemServico, atualizarStatusOS, listarEmbarcacoes, listarClientes } from '../lib/db'
 
-const TIPOS = ['limpeza', 'manutencao_motor', 'guincho', 'combustivel', 'pintura', 'outro']
+const TIPOS = ['limpeza', 'manutencao_motor', 'jet_ski', 'guincho', 'combustivel', 'pintura', 'outro']
 
 export default function TelaManutencao({ marinaId }) {
   const [ordens, setOrdens] = useState([])
