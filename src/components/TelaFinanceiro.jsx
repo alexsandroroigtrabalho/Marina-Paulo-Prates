@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IconReceipt2 } from '@tabler/icons-react'
 import {
   listarCobrancas, criarCobranca, marcarCobrancaPaga, listarClientes,
   listarNotasFiscais, criarNotaFiscal, atualizarNotaFiscal,
@@ -191,7 +192,11 @@ export default function TelaFinanceiro({ marinaId }) {
         <div className="stat-card"><span>Recebido</span><strong>R$ {totalRecebido.toFixed(2)}</strong></div>
       </div>
 
-      <button type="button" style={{ marginBottom: 16 }} onClick={abrirArrecadacaoDetalhada}>Arrecadação detalhada</button>
+      <button type="button" className="btn-primario"
+        style={{ width: 'auto', marginBottom: 20, padding: '12px 22px', fontSize: 15 }}
+        onClick={abrirArrecadacaoDetalhada}>
+        <IconReceipt2 size={18} /> Arrecadação detalhada
+      </button>
 
       <div className="abas">
         <button className={aba === 'cobrancas' ? 'ativo' : ''} onClick={() => setAba('cobrancas')}>Cobranças</button>
