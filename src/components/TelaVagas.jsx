@@ -296,12 +296,6 @@ export default function TelaVagas({ marinaId, onAcoes }) {
 
   return (
     <div>
-      <img
-        src="/rv-invictus-logo.png"
-        alt="RV Invictus — Consultoria e Gestão de Processos"
-        className="pagina-cliente-logo"
-      />
-
       <p className="painel-controle-relogio">
         {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
       </p>

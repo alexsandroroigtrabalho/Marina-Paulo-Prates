@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconSettings } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
-import { listarClientes, listarEmbarcacoes } from '../lib/db'
+import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv } from '../lib/exportarPlanilha'
 
 const ITENS_MENU = [
   { chave: 'vagas', label: 'Painel de Controle' },
@@ -11,70 +11,23 @@ const ITENS_MENU = [
   { chave: 'documentacao', label: 'Despachos' },
 ]
 
-// Escapa um valor pra uma célula de CSV separado por ";" (padrão do Excel
-// em pt-BR): só entra entre aspas quando o texto tem ";", aspas ou quebra
-// de linha, dobrando aspas internas conforme a regra do formato.
-function paraCsv(valor) {
-  const texto = valor === null || valor === undefined ? '' : String(valor)
-  if (/[";\n]/.test(texto)) return `"${texto.replace(/"/g, '""')}"`
-  return texto
+// Cada aba com exportação tem sua própria planilha (dados completos da
+// área, não só o que está filtrado na tela) — a engrenagem no cabeçalho
+// mostra só a opção que faz sentido pra aba ativa no momento. Vagas
+// (Painel de Controle) não entra aqui: ela já tem sua própria engrenagem
+// (MenuAcoesPainel, com o aviso sonoro e as demais ações do painel).
+// Financeiro também não tem opção de exportação por enquanto.
+const OPCOES_EXPORTACAO = {
+  clientes: { rotulo: 'Exportar planilha de clientes', exportar: exportarClientesCsv },
+  manutencao: { rotulo: 'Exportar planilha de manutenção', exportar: exportarManutencaoCsv },
+  documentacao: { rotulo: 'Exportar/Baixar planilha', exportar: exportarDespachosCsv },
 }
 
-// Monta a planilha (CSV) com todos os clientes cadastrados na marina — um
-// por linha, com as embarcações vinculadas juntas numa coluna só — e
-// dispara o download direto no navegador (sem precisar de backend).
-async function exportarClientesCsv(marinaId) {
-  const [clientes, embarcacoes] = await Promise.all([
-    listarClientes(marinaId),
-    listarEmbarcacoes(marinaId),
-  ])
-
-  const cabecalho = [
-    'Nº', 'Nome', 'E-mail', 'Telefone', 'Carteira/CPF', 'Endereço', 'Observações',
-    'Embarcações', 'Cadastro', 'Pagamento', 'Acesso à Agenda',
-  ]
-  const linhas = clientes.map((c, i) => {
-    const embarcacoesDoCliente = embarcacoes
-      .filter((e) => e.cliente_id === c.id)
-      .map((e) => `${e.nome} (${e.tipo})`)
-      .join(' · ')
-    const acesso = c.acesso_suspenso
-      ? 'Suspenso'
-      : c.pagamento_confirmado ? 'Liberado' : 'Aguardando pagamento'
-    return [
-      i + 1,
-      c.nome,
-      c.email,
-      c.telefone,
-      c.cpf_cnpj,
-      c.endereco,
-      c.observacoes,
-      embarcacoesDoCliente,
-      c.cadastro_confirmado ? 'Realizado' : 'Pendente',
-      c.pagamento_confirmado ? 'Efetuado' : 'Pendente',
-      acesso,
-    ].map(paraCsv).join(';')
-  })
-
-  // BOM no início garante que o Excel abra os acentos corretamente.
-  const csv = '﻿' + [cabecalho.map(paraCsv).join(';'), ...linhas].join('\r\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
-// Engrenagem de configurações da administração, ao lado do nome do usuário
-// no cabeçalho — mesmo padrão visual/interação da engrenagem de ações do
-// Painel de Controle (MenuAcoesPainel), mas sempre visível em qualquer
-// tela interna. Por enquanto só tem a opção de exportar a planilha de
-// clientes; é o lugar natural pra outras configurações administrativas.
-function MenuConfigAdmin({ marinaId }) {
+// Engrenagem de exportação no cabeçalho — mesmo padrão visual/interação
+// da engrenagem de ações do Painel de Controle (MenuAcoesPainel): ícone
+// que abre um dropdown com a opção de planilha da aba ativa. Não aparece
+// em abas sem opção de exportação configurada acima.
+function MenuExportar({ telaAtiva, marinaId }) {
   const [aberto, setAberto] = useState(false)
   const [exportando, setExportando] = useState(false)
   const ref = useRef(null)
@@ -88,11 +41,14 @@ function MenuConfigAdmin({ marinaId }) {
     return () => document.removeEventListener('mousedown', aoClicarFora)
   }, [aberto])
 
+  const opcao = OPCOES_EXPORTACAO[telaAtiva]
+  if (!opcao) return null
+
   async function exportar() {
     if (!marinaId || exportando) return
     setExportando(true)
     try {
-      await exportarClientesCsv(marinaId)
+      await opcao.exportar(marinaId)
       setAberto(false)
     } catch (err) {
       alert('Não foi possível exportar a planilha: ' + err.message)
@@ -109,7 +65,7 @@ function MenuConfigAdmin({ marinaId }) {
       {aberto && (
         <div className="menu-acoes-dropdown">
           <button type="button" onClick={exportar} disabled={exportando}>
-            {exportando ? 'Exportando...' : 'Exportar clientes (planilha)'}
+            {exportando ? 'Exportando...' : opcao.rotulo}
           </button>
         </div>
       )}
@@ -186,8 +142,13 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
         <header className="topo">
           <h1>{titulo}</h1>
           <div className="topo-direita">
-            <span className="usuario">{perfil?.nome || 'Usuário'} ({perfil?.role || '...'})</span>
-            <MenuConfigAdmin marinaId={perfil?.marina_id} />
+            {/* Na aba Financeiro o nome do usuário logado fica de fora do
+                cabeçalho, a pedido — nas demais abas continua aparecendo
+                normalmente. */}
+            {telaAtiva !== 'financeiro' && (
+              <span className="usuario">{perfil?.nome || 'Usuário'} ({perfil?.role || '...'})</span>
+            )}
+            <MenuExportar telaAtiva={telaAtiva} marinaId={perfil?.marina_id} />
             <MenuAcoesPainel acoes={acoesPainel} />
           </div>
         </header>
