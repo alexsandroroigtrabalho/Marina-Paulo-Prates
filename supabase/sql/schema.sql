@@ -74,6 +74,19 @@ CREATE TABLE marina.clientes (
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 
+-- Status de cadastro/pagamento/acesso — controla, junto com a policy
+-- "cliente_cria_agendamento" (mais abaixo), se o cliente pode acessar a
+-- Agenda (retirada/retorno). "cadastro_confirmado" fica true por padrão
+-- porque, quando é a administração quem cadastra o cliente (tela "Adicionar
+-- cliente"), o cadastro já nasce completo.
+ALTER TABLE marina.clientes ADD COLUMN cadastro_confirmado BOOLEAN DEFAULT true;  -- "Cadastro realizado"
+-- pagamento_confirmado nasce "true" só pra não trancar o acesso de quem já
+-- era cliente antes desta coluna existir; a partir de agora todo cliente
+-- novo já entra com o default abaixo (false — precisa de confirmação).
+ALTER TABLE marina.clientes ADD COLUMN pagamento_confirmado BOOLEAN DEFAULT true; -- "Pagamento efetuado" — libera a Agenda
+ALTER TABLE marina.clientes ALTER COLUMN pagamento_confirmado SET DEFAULT false;
+ALTER TABLE marina.clientes ADD COLUMN acesso_suspenso BOOLEAN DEFAULT false;     -- suspensão manual pela administração, independente do pagamento
+
 -- ------------------------------------------------------------
 -- 4. EMBARCAÇÕES
 -- ------------------------------------------------------------
@@ -418,9 +431,18 @@ CREATE POLICY "admin_marina_agendamentos" ON marina.agendamentos
   WITH CHECK (marina_id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
 
 -- Agendamentos: cliente solicita, vê e cancela os próprios (enquanto ainda "solicitado")
+-- A Agenda (retirada/retorno) só aceita pedido de quem está com o pagamento
+-- confirmado e não está com o acesso suspenso — aplica no banco a mesma
+-- regra que a interface do cliente já impõe (mensagem "Aguardando
+-- pagamento"), pra ninguém conseguir contornar a trava só chamando a API.
 CREATE POLICY "cliente_cria_agendamento" ON marina.agendamentos
   FOR INSERT TO authenticated
-  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+  WITH CHECK (
+    cliente_id IN (
+      SELECT id FROM marina.clientes
+      WHERE user_id = auth.uid() AND pagamento_confirmado = true AND acesso_suspenso = false
+    )
+  );
 
 CREATE POLICY "cliente_ve_proprios_agendamentos" ON marina.agendamentos
   FOR SELECT TO authenticated

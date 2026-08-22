@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAnchor, IconLogout, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
-  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2,
+  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
@@ -11,6 +11,29 @@ import {
   solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
+import { TEMA_PADRAO } from '../lib/tema'
+
+// QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
+// acesso), no mesmo espírito do QR de abastecimento — sem valor fixo (quem
+// paga digita o valor combinado com a administração). O pagamento real via
+// Pix ainda não está conectado; a confirmação, por enquanto, é manual (a
+// administração confirma na tela "Clientes").
+const QR_PAGAMENTO_DEMO = '00020126DEMO-PIX-MARINA5204000053039865802BR5913MARINA-MANAGER6009DEMO-QR'
+
+// Mensagens de status da Agenda (retirada/retorno), derivadas de
+// pagamento_confirmado + acesso_suspenso — os mesmos dois campos que a
+// policy "cliente_cria_agendamento" do banco usa pra travar/liberar de
+// verdade, então a mensagem na tela nunca destoa do que o banco permite.
+function statusAgendaCliente(cliente) {
+  if (!cliente) return null
+  if (cliente.acesso_suspenso) {
+    return { texto: 'Acesso suspenso pela administração da marina.', classe: 'cancelado', liberado: false }
+  }
+  if (!cliente.pagamento_confirmado) {
+    return { texto: 'Aguardando pagamento — a Agenda é liberada automaticamente assim que a marina confirma.', classe: 'pendente', liberado: false }
+  }
+  return { texto: 'Pagamento confirmado — Agenda liberada.', classe: 'em-dia', liberado: true }
+}
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
 
@@ -177,6 +200,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '' })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
   const [pedidoGerado, setPedidoGerado] = useState(null) // pedido recém-criado, para mostrar o QR
+  const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false)
 
   async function carregar() {
     const { data: cli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
@@ -198,6 +222,15 @@ export default function TelaClienteDashboard({ perfil }) {
   useEffect(() => { carregar() }, [perfil])
 
   function abrirModal(tipo) {
+    // Guarda de segurança: os botões já ficam desabilitados quando o acesso
+    // não está liberado, mas a checagem que realmente vale é a policy do
+    // banco (agendamentos só aceita INSERT com pagamento confirmado e sem
+    // suspensão) — isto aqui só evita abrir o formulário à toa.
+    const statusAgenda = statusAgendaCliente(cliente)
+    if (!statusAgenda?.liberado) {
+      alert(statusAgenda?.texto || 'Aguardando pagamento — fale com a administração da marina.')
+      return
+    }
     setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data_hora: '', observacoes: '', autorizado_id: '', previsao_retorno: '' })
     setModalTipo(tipo)
   }
@@ -497,12 +530,28 @@ export default function TelaClienteDashboard({ perfil }) {
 
       {cliente && (
         <>
+          {(() => {
+            const statusAgenda = statusAgendaCliente(cliente)
+            return (
+              <p className={`status-texto ${statusAgenda.classe}`} style={{ textAlign: 'center', display: 'block', marginBottom: 12 }}>
+                {!statusAgenda.liberado && <IconLock size={13} style={{ verticalAlign: -2, marginRight: 4 }} />}
+                {statusAgenda.texto}
+              </p>
+            )
+          })()}
+
           <div className="painel-cliente-acoes">
             <div className="painel-cliente-linha">
-              <button type="button" className="painel-cliente-btn painel-cliente-btn-primario" onClick={() => abrirModal('retirada')}>
+              <button type="button" className="painel-cliente-btn painel-cliente-btn-primario"
+                disabled={!statusAgendaCliente(cliente)?.liberado}
+                title={!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined}
+                onClick={() => abrirModal('retirada')}>
                 <IconTimao size={20} /> Retirada
               </button>
-              <button type="button" className="painel-cliente-btn painel-cliente-btn-outline" onClick={() => abrirModal('retorno')}>
+              <button type="button" className="painel-cliente-btn painel-cliente-btn-outline"
+                disabled={!statusAgendaCliente(cliente)?.liberado}
+                title={!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined}
+                onClick={() => abrirModal('retorno')}>
                 <IconAnchor size={20} /> Retorno
               </button>
             </div>
@@ -608,6 +657,10 @@ export default function TelaClienteDashboard({ perfil }) {
                 <button type="button" onClick={() => setModoServicos('regularizacao')}>
                   <IconFileCertificate size={22} />
                   Regularização
+                </button>
+                <button type="button" onClick={() => { setModalServicosAberto(false); setModalPagamentosAberto(true) }}>
+                  <IconReceipt2 size={22} />
+                  Pagamentos
                 </button>
               </div>
             )}
@@ -762,6 +815,44 @@ export default function TelaClienteDashboard({ perfil }) {
           </div>
         </div>
       )}
+
+      {modalPagamentosAberto && cliente && (() => {
+        const statusAgenda = statusAgendaCliente(cliente)
+        return (
+          <div className="modal-fundo" onClick={() => setModalPagamentosAberto(false)}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+              <h3>Pagamentos</h3>
+              <p className={`status-texto ${statusAgenda.classe}`}>{statusAgenda.texto}</p>
+
+              {!statusAgenda.liberado && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+                    <QRCodeSVG value={QR_PAGAMENTO_DEMO} size={200} />
+                  </div>
+                  <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
+                    QR de demonstração — o pagamento real via Pix ainda não está conectado.
+                  </p>
+                  {TEMA_PADRAO.linkPagamento ? (
+                    <p>
+                      <a className="btn-primario" style={{ display: 'inline-block', textDecoration: 'none' }}
+                        href={TEMA_PADRAO.linkPagamento} target="_blank" rel="noopener noreferrer">
+                        Abrir link de pagamento
+                      </a>
+                    </p>
+                  ) : (
+                    <p className="dica">Link de pagamento ainda não configurado pela marina — fale com a administração.</p>
+                  )}
+                  <p className="dica">
+                    Depois de pagar, a administração confirma o recebimento e sua Agenda (Retirada/Retorno) é liberada automaticamente — não é preciso fazer mais nada aqui.
+                  </p>
+                </>
+              )}
+
+              <button className="btn-primario" style={{ width: '100%' }} onClick={() => setModalPagamentosAberto(false)}>Fechar</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {modalAutorizadosAberto && (
         <div className="modal-fundo" onClick={() => setModalAutorizadosAberto(false)}>

@@ -5,6 +5,11 @@ export const TEMA_PADRAO = {
   corSecundaria: '#26799F',
   logoUrl: null,
   nomeExibicao: 'Marina Paulo Prates',
+  // Link de pagamento da marina, mostrado em "Serviços → Pagamentos" no
+  // painel do cliente (ex: link de cobrança do Mercado Pago, PagSeguro
+  // etc.). Fica null até a marina configurar sua conta de recebimento —
+  // a tela de Pagamentos mostra um aviso enquanto isso.
+  linkPagamento: null,
 }
 
 export function aplicarTema(configJson) {
