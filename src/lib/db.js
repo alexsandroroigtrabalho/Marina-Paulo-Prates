@@ -1,9 +1,42 @@
-import { db } from './supabase'
+import { db, supabase } from './supabase'
 
 /* ============================================================
  * Todas as operações de banco de dados ficam centralizadas aqui,
  * seguindo o padrão do projeto RV Invictus (src/lib/db.js).
  * ============================================================ */
+
+/* ---------- Marina (config_json: apitos, e-mail de relatório, branding) ---------- */
+export async function buscarMarina(marinaId) {
+  const { data, error } = await db.from('marinas').select('*').eq('id', marinaId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// Faz merge raso com o config_json já existente, pra não apagar outras
+// chaves salvas ali (ex: gravar os apitos não pode apagar o e-mail do
+// relatório de documentos, e vice-versa).
+export async function atualizarConfigMarina(marinaId, configPatch) {
+  const atual = await buscarMarina(marinaId)
+  const novoConfig = { ...(atual?.config_json || {}), ...configPatch }
+  const { error } = await db.from('marinas').update({ config_json: novoConfig }).eq('id', marinaId)
+  if (error) throw error
+  return novoConfig
+}
+
+// Dispara na hora o relatório de documentos vencidos/a vencer (botão
+// "Enviar relatório agora" na aba Despachos) — chama a Edge Function
+// send-email, que faz a consulta e o envio do lado do servidor (usa a
+// service role, então o navegador nunca vê a chave de serviço). O mesmo
+// envio também acontece sozinho todo dia via agendamento no Supabase
+// (Edge Functions → Cron), sem precisar clicar em nada.
+export async function enviarRelatorioDocumentosAgora(marinaId) {
+  const { data, error } = await supabase.functions.invoke('send-email', {
+    body: { tipo: 'relatorio_documentos', marina_id: marinaId },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
 
 /* ---------- Clientes ---------- */
 export async function listarClientes(marinaId) {

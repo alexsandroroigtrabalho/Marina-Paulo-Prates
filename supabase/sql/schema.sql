@@ -552,6 +552,21 @@ CREATE POLICY "operador_marinas" ON marina.marinas
   FOR ALL TO authenticated
   USING ((SELECT role FROM marina.perfis WHERE id = auth.uid()) = 'operador');
 
+-- Staff da própria marina: vê e edita o registro da própria marina (usado
+-- hoje pelo Painel de Controle pra guardar em config_json a quantidade de
+-- apitos de chegada/saída — sem isto, só o "operador" da plataforma
+-- conseguia ler/gravar ali, e a marina em si nunca tinha acesso à própria
+-- configuração).
+CREATE POLICY "staff_ve_propria_marina" ON marina.marinas
+  FOR SELECT TO authenticated
+  USING (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
+CREATE POLICY "staff_atualiza_propria_marina" ON marina.marinas
+  FOR UPDATE TO authenticated
+  USING (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+  WITH CHECK (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
+
 
 -- ============================================================
 -- Permissões de schema (necessário pois "marina" não é o schema "public")

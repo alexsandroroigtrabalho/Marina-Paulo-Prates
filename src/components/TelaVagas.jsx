@@ -2,9 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
-  listarDocumentos,
+  listarDocumentos, buscarMarina, atualizarConfigMarina,
 } from '../lib/db'
 import { ativarSons, tocarSinalDescida, tocarSinalRetorno } from '../lib/sons'
+
+// Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
+// usada até a marina configurar a própria (Painel de Controle → engrenagem
+// → "Configurar apitos", guardado em marinas.config_json).
+const APITOS_PADRAO = { descida: 1, retorno: 3 }
 
 // A cada quantos segundos o painel se atualiza sozinho — pensado para rodar
 // numa smart TV na marina, sem alguém precisando ficar dando refresh. Quanto
@@ -37,6 +42,45 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
   const [sonsAtivados, setSonsAtivados] = useState(false)
+  const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
+  const [modalApitosAberto, setModalApitosAberto] = useState(false)
+  const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
+  const [salvandoApitos, setSalvandoApitos] = useState(false)
+
+  // Carrega a quantidade de apitos configurada pela marina (se ainda não
+  // configurou nada, fica no padrão: 1 apito longo na descida, 3 curtos no
+  // retorno — igual já era antes de existir essa configuração).
+  useEffect(() => {
+    if (!marinaId) return
+    buscarMarina(marinaId).then((m) => {
+      const cfg = m?.config_json || {}
+      setConfigApitos({
+        descida: cfg.apitosDescida ?? APITOS_PADRAO.descida,
+        retorno: cfg.apitosRetorno ?? APITOS_PADRAO.retorno,
+      })
+    })
+  }, [marinaId])
+
+  function abrirConfigApitos() {
+    setFormApitos(configApitos)
+    setModalApitosAberto(true)
+  }
+
+  async function salvarConfigApitos(e) {
+    e.preventDefault()
+    setSalvandoApitos(true)
+    try {
+      const novoConfig = {
+        descida: Math.max(1, Number(formApitos.descida) || 1),
+        retorno: Math.max(1, Number(formApitos.retorno) || 1),
+      }
+      await atualizarConfigMarina(marinaId, { apitosDescida: novoConfig.descida, apitosRetorno: novoConfig.retorno })
+      setConfigApitos(novoConfig)
+      setModalApitosAberto(false)
+    } finally {
+      setSalvandoApitos(false)
+    }
+  }
 
   // Conta quantas vezes carregar() já terminou de verdade — usado pra
   // distinguir "página acabou de abrir, dados ainda nem chegaram" (0) de
@@ -145,12 +189,12 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     }
     linhasFila.forEach((a) => {
       if (!idsConhecidosRef.current.has(a.id)) {
-        if (a.tipo === 'retirada') tocarSinalDescida()
-        else tocarSinalRetorno()
+        if (a.tipo === 'retirada') tocarSinalDescida(configApitos.descida)
+        else tocarSinalRetorno(configApitos.retorno)
       }
     })
     idsConhecidosRef.current = idsAtuais
-  }, [idsLinhaFilaAtual])
+  }, [idsLinhaFilaAtual, configApitos])
 
   function ativarSonsPainel() {
     ativarSons()
@@ -166,8 +210,9 @@ export default function TelaVagas({ marinaId, onAcoes }) {
       ativarSons: ativarSonsPainel,
       abrirHistorico: () => setModalHistoricoAberto(true),
       abrirCombustiveis: () => setModalCombustiveisAberto(true),
+      abrirConfigApitos,
     })
-  }, [sonsAtivados])
+  }, [sonsAtivados, configApitos])
 
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
   function linhaNotificacao(a) {
@@ -386,6 +431,33 @@ export default function TelaVagas({ marinaId, onAcoes }) {
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalHistoricoAberto(false)}>Fechar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {modalApitosAberto && (
+        <div className="modal-fundo" onClick={() => setModalApitosAberto(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3>Configurar apitos</h3>
+            <p className="dica">Quantas vezes o sinal sonoro toca ao confirmar cada manobra na Fila de Rampa. Vale para toda a equipe.</p>
+
+            <form className="form-vertical" onSubmit={salvarConfigApitos}>
+              <label>
+                Apitos na saída (descida)
+                <input required type="number" min={1} step={1} value={formApitos.descida}
+                  onChange={(e) => setFormApitos({ ...formApitos, descida: e.target.value })} />
+              </label>
+              <label>
+                Apitos na chegada (retorno)
+                <input required type="number" min={1} step={1} value={formApitos.retorno}
+                  onChange={(e) => setFormApitos({ ...formApitos, retorno: e.target.value })} />
+              </label>
+
+              <div className="acoes-modal">
+                <button type="button" onClick={() => setModalApitosAberto(false)}>Cancelar</button>
+                <button type="submit" disabled={salvandoApitos}>{salvandoApitos ? 'Salvando…' : 'Salvar'}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

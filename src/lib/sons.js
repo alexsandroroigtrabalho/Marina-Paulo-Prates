@@ -130,30 +130,38 @@ export function ativarSons() {
   tocarApitoSintetizado({ duracao: 0.2, volume: 0.15 })
 }
 
-// Descida: um apito longo (~4s) — sinal de partida. Tenta a gravação real
-// primeiro; se não existir, usa o som sintetizado.
-export async function tocarSinalDescida() {
-  try {
-    await tocarArquivo(ARQUIVO_LONGO)
-  } catch {
-    tocarApitoSintetizado({ duracao: 4, volume: 0.28 })
+// Descida: apito(s) longo(s) (~4s cada) — sinal de partida. A quantidade é
+// configurável pela administração (Painel de Controle → engrenagem →
+// "Configurar apitos"); por padrão é 1. Tenta a gravação real primeiro; se
+// não existir, usa o som sintetizado — nos dois casos, repete "vezes" vezes.
+export async function tocarSinalDescida(vezes = 1) {
+  const n = Math.max(1, Number(vezes) || 1)
+  for (let i = 0; i < n; i++) {
+    try {
+      await tocarArquivo(ARQUIVO_LONGO)
+    } catch {
+      tocarApitoSintetizado({ duracao: 4, volume: 0.28 })
+      await pausa(4200)
+    }
+    if (i < n - 1) await pausa(500)
   }
 }
 
-// Retorno: três apitos curtos, com pausa entre eles. Mesma lógica: gravação
-// real (tocada 3x em sequência) ou, se não existir, som sintetizado.
-export async function tocarSinalRetorno() {
+// Retorno: apitos curtos em sequência, com pausa entre eles. Quantidade
+// configurável pela administração; por padrão são 3. Mesma lógica: gravação
+// real (tocada "vezes" vezes em sequência) ou, se não existir, som sintetizado.
+export async function tocarSinalRetorno(vezes = 3) {
+  const n = Math.max(1, Number(vezes) || 1)
   try {
-    await tocarArquivo(ARQUIVO_CURTO)
-    await pausa(280)
-    await tocarArquivo(ARQUIVO_CURTO)
-    await pausa(280)
-    await tocarArquivo(ARQUIVO_CURTO)
+    for (let i = 0; i < n; i++) {
+      await tocarArquivo(ARQUIVO_CURTO)
+      if (i < n - 1) await pausa(280)
+    }
   } catch {
     const duracao = 0.5
     const intervalo = 0.28
-    tocarApitoSintetizado({ duracao, volume: 0.28, atraso: 0 })
-    tocarApitoSintetizado({ duracao, volume: 0.28, atraso: duracao + intervalo })
-    tocarApitoSintetizado({ duracao, volume: 0.28, atraso: 2 * (duracao + intervalo) })
+    for (let i = 0; i < n; i++) {
+      tocarApitoSintetizado({ duracao, volume: 0.28, atraso: i * (duracao + intervalo) })
+    }
   }
 }

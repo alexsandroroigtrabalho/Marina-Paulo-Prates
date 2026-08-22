@@ -47,6 +47,7 @@ function MenuAcoesPainel({ acoes }) {
           </button>
           <button type="button" onClick={() => executar(acoes.abrirHistorico)}>Histórico de manobras</button>
           <button type="button" onClick={() => executar(acoes.abrirCombustiveis)}>Gerenciar combustíveis</button>
+          <button type="button" onClick={() => executar(acoes.abrirConfigApitos)}>Configurar apitos</button>
         </div>
       )}
     </div>
