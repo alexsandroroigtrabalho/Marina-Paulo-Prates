@@ -12,7 +12,7 @@
   --cor-toggle-off: #D7D7DC;
   --cor-texto: #17313E;
   --cor-texto-suave: #5B7887;
-  --cor-rosa-dos-ventos: #8B5A2B; /* tom sépia da rosa dos ventos do fundo (o título agora usa --cor-primaria) */
+  --cor-rosa-dos-ventos: #D4AF37; /* dourado da marca RV Invictus, usado na rosa dos ventos do fundo (o título agora usa --cor-primaria) */
   --raio: 16px;
   --sombra: 0 6px 20px rgba(14, 68, 97, 0.08);
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -50,7 +50,41 @@ body {
   color: #D4AF37;
 }
 
+/* Mesmo crédito de marca, para telas de conteúdo (não centralizadas em
+   coluna única, ex.: portal do cliente) — logo pequena acima do cabeçalho
+   e crédito centralizado ao final da página. */
+.pagina-cliente-logo { display: block; width: min(150px, 45vw); height: auto; margin: 0 auto 18px; }
+.pagina-cliente-rodape {
+  margin: 28px 0 4px;
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #D4AF37;
+}
+
+/* Logo + crédito na barra lateral (fundo escuro --cor-primaria): usa a
+   versão dourada da logo, combinação "fundo escuro + dourado" preferencial
+   no manual da marca. ".sair" já tem margin-top:auto, então o rodapé fica
+   logo abaixo, sempre no rodapé da sidebar — nunca sobre o conteúdo. */
+.sidebar-logo { display: block; width: 100%; max-width: 140px; height: auto; margin: 4px auto 22px; }
+.sidebar-rodape {
+  margin: 14px 0 0;
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #D4AF37;
+  opacity: 0.85;
+}
+
 /* ---------- Landing / seleção de perfil (Home) ---------- */
+.landing.tela-login-rv { justify-content: space-between; gap: 0; }
+.landing-conteudo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .landing {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; height: 100vh; text-align: center; padding: 24px;

@@ -508,6 +508,11 @@ export default function TelaClienteDashboard({ perfil }) {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
+      <img
+        src="/rv-invictus-logo.png"
+        alt="RV Invictus — Consultoria e Gestão de Processos"
+        className="pagina-cliente-logo"
+      />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cor-primaria)' }}>
           <IconVeleiro size={22} /> <strong style={{ fontSize: 17 }}>Marina Paulo Prates</strong>
@@ -922,6 +927,8 @@ export default function TelaClienteDashboard({ perfil }) {
           </div>
         </div>
       )}
+
+      <p className="pagina-cliente-rodape">Desenvolvido por RV Invictus</p>
     </div>
   )
 }

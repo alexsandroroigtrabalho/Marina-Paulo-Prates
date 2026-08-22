@@ -22,7 +22,12 @@ export default function AreaCliente({ onVoltar }) {
 
   if (etapa === 'login') {
     return (
-      <div className="tela-central">
+      <div className="tela-central tela-login-rv">
+        <img
+          src="/rv-invictus-logo.png"
+          alt="RV Invictus — Consultoria e Gestão de Processos"
+          className="login-rv-logo"
+        />
         <form className="card-login" onSubmit={entrar}>
           <h1>Já sou cadastrado</h1>
           <p>Entre com o e-mail e senha usados no cadastro.</p>
@@ -32,12 +37,18 @@ export default function AreaCliente({ onVoltar }) {
           <button type="submit" disabled={carregando}>{carregando ? 'Entrando...' : 'Entrar'}</button>
           <button type="button" className="voltar" onClick={() => setEtapa('escolha')}>← Voltar</button>
         </form>
+        <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
       </div>
     )
   }
 
   return (
-    <div className="tela-central">
+    <div className="tela-central tela-login-rv">
+      <img
+        src="/rv-invictus-logo.png"
+        alt="RV Invictus — Consultoria e Gestão de Processos"
+        className="login-rv-logo"
+      />
       <div className="card-login">
         <h1>Área do cliente</h1>
         <p>Já tem cadastro na marina ou é a primeira vez por aqui?</p>
@@ -45,6 +56,7 @@ export default function AreaCliente({ onVoltar }) {
         <button className="btn-outline" onClick={() => setEtapa('cadastro')}>Fazer cadastro</button>
         <button type="button" className="voltar" onClick={onVoltar}>← Voltar</button>
       </div>
+      <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
     </div>
   )
 }

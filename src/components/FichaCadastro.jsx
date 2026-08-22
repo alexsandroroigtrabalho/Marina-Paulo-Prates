@@ -57,18 +57,29 @@ export default function FichaCadastro({ onVoltar }) {
 
   if (concluido) {
     return (
-      <div className="tela-central">
+      <div className="tela-central tela-login-rv">
+        <img
+          src="/rv-invictus-logo.png"
+          alt="RV Invictus — Consultoria e Gestão de Processos"
+          className="login-rv-logo"
+        />
         <div className="card-login">
           <h1>Cadastro enviado!</h1>
           <p>Depois de enviado, a administração da marina confirma o cadastro e libera seu acesso.</p>
           <button className="btn-primario" onClick={onVoltar}>Voltar ao início</button>
         </div>
+        <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
       </div>
     )
   }
 
   return (
-    <div className="tela-central">
+    <div className="tela-central tela-login-rv">
+      <img
+        src="/rv-invictus-logo.png"
+        alt="RV Invictus — Consultoria e Gestão de Processos"
+        className="login-rv-logo"
+      />
       <form className="card-login" style={{ width: 400 }} onSubmit={concluirCadastro}>
         <h1>Ficha de cadastro</h1>
         <input placeholder="Número da carteira de habilitação" required
@@ -105,6 +116,7 @@ export default function FichaCadastro({ onVoltar }) {
         <p style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Depois de enviado, a administração confirma e libera o acesso.</p>
         <button type="button" className="voltar" onClick={onVoltar}>← Voltar</button>
       </form>
+      <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
     </div>
   )
 }

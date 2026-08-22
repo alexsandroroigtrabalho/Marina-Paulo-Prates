@@ -58,6 +58,7 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
   return (
     <div className="app-shell">
       <aside className="sidebar">
+        <img src="/rv-invictus-logo-dourado.png" alt="RV Invictus" className="sidebar-logo" />
         <nav>
           {ITENS_MENU.map(({ chave, label }) => (
             <button
@@ -72,6 +73,7 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
         <button className="nav-item sair" onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}>
           Sair
         </button>
+        <p className="sidebar-rodape">Desenvolvido por RV Invictus</p>
       </aside>
       <main className="conteudo">
         <header className="topo">
