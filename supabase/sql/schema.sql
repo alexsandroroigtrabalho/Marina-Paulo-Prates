@@ -244,6 +244,38 @@ ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solici
 ALTER TABLE marina.agendamentos ADD COLUMN concluido_em TIMESTAMPTZ;
 UPDATE marina.agendamentos SET concluido_em = created_at WHERE status = 'concluido' AND concluido_em IS NULL;
 
+-- Limpeza automática do "Histórico de manobras" (Painel de Controle): todo
+-- agendamento concluído com mais de 48h desde a manobra (concluido_em) é
+-- apagado permanentemente, pra não acumular espaço — antes disso o registro
+-- fica completo e disponível pra consulta do administrador normalmente.
+-- Nunca apaga a retirada que hoje define que uma embarcação está
+-- "Navegando" (ver ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js),
+-- mesmo que ela já tenha passado das 48h — senão um barco que ficasse mais
+-- tempo que isso na água sumiria da tela por causa da limpeza, não porque
+-- voltou de fato. Roda sozinha via pg_cron, a cada hora.
+CREATE OR REPLACE FUNCTION marina.limpar_historico_manobras_antigo()
+RETURNS void
+LANGUAGE sql
+AS $$
+  WITH vencedor AS (
+    SELECT DISTINCT ON (embarcacao_id) id, tipo
+    FROM marina.agendamentos
+    WHERE status = 'concluido' AND embarcacao_id IS NOT NULL
+    ORDER BY embarcacao_id, COALESCE(concluido_em, data_hora) DESC, created_at DESC
+  )
+  DELETE FROM marina.agendamentos a
+  WHERE a.status = 'concluido'
+    AND COALESCE(a.concluido_em, a.data_hora) < now() - interval '48 hours'
+    AND NOT EXISTS (
+      SELECT 1 FROM vencedor v WHERE v.id = a.id AND v.tipo = 'retirada'
+    );
+$$;
+SELECT cron.schedule(
+  'limpar-historico-manobras-antigo',
+  '0 * * * *',
+  $$SELECT marina.limpar_historico_manobras_antigo()$$
+);
+
 -- ------------------------------------------------------------
 -- 10. DOCUMENTOS DA EMBARCAÇÃO (TIE, seguro, habilitação, vistoria...)
 -- ------------------------------------------------------------
