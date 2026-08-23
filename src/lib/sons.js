@@ -165,3 +165,36 @@ export async function tocarSinalRetorno(vezes = 3) {
     }
   }
 }
+
+// Alarme de "Solicita resgate": dois tons agudos alternados (mais urgente e
+// claramente diferente dos apitos de descida/retorno), tocado em loop pelo
+// painel enquanto o alerta estiver ativo — ver useEffect de alarmeResgateRef
+// em TelaVagas.jsx, que chama isso repetidamente até o administrador
+// confirmar/cancelar o resgate.
+export function tocarApitoSos() {
+  const c = getContexto()
+  if (c.state === 'suspended') c.resume()
+  const inicio = c.currentTime
+  const duracaoTom = 0.35
+  const tons = [1000, 700]
+
+  tons.forEach((freq, i) => {
+    const t0 = inicio + i * duracaoTom
+    const fim = t0 + duracaoTom
+    const osc = c.createOscillator()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(freq, t0)
+
+    const envelope = c.createGain()
+    const pico = 0.22
+    envelope.gain.setValueAtTime(0.0001, t0)
+    envelope.gain.exponentialRampToValueAtTime(pico, t0 + 0.03)
+    envelope.gain.setValueAtTime(pico, fim - 0.05)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, fim)
+
+    osc.connect(envelope)
+    envelope.connect(c.destination)
+    osc.start(t0)
+    osc.stop(fim + 0.05)
+  })
+}

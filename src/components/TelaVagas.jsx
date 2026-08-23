@@ -5,7 +5,7 @@ import {
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina,
 } from '../lib/db'
-import { ativarSons, tocarSinalDescida, tocarSinalRetorno } from '../lib/sons'
+import { ativarSons, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
@@ -52,6 +52,7 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [sonsAtivados, setSonsAtivados] = useState(false)
+  const alarmeResgateRef = useRef(null)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
   const [modalApitosAberto, setModalApitosAberto] = useState(false)
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
@@ -211,26 +212,61 @@ export default function TelaVagas({ marinaId, onAcoes }) {
       return
     }
     linhasFila.forEach((a) => {
-      if (!idsConhecidosRef.current.has(a.id)) {
+      // Só toca o apito se o aviso sonoro estiver habilitado — desabilitado,
+      // a notificação continua aparecendo na Fila de Rampa normalmente, só
+      // sem o som.
+      if (!idsConhecidosRef.current.has(a.id) && sonsAtivados) {
         if (a.tipo === 'retirada') tocarSinalDescida(configApitos.descida)
         else tocarSinalRetorno(configApitos.retorno)
       }
     })
     idsConhecidosRef.current = idsAtuais
-  }, [idsLinhaFilaAtual, configApitos])
+  }, [idsLinhaFilaAtual, configApitos, sonsAtivados])
 
-  function ativarSonsPainel() {
-    ativarSons()
-    setSonsAtivados(true)
+  // Alarme de "Solicita resgate": enquanto qualquer embarcação na água
+  // estiver com o resgate marcado, o painel toca o apito de SOS em loop
+  // (não é um aviso único como descida/retorno) — só para quando o
+  // administrador confirma/cancela o resgate (clicando no badge, que
+  // desmarca resgate_solicitado) ou quando o aviso sonoro é desabilitado.
+  const temResgateAtivo = naAgua.some((a) => a.resgate_solicitado)
+  useEffect(() => {
+    if (temResgateAtivo && sonsAtivados) {
+      if (!alarmeResgateRef.current) {
+        tocarApitoSos()
+        alarmeResgateRef.current = setInterval(tocarApitoSos, 2500)
+      }
+    } else if (alarmeResgateRef.current) {
+      clearInterval(alarmeResgateRef.current)
+      alarmeResgateRef.current = null
+    }
+  }, [temResgateAtivo, sonsAtivados])
+
+  // Garante que o intervalo do alarme de resgate seja limpo se a página for
+  // fechada/trocada enquanto ele ainda estiver tocando.
+  useEffect(() => () => {
+    if (alarmeResgateRef.current) clearInterval(alarmeResgateRef.current)
+  }, [])
+
+  // Alterna o aviso sonoro entre habilitado e desabilitado. Pra habilitar,
+  // dispara um apito curtinho de confirmação — necessário porque os
+  // navegadores só deixam tocar áudio depois de alguma interação do usuário
+  // na página, então esse clique também "destrava" o som pro resto da sessão.
+  function alternarSonsPainel() {
+    if (sonsAtivados) {
+      setSonsAtivados(false)
+    } else {
+      ativarSons()
+      setSonsAtivados(true)
+    }
   }
 
-  // Repassa as ações do painel (ativar sons, histórico, combustíveis) pro
+  // Repassa as ações do painel (aviso sonoro, histórico, combustíveis) pro
   // menu de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
   // esses botões não moram mais fixos em cima da Fila de Rampa.
   useEffect(() => {
     onAcoes?.({
       sonsAtivados,
-      ativarSons: ativarSonsPainel,
+      alternarSons: alternarSonsPainel,
       abrirHistorico: () => setModalHistoricoAberto(true),
       abrirCombustiveis: () => setModalCombustiveisAberto(true),
       abrirConfigApitos,

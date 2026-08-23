@@ -105,8 +105,8 @@ function MenuAcoesPainel({ acoes }) {
       </button>
       {aberto && (
         <div className="menu-acoes-dropdown">
-          <button type="button" onClick={() => executar(acoes.ativarSons)}>
-            {acoes.sonsAtivados ? '🔔 Sons ativados' : '🔔 Ativar sons'}
+          <button type="button" onClick={() => executar(acoes.alternarSons)}>
+            {acoes.sonsAtivados ? '🔕 Desabilitar aviso sonoro' : '🔔 Habilitar aviso sonoro'}
           </button>
           <button type="button" onClick={() => executar(acoes.abrirHistorico)}>Histórico de manobras</button>
           <button type="button" onClick={() => executar(acoes.abrirCombustiveis)}>Gerenciar combustíveis</button>
