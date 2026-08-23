@@ -26,7 +26,10 @@ function statusVencimento(dataValidade) {
 }
 
 export default function TelaDocumentacao({ marinaId }) {
-  const [aba, setAba] = useState('documentos') // documentos | laudos | despachos
+  // Começa sem nenhuma aba ativa: as 3 (Documentos, Laudos técnicos,
+  // Despachos (Capitania)) estão temporariamente em construção — ver
+  // comentário logo abaixo, nos botões.
+  const [aba, setAba] = useState(null) // null | documentos | laudos | despachos
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [clientes, setClientes] = useState([])
   const [documentos, setDocumentos] = useState([])
@@ -84,19 +87,21 @@ export default function TelaDocumentacao({ marinaId }) {
   return (
     <div>
       <div className="abas">
-        <button className={aba === 'documentos' ? 'ativo' : ''} onClick={() => setAba('documentos')}>Documentos</button>
-        {/* "Laudos técnicos" e "Despachos (Capitania)" — desativados
-            temporariamente a pedido da administração: continuam visíveis,
-            no mesmo padrão visual (nunca ficam "ativo", já que `aba` nunca
-            passa a valer 'laudos'/'despachos' por aqui), mas o clique não
-            navega mais pra essas abas, só avisa "Em construção". As telas
-            (JSX mais abaixo, `aba === 'laudos'`/`aba === 'despachos'`) e o
-            carregamento de dados continuam intactos, prontos pra reativar —
-            basta trocar o onClick de volta pra `() => setAba('laudos')` /
-            `() => setAba('despachos')`. */}
+        {/* "Documentos", "Laudos técnicos" e "Despachos (Capitania)" — as 3
+            desativadas temporariamente a pedido da administração: continuam
+            visíveis, no mesmo padrão visual (nunca ficam "ativo", já que
+            `aba` nunca passa a valer 'documentos'/'laudos'/'despachos' por
+            aqui), mas o clique não navega mais pra nenhuma delas, só avisa
+            "Em construção". As telas (JSX mais abaixo, `aba === 'documentos'`
+            / `'laudos'` / `'despachos'`) e o carregamento de dados continuam
+            intactos, prontos pra reativar — basta trocar o onClick de volta
+            pra `() => setAba('documentos')` / `'laudos'` / `'despachos'`. */}
+        <button className={aba === 'documentos' ? 'ativo' : ''} onClick={() => alert('Em construção')}>Documentos</button>
         <button className={aba === 'laudos' ? 'ativo' : ''} onClick={() => alert('Em construção')}>Laudos técnicos</button>
         <button className={aba === 'despachos' ? 'ativo' : ''} onClick={() => alert('Em construção')}>Despachos (Capitania)</button>
       </div>
+
+      {!aba && <p className="dica">Em construção.</p>}
 
       {aba === 'documentos' && (
         <>
