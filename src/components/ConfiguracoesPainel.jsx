@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv } from '../lib/exportarPlanilha'
+import { buscarMarina, atualizarConfigMarina } from '../lib/db'
+import { lerConfigRampa, RAMPA_PADRAO } from '../lib/agendaRampa'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
@@ -42,6 +44,81 @@ export default function ConfiguracoesPainel({
   const [categoria, setCategoria] = useState('financeiro')
   const [exportando, setExportando] = useState('')
   const [mensagemExportacao, setMensagemExportacao] = useState('')
+
+  // Agenda da rampa — carregada e salva aqui mesmo (não vem por prop, como
+  // as outras seções, porque essa parte tem estado próprio grande demais
+  // pra valer a pena empurrar tudo pra cima em TelaVagas.jsx): horário de
+  // funcionamento, intervalo fixo entre solicitações e mensagens ficam em
+  // `formRampa`; a lista de manutenções fica em `manutencoes`. Tudo gravado
+  // em marinas.config_json (ver lib/agendaRampa.js) — mesma fonte que o
+  // painel do cliente lê pra montar os horários disponíveis, então uma
+  // alteração aqui já vale na hora pra ele (ver assinatura Realtime na
+  // tela do cliente).
+  const [formRampa, setFormRampa] = useState(RAMPA_PADRAO)
+  const [salvandoRampa, setSalvandoRampa] = useState(false)
+  const [mensagemRampa, setMensagemRampa] = useState('')
+  const [manutencoes, setManutencoes] = useState([])
+  const [formNovaManutencao, setFormNovaManutencao] = useState({ inicio: '', fim: '', motivo: '' })
+  const [salvandoManutencao, setSalvandoManutencao] = useState(false)
+
+  async function carregarConfigRampa() {
+    if (!marinaId) return
+    const marina = await buscarMarina(marinaId)
+    const cfg = lerConfigRampa(marina)
+    setFormRampa(cfg)
+    setManutencoes(cfg.manutencoes)
+  }
+  useEffect(() => { if (aberto) carregarConfigRampa() }, [aberto, marinaId])
+
+  async function salvarConfigRampa(e) {
+    e.preventDefault()
+    setSalvandoRampa(true)
+    setMensagemRampa('')
+    try {
+      await atualizarConfigMarina(marinaId, {
+        rampaAbertura: formRampa.abertura,
+        rampaFechamento: formRampa.fechamento,
+        rampaIntervaloMinutos: Math.max(5, Number(formRampa.intervaloMinutos) || 15),
+        rampaMensagemManutencao: formRampa.mensagemManutencao || RAMPA_PADRAO.mensagemManutencao,
+        rampaMensagemProblema: formRampa.mensagemProblema || RAMPA_PADRAO.mensagemProblema,
+      })
+      setMensagemRampa('Configurações da Agenda da rampa salvas com sucesso.')
+    } catch (err) {
+      alert('Não foi possível salvar a Agenda da rampa: ' + err.message)
+    } finally {
+      setSalvandoRampa(false)
+    }
+  }
+
+  async function adicionarManutencao(e) {
+    e.preventDefault()
+    if (!formNovaManutencao.inicio || !formNovaManutencao.fim) return
+    setSalvandoManutencao(true)
+    try {
+      const nova = { id: `${Date.now()}`, inicio: formNovaManutencao.inicio, fim: formNovaManutencao.fim, motivo: formNovaManutencao.motivo || '' }
+      const novaLista = [...manutencoes, nova].sort((a, b) => new Date(a.inicio) - new Date(b.inicio))
+      await atualizarConfigMarina(marinaId, { rampaManutencoes: novaLista })
+      setManutencoes(novaLista)
+      setFormNovaManutencao({ inicio: '', fim: '', motivo: '' })
+    } catch (err) {
+      alert('Não foi possível adicionar o período de manutenção: ' + err.message)
+    } finally {
+      setSalvandoManutencao(false)
+    }
+  }
+
+  async function removerManutencao(id) {
+    setSalvandoManutencao(true)
+    try {
+      const novaLista = manutencoes.filter((m) => m.id !== id)
+      await atualizarConfigMarina(marinaId, { rampaManutencoes: novaLista })
+      setManutencoes(novaLista)
+    } catch (err) {
+      alert('Não foi possível remover o período de manutenção: ' + err.message)
+    } finally {
+      setSalvandoManutencao(false)
+    }
+  }
 
   function mudarCategoria(c) {
     setCategoria(c)
@@ -254,18 +331,90 @@ export default function ConfiguracoesPainel({
           </div>
         )}
         {categoria === 'agenda' && (
-          <div>
-            <strong>Exportar histórico de manobras</strong>
-            <p className="dica" style={{ margin: '4px 0 10px' }}>
-              Baixa uma planilha com o histórico de manobras (descidas e subidas já confirmadas) disponível no
-              momento, com cliente, embarcação ou jet, tipo de manobra, data e horário.
-            </p>
-            <button type="button" onClick={() => exportar(exportarHistoricoManobrasCsv, 'historico_manobras', 'histórico de manobras')} disabled={exportando === 'historico_manobras'}>
-              {exportando === 'historico_manobras' ? 'Exportando…' : 'Exportar histórico de manobras'}
-            </button>
-            {mensagemExportacao && exportando === '' && (
-              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <strong>Agenda da rampa</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Horário de funcionamento, intervalo fixo entre solicitações e mensagens de indisponibilidade — usados
+                pra montar os horários que o cliente pode escolher ao pedir uma descida ou subida. Sincronizado com a
+                Agenda do cliente na hora: um horário fora dessas regras não aparece pra ele selecionar.
+              </p>
+              <form className="form-vertical" onSubmit={salvarConfigRampa} style={{ maxWidth: 420, marginBottom: 10 }}>
+                <label>
+                  Abertura da rampa
+                  <input required type="time" value={formRampa.abertura} disabled={!ehAdmin}
+                    onChange={(e) => setFormRampa({ ...formRampa, abertura: e.target.value })} />
+                </label>
+                <label>
+                  Fechamento da rampa
+                  <input required type="time" value={formRampa.fechamento} disabled={!ehAdmin}
+                    onChange={(e) => setFormRampa({ ...formRampa, fechamento: e.target.value })} />
+                </label>
+                <label>
+                  Intervalo entre solicitações (minutos)
+                  <input required type="number" min={5} step={5} value={formRampa.intervaloMinutos} disabled={!ehAdmin}
+                    onChange={(e) => setFormRampa({ ...formRampa, intervaloMinutos: e.target.value })} />
+                </label>
+                <label>
+                  Mensagem — rampa em manutenção
+                  <input required value={formRampa.mensagemManutencao} disabled={!ehAdmin}
+                    onChange={(e) => setFormRampa({ ...formRampa, mensagemManutencao: e.target.value })} />
+                </label>
+                <label>
+                  Mensagem — em caso de problema
+                  <input required value={formRampa.mensagemProblema} disabled={!ehAdmin}
+                    onChange={(e) => setFormRampa({ ...formRampa, mensagemProblema: e.target.value })} />
+                </label>
+                <button type="submit" disabled={!ehAdmin || salvandoRampa} style={{ alignSelf: 'flex-start' }}>
+                  {salvandoRampa ? 'Salvando…' : 'Salvar'}
+                </button>
+              </form>
+              {mensagemRampa && <p className="dica" style={{ margin: '0 0 10px', fontWeight: 600 }}>{mensagemRampa}</p>}
+
+              <strong style={{ display: 'block', marginBottom: 4 }}>Períodos de manutenção da rampa</strong>
+              <p className="dica" style={{ margin: '0 0 10px' }}>
+                Enquanto durar, os horários dentro do período ficam indisponíveis pro cliente escolher.
+              </p>
+              <form className="form-inline" onSubmit={adicionarManutencao} style={{ marginBottom: 10 }}>
+                <input required type="datetime-local" title="Início" value={formNovaManutencao.inicio} disabled={!ehAdmin}
+                  onChange={(e) => setFormNovaManutencao({ ...formNovaManutencao, inicio: e.target.value })} />
+                <input required type="datetime-local" title="Fim" value={formNovaManutencao.fim} disabled={!ehAdmin}
+                  onChange={(e) => setFormNovaManutencao({ ...formNovaManutencao, fim: e.target.value })} />
+                <input placeholder="Motivo (opcional)" value={formNovaManutencao.motivo} disabled={!ehAdmin}
+                  onChange={(e) => setFormNovaManutencao({ ...formNovaManutencao, motivo: e.target.value })} />
+                <button type="submit" disabled={!ehAdmin || salvandoManutencao}>+ Adicionar período</button>
+              </form>
+              <table className="tabela">
+                <thead><tr><th>Início</th><th>Fim</th><th>Motivo</th><th></th></tr></thead>
+                <tbody>
+                  {manutencoes.length === 0 && <tr><td colSpan={4}>Nenhum período de manutenção cadastrado.</td></tr>}
+                  {manutencoes.map((m) => (
+                    <tr key={m.id}>
+                      <td>{new Date(m.inicio).toLocaleString('pt-BR')}</td>
+                      <td>{new Date(m.fim).toLocaleString('pt-BR')}</td>
+                      <td>{m.motivo || '-'}</td>
+                      <td>
+                        <button type="button" onClick={() => removerManutencao(m.id)} disabled={!ehAdmin || salvandoManutencao}>Remover</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <strong>Exportar histórico de manobras</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Baixa uma planilha com o histórico de manobras (descidas e subidas já confirmadas) disponível no
+                momento, com cliente, embarcação ou jet, tipo de manobra, data e horário.
+              </p>
+              <button type="button" onClick={() => exportar(exportarHistoricoManobrasCsv, 'historico_manobras', 'histórico de manobras')} disabled={exportando === 'historico_manobras'}>
+                {exportando === 'historico_manobras' ? 'Exportando…' : 'Exportar histórico de manobras'}
+              </button>
+              {mensagemExportacao && exportando === '' && (
+                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+              )}
+            </div>
           </div>
         )}
         {categoria === 'acessos' && (

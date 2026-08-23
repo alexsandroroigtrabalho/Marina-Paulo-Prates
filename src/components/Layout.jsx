@@ -10,6 +10,14 @@ const ITENS_MENU = [
   { chave: 'abastecimento', label: 'Abastecimento' },
 ]
 
+// Cabeçalho mostra só o cargo (ex: "Admin"), nunca o nome cadastrado da
+// pessoa (ex: "Admin Teste") — a pedido da administração, pra não expor um
+// nome de conta de teste/pessoal em nenhuma tela interna (Painel de
+// Controle, Clientes, Manutenção, Despachos, Abastecimento — todas passam
+// por este mesmo Layout). Vale para as 3 roles internas (ver
+// PAPEIS_INTERNOS em App.jsx).
+const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Operador' }
+
 // Botão de engrenagem no cabeçalho, do lado do nome do usuário — abre direto
 // a tela única "Configurações do sistema" (Painel de Controle). Antes era um
 // menu dropdown com os itens soltos (aviso sonoro, histórico, combustíveis,
@@ -56,7 +64,7 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
                 cabeçalho, a pedido — nas demais abas continua aparecendo
                 normalmente. */}
             {telaAtiva !== 'financeiro' && (
-              <span className="usuario">{perfil?.nome || 'Usuário'} ({perfil?.role || '...'})</span>
+              <span className="usuario">{LABEL_CARGO[perfil?.role] || 'Usuário'}</span>
             )}
             <MenuAcoesPainel acoes={acoesPainel} />
           </div>

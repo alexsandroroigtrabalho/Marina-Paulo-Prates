@@ -38,7 +38,18 @@ CREATE TABLE marina.marinas (
 --   valorMensalidade                     (Financeiro — valor de referência da mensalidade)
 --   emailRelatorioDocumentos             (Despacho — e-mail do relatório automático)
 --   ultimoEnvioRelatorioDocumentos       (Despacho — carimbo do último envio, grafado pela Edge Function send-email)
+--   rampaAbertura / rampaFechamento      (Agenda — horário "HH:mm" de funcionamento da rampa; padrão 08:00–18:00)
+--   rampaIntervaloMinutos                (Agenda — intervalo fixo entre solicitações de descida/subida; padrão 15)
+--   rampaManutencoes                     (Agenda — array de {id, inicio, fim, motivo}, períodos em que a rampa fica indisponível)
+--   rampaMensagemManutencao              (Agenda — aviso mostrado ao cliente quando a data escolhida está em manutenção)
+--   rampaMensagemProblema                (Agenda — aviso fixo de instrução em caso de problema, mostrado junto à Agenda do cliente)
 -- Só admin pode gravar aqui (policy "admin_atualiza_propria_marina" abaixo).
+-- rampaIntervaloMinutos também é lido direto pelo Postgres — ver a policy
+-- "cliente_cria_agendamento" (marina.agendamentos, mais abaixo), que recusa
+-- um `data_hora` que não caia no intervalo configurado, mesmo pra quem
+-- tentasse contornar a tela e enviar direto pra API. lib/agendaRampa.js é a
+-- fonte única da lógica de horários disponíveis (usada tanto pela tela do
+-- cliente quanto pela de Configurações do administrador).
 
 -- ------------------------------------------------------------
 -- 2. PERFIS (usuários do sistema, vinculados ao auth.users do Supabase)
@@ -507,6 +518,11 @@ CREATE POLICY "admin_marina_agendamentos" ON marina.agendamentos
 -- e não está com o acesso suspenso — aplica no banco a mesma regra que a
 -- interface do cliente já impõe (mensagem "Aguardando pagamento"), pra
 -- ninguém conseguir contornar a trava só chamando a API.
+-- Também reforça aqui o intervalo fixo entre solicitações da Agenda da
+-- rampa (marinas.config_json->>'rampaIntervaloMinutos', 15min por padrão):
+-- `data_hora` só passa se cair certinho num múltiplo desse intervalo desde
+-- o epoch — mesma regra que lib/agendaRampa.js já aplica na tela do
+-- cliente, repetida aqui pra quem tentasse contornar a tela.
 CREATE POLICY "cliente_cria_agendamento" ON marina.agendamentos
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -515,6 +531,9 @@ CREATE POLICY "cliente_cria_agendamento" ON marina.agendamentos
       WHERE user_id = auth.uid() AND acesso_suspenso = false
         AND (pagamento_confirmado = true OR acesso_liberado_manual = true)
     )
+    AND EXTRACT(EPOCH FROM data_hora)::bigint % (
+      COALESCE((SELECT (m.config_json->>'rampaIntervaloMinutos')::int FROM marina.marinas m WHERE m.id = agendamentos.marina_id), 15) * 60
+    ) = 0
   );
 
 CREATE POLICY "cliente_ve_proprios_agendamentos" ON marina.agendamentos

@@ -8,12 +8,13 @@ import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
-  solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
+  solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
+import { lerConfigRampa, horariosDisponiveis, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
@@ -205,8 +206,19 @@ export default function TelaClienteDashboard({ perfil }) {
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
-  const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data_hora: '', observacoes: '' })
+  // `data` (dia) + `hora` (um dos horários de horariosDisponiveis pra esse
+  // dia) substituem o antigo campo livre `data_hora`: o cliente não digita
+  // mais um horário qualquer, só escolhe entre os que a Agenda da rampa
+  // libera (ver configRampa abaixo) — é o que garante o intervalo fixo de
+  // 15min (configurável) e que nenhum horário indisponível seja aceito.
+  const [formAgendamento, setFormAgendamento] = useState({ embarcacao_id: '', data: '', hora: '', observacoes: '' })
   const [enviandoAgendamento, setEnviandoAgendamento] = useState(false)
+  // Agenda da rampa (horário de funcionamento, intervalo, manutenções e
+  // mensagens) — configurada pelo administrador em Painel de Controle →
+  // Configurações → Agenda (ver ConfiguracoesPainel.jsx) e lida aqui em
+  // tempo real (assinatura Realtime logo abaixo), pra nunca ficar
+  // desatualizada quando a marina muda alguma coisa.
+  const [configRampa, setConfigRampa] = useState(RAMPA_PADRAO)
   const [modalServicosAberto, setModalServicosAberto] = useState(false)
   // Dentro do modal "Serviços": qual dos 3 tipos o cliente escolheu (null =
   // ainda no seletor inicial), e, se for "regularizacao", qual categoria da
@@ -248,6 +260,7 @@ export default function TelaClienteDashboard({ perfil }) {
       setCombustiveis((await listarCombustiveis(cli.marina_id)).filter((c) => c.ativo))
       setAbastecimentos(await listarPedidosAbastecimentoCliente(cli.id))
       setAutorizados(await listarAutorizados(cli.id))
+      setConfigRampa(lerConfigRampa(await buscarMarina(cli.marina_id)))
     } catch (err) {
       // Não derruba a tela — mantém o que já estava carregado e avisa, pra
       // dar pra tentar de novo (ex: recarregando a página) em vez de ficar
@@ -283,6 +296,9 @@ export default function TelaClienteDashboard({ perfil }) {
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'cobrancas', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'clientes', filter: `id=eq.${idCliente}` }, () => carregar())
+      // Agenda da rampa alterada pela administração (horário, intervalo,
+      // manutenções, mensagens) — reflete aqui na hora, sem F5.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'marinas', filter: `id=eq.${cliente.marina_id}` }, () => carregar())
       .subscribe()
 
     const intervalo = setInterval(() => { carregar() }, 30000)
@@ -303,13 +319,21 @@ export default function TelaClienteDashboard({ perfil }) {
       alert(statusAgenda?.texto || 'Aguardando pagamento — fale com a administração da marina.')
       return
     }
-    setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data_hora: '', observacoes: '', autorizado_id: '', previsao_retorno: '' })
+    setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data: '', hora: '', observacoes: '', autorizado_id: '', previsao_retorno: '' })
     setModalTipo(tipo)
   }
 
   async function enviarAgendamento(e) {
     e.preventDefault()
     if (!cliente) return
+    // Segurança extra além do seletor já só oferecer horários válidos: se
+    // por algum motivo o horário escolhido deixou de estar disponível
+    // entre abrir o formulário e enviar (ex: administração cadastrou uma
+    // manutenção nesse meio-tempo), barra aqui também.
+    if (!horariosDisponiveis(configRampa, formAgendamento.data).includes(formAgendamento.hora)) {
+      alert(`Esse horário não está mais disponível. ${configRampa.mensagemManutencao}`)
+      return
+    }
     setEnviandoAgendamento(true)
     try {
       await solicitarAgendamento({
@@ -317,7 +341,7 @@ export default function TelaClienteDashboard({ perfil }) {
         cliente_id: cliente.id,
         embarcacao_id: formAgendamento.embarcacao_id || null,
         tipo: modalTipo,
-        data_hora: formAgendamento.data_hora,
+        data_hora: `${formAgendamento.data}T${formAgendamento.hora}`,
         observacoes: formAgendamento.observacoes || null,
         autorizado_id: formAgendamento.autorizado_id || null,
         // Só faz sentido prever retorno numa descida — é o que o Painel de
@@ -703,9 +727,27 @@ export default function TelaClienteDashboard({ perfil }) {
             ) : (
               <p className="dica">Você ainda não tem embarcações cadastradas.</p>
             )}
-            <input type="datetime-local" required
-              value={formAgendamento.data_hora}
-              onChange={(e) => setFormAgendamento({ ...formAgendamento, data_hora: e.target.value })} />
+            {/* Data + horário: o horário não é mais digitado livremente — só
+                dá pra escolher entre os que a Agenda da rampa libera pra
+                essa data (horário de funcionamento, intervalo fixo entre
+                solicitações e fora dos períodos de manutenção — ver
+                lib/agendaRampa.js). Configurado pelo administrador em
+                Painel de Controle → Configurações → Agenda. */}
+            <input type="date" required
+              min={new Date().toISOString().slice(0, 10)}
+              value={formAgendamento.data}
+              onChange={(e) => setFormAgendamento({ ...formAgendamento, data: e.target.value, hora: '' })} />
+            <select required value={formAgendamento.hora} disabled={!formAgendamento.data}
+              onChange={(e) => setFormAgendamento({ ...formAgendamento, hora: e.target.value })}>
+              <option value="">{formAgendamento.data ? 'Selecione o horário' : 'Escolha a data primeiro'}</option>
+              {horariosDisponiveis(configRampa, formAgendamento.data).map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+            {formAgendamento.data && horariosDisponiveis(configRampa, formAgendamento.data).length === 0 && (
+              <p className="dica" style={{ color: 'var(--cor-alerta)', margin: '-4px 0 0' }}>{configRampa.mensagemManutencao}</p>
+            )}
+            <p className="dica" style={{ margin: '-4px 0 0' }}>{configRampa.mensagemProblema}</p>
             {modalTipo === 'retirada' && (
               <>
                 <label className="dica" style={{ marginBottom: -8 }}>Previsão de subida (opcional)</label>
