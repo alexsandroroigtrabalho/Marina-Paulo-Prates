@@ -10,6 +10,8 @@
   --cor-card: #FFFFFF;
   --cor-alerta: #D9713E;        /* pendências / inadimplência */
   --cor-toggle-off: #D7D7DC;
+  --cor-pagamento-efetuado: #55702F;   /* verde — mesmo tom já usado em status-pago/concluída */
+  --cor-pagamento-pendente: #A23B2E;   /* vermelho — mesmo tom já usado no selo de S.O.S. */
   --cor-texto: #17313E;
   --cor-texto-suave: #5B7887;
   --cor-rosa-dos-ventos: #D4AF37; /* dourado da marca RV Invictus, usado na rosa dos ventos do fundo (o título agora usa --cor-primaria) */
@@ -410,6 +412,18 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .toggle input:checked + .trilho { background: var(--cor-secundaria); }
 .toggle input:checked + .trilho::before { transform: translateX(20px); }
+
+/* Chave de pagamento (TelaClientes.jsx) — mesma mecânica do .toggle acima,
+   só que com vermelho/verde em vez do teal padrão, porque aqui a cor faz
+   parte do pedido explícito (chave à esquerda = vermelho/não efetuado,
+   chave à direita = verde/efetuado), diferente dos outros toggles do app
+   (ativo/inativo), que continuam com a cor neutra de sempre. */
+.toggle-pagamento .trilho { background: var(--cor-pagamento-pendente); }
+.toggle-pagamento input:checked + .trilho { background: var(--cor-pagamento-efetuado); }
+.chave-pagamento { display: inline-flex; align-items: center; gap: 8px; }
+.chave-pagamento-rotulo { font-size: 13px; font-weight: 600; }
+.chave-pagamento-rotulo.on { color: var(--cor-pagamento-efetuado); }
+.chave-pagamento-rotulo.off { color: var(--cor-pagamento-pendente); }
 
 /* ---------- Agenda do dia (grade de horários) ---------- */
 .agenda-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; font-weight: 700; color: var(--cor-primaria); }

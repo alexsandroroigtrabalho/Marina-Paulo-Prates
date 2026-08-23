@@ -617,4 +617,40 @@ ALTER PUBLICATION supabase_realtime ADD TABLE
   marina.pedidos_abastecimento,
   marina.clientes,
   marina.cobrancas;
+
+-- ============================================================
+-- Reset automático de pagamentos — todo dia 5 do mês (pg_cron)
+-- ============================================================
+-- A confirmação de pagamento em si é sempre manual (chave "Pagamento
+-- efetuado" na tela Clientes) — esta função só faz o caminho inverso,
+-- automaticamente: zera pagamento_confirmado e acesso_liberado_manual de
+-- todos os clientes, bloqueando de novo o acesso à Agenda e às demais áreas
+-- que dependem de pagamento (via a policy "cliente_cria_agendamento", que já
+-- checa os dois campos). Sem zerar acesso_liberado_manual também, um
+-- cliente que tivesse sido liberado manualmente num mês anterior escaparia
+-- do bloqueio do dia 5.
+CREATE OR REPLACE FUNCTION marina.resetar_pagamentos_mensal()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = marina, pg_catalog
+AS $$
+BEGIN
+  UPDATE marina.clientes
+  SET pagamento_confirmado = false,
+      acesso_liberado_manual = false
+  WHERE pagamento_confirmado = true OR acesso_liberado_manual = true;
+END;
+$$;
+
+COMMENT ON FUNCTION marina.resetar_pagamentos_mensal() IS
+  'Executada automaticamente todo dia 5 (job pg_cron "reset-pagamentos-mensal-dia5") — zera pagamento_confirmado e acesso_liberado_manual de todos os clientes, bloqueando o acesso até o administrador confirmar o pagamento manualmente de novo.';
+
+-- Todo dia 5, às 03:00 UTC (= 00:00 no horário de Brasília, UTC-3 o ano
+-- todo — o Brasil não usa mais horário de verão desde 2019).
+SELECT cron.schedule(
+  'reset-pagamentos-mensal-dia5',
+  '0 3 5 * *',
+  $$ SELECT marina.resetar_pagamentos_mensal(); $$
+);
 NOTIFY pgrst, 'reload config';
