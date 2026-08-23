@@ -118,10 +118,12 @@ const STATUS_LABEL = {
   // origem que usava "aberta"/"concluida"/"cancelada" (grafia feminina).
 }
 
-// Nomes por extenso dos tipos de manobra, usados no Diário de Bordo (o
-// Painel de Controle da equipe tem seu próprio TIPO_AGENDAMENTO_LABEL igual
-// a este, em TelaVagas.jsx).
-const TIPO_AGENDAMENTO_LABEL = { retirada: 'Retirada', retorno: 'Retorno' }
+// Nomes por extenso dos tipos de manobra, usados no Diário de Bordo — mesmo
+// rótulo "Descida"/"Subida" já usado no Painel de Controle da equipe (ver
+// TIPO_AGENDAMENTO_LABEL em TelaVagas.jsx). O valor interno de `tipo`
+// continua 'retirada'/'retorno' (é o que fica gravado no banco); só o texto
+// mostrado pro cliente mudou.
+const TIPO_AGENDAMENTO_LABEL = { retirada: 'Descida', retorno: 'Subida' }
 
 // Textos do S.O.S. por etapa do resgate (ver lib/statusResgate.js) — usados
 // no botão de ação e no Diário de Bordo.
@@ -638,13 +640,13 @@ export default function TelaClienteDashboard({ perfil }) {
                 disabled={!statusAgendaCliente(cliente)?.liberado}
                 title={!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined}
                 onClick={() => abrirModal('retirada')}>
-                <IconTimao size={20} /> Retirada
+                <IconTimao size={20} /> Descida
               </button>
               <button type="button" className="painel-cliente-btn painel-cliente-btn-outline"
                 disabled={!statusAgendaCliente(cliente)?.liberado}
                 title={!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined}
                 onClick={() => abrirModal('retorno')}>
-                <IconAnchor size={20} /> Retorno
+                <IconAnchor size={20} /> Subida
               </button>
             </div>
 
@@ -691,7 +693,7 @@ export default function TelaClienteDashboard({ perfil }) {
       {modalTipo && (
         <div className="modal-fundo" onClick={() => setModalTipo(null)}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarAgendamento}>
-            <h3>{modalTipo === 'retirada' ? 'Solicitar retirada para água' : 'Agendar atracação de retorno'}</h3>
+            <h3>{modalTipo === 'retirada' ? 'Solicitar descida para água' : 'Agendar atracação de subida'}</h3>
             {embarcacoes.length > 0 ? (
               <select required value={formAgendamento.embarcacao_id}
                 onChange={(e) => setFormAgendamento({ ...formAgendamento, embarcacao_id: e.target.value })}>
@@ -706,7 +708,7 @@ export default function TelaClienteDashboard({ perfil }) {
               onChange={(e) => setFormAgendamento({ ...formAgendamento, data_hora: e.target.value })} />
             {modalTipo === 'retirada' && (
               <>
-                <label className="dica" style={{ marginBottom: -8 }}>Previsão de retorno (opcional)</label>
+                <label className="dica" style={{ marginBottom: -8 }}>Previsão de subida (opcional)</label>
                 <input type="datetime-local"
                   value={formAgendamento.previsao_retorno}
                   onChange={(e) => setFormAgendamento({ ...formAgendamento, previsao_retorno: e.target.value })} />
@@ -935,7 +937,7 @@ export default function TelaClienteDashboard({ perfil }) {
                     <p className="dica">Link de pagamento ainda não configurado pela marina — fale com a administração.</p>
                   )}
                   <p className="dica">
-                    Depois de pagar, a administração confirma o recebimento e sua Agenda (Retirada/Retorno) é liberada automaticamente — não é preciso fazer mais nada aqui.
+                    Depois de pagar, a administração confirma o recebimento e sua Agenda (Descida/Subida) é liberada automaticamente — não é preciso fazer mais nada aqui.
                   </p>
                 </>
               )}
