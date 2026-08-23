@@ -44,6 +44,17 @@ export default function Layout({
 }) {
   const app = APLICACOES.find((a) => a.chave === appSelecionada)
 
+  // Único caso em que a logo do cabeçalho some por completo: a tela de
+  // seleção de aplicações (nenhuma das 4 escolhida ainda), que já mostra
+  // sua própria marca d'água grande no corpo via PaginaMarcaDagua.jsx — uma
+  // segunda logo (mesmo em marca d'água) no topo ficaria redundante ali. Em
+  // todas as outras telas (Painel de Controle, Clientes, Financeiro,
+  // Manutenção, Abastecimento e as 3 aplicações "Em construção") a logo
+  // continua no cabeçalho, na mesma posição/tamanho/arquivo de sempre — só
+  // com opacidade reduzida (ver .topo-logo no index.css), virando marca
+  // d'água ali mesmo em vez de sumir.
+  const mostrarLogoTopo = appSelecionada !== null
+
   return (
     <div className="app-shell">
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
@@ -118,22 +129,21 @@ export default function Layout({
         <header className="topo">
           {/* Cabeçalho institucional único da área interna, em 3 colunas
               (título | logo | ações) — a logo fica sempre centralizada no
-              meio da página, no MESMO tamanho, em QUALQUER aba (inclusive
-              na tela de seleção de aplicações, onde não há título nenhum do
-              lado esquerdo: a coluna simplesmente fica vazia, sem tirar a
-              logo do centro, já que as colunas de fora têm a mesma largura
-              — ver grid-template-columns 1fr auto 1fr abaixo). Chegou a
-              virar marca d'água atrás do conteúdo em Clientes/Financeiro/
-              Manutenção/Abastecimento e sumir de vez na tela de aplicações,
-              mas essa variação foi desfeita a pedido — volta a ser sempre
-              esse mesmo cabeçalho, sem exceção. Versão preta da logo: o
-              fundo aqui é claro, a combinação que o manual reserva pra logo
-              dourada é só sobre fundo escuro (sidebar/login). */}
+              meio da página, na MESMA posição/tamanho/arquivo de sempre, em
+              QUALQUER aba, exceto a tela de seleção de aplicações (onde
+              mostrarLogoTopo é false — ver acima; a coluna do meio fica
+              vazia, sem tirar título/ações do lugar, já que as colunas de
+              fora têm a mesma largura — ver grid-template-columns
+              1fr auto 1fr abaixo). Opacidade reduzida (.topo-logo no
+              index.css): a logo virou marca d'água no próprio cabeçalho, em
+              vez de sumir ou se mudar pro corpo da página. Versão preta da
+              logo: o fundo aqui é claro, a combinação que o manual reserva
+              pra logo dourada é só sobre fundo escuro (sidebar/login). */}
           <div className="topo-titulo-area">
             {titulo && <h1>{titulo}</h1>}
           </div>
           <div className="topo-logo-area">
-            <img src="/rv-invictus-logo.png" alt="RV Invictus" className="topo-logo" />
+            {mostrarLogoTopo && <img src="/rv-invictus-logo.png" alt="RV Invictus" className="topo-logo" />}
           </div>
           <div className="topo-direita">
             {appSelecionada === 'marine' && !TELAS_SEM_CARGO.includes(telaAtiva) && (

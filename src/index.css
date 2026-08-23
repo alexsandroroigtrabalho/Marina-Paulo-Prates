@@ -725,8 +725,11 @@ body {
 /* Bem maior que antes (era 168px, espremida ao lado do título) — agora é o
    elemento central do cabeçalho, com espaço de sobra pra crescer sem
    disputar com título/ações, no tamanho em que "Consultoria e Gestão de
-   Processos" (a legenda já embutida na imagem da logo) fica legível. */
-.topo-logo { width: 260px; height: auto; }
+   Processos" (a legenda já embutida na imagem da logo) fica legível.
+   opacity 0.14: vira marca d'água (mesma opacidade de .pagina-marca-dagua/
+   -despachos), sem mudar posição, tipo de logo ou tamanho — só o peso
+   visual, a pedido explícito. */
+.topo-logo { width: 260px; height: auto; opacity: 0.14; }
 /* Nomes de marina longos não podem empurrar/sobrepor Admin+engrenagem+Sair
    à direita — trunca com reticências em vez de quebrar linha ou vazar por
    cima das ações (min-width:0 na coluna, acima, é o que permite a coluna
