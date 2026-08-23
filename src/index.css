@@ -16,7 +16,7 @@
   --cor-secundaria-clara: #DCE2E6; /* tom neutro claro derivado do petróleo — selos/badges */
   --cor-primaria-hover: #16324A; /* petróleo levemente mais claro, só para feedback de hover */
   --cor-primaria-tint: #E3E7EA;  /* fundo bem claro derivado do petróleo — badges de status */
-  --cor-fundo: #F4F6F5;         /* fundo geral das telas — neutro, sem matiz azulado */
+  --cor-fundo: #EEF8FA;         /* fundo geral das telas — cor exata enviada pelo cliente */
   --cor-card: #FFFFFF;
   --cor-alerta: #D9713E;        /* pendências / inadimplência */
   --cor-toggle-off: #D7D7DC;
