@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
+import { buscarMarina } from './lib/db'
 import { APLICACOES } from './lib/apps'
 import Home from './components/Home'
 import FichaCadastro from './components/FichaCadastro'
@@ -33,6 +34,13 @@ const PAPEIS_INTERNOS = ['admin', 'funcionario', 'operador']
 export default function App() {
   const [sessao, setSessao] = useState(null)
   const [perfil, setPerfil] = useState(null)
+  // Nome de verdade da marina (marinas.nome), usado como título do Painel
+  // de Controle no cabeçalho — antes ficava fixo em
+  // TEMA_PADRAO.nomeExibicao ("Marina Paulo Prates", o nome do app de
+  // referência), então todo cliente via esse nome errado ali. null
+  // enquanto carrega; TELAS.vagas.titulo abaixo cai no nome de referência
+  // só nesse intervalo bem curto.
+  const [nomeMarina, setNomeMarina] = useState(null)
   const [carregando, setCarregando] = useState(true)
   // true quando o usuário chegou pelo link de "Esqueci minha senha" (evento
   // 'PASSWORD_RECOVERY' do Supabase Auth, disparado ao abrir o link do
@@ -74,6 +82,11 @@ export default function App() {
     if (!sessao?.user) { setPerfil(null); return }
     db.from('perfis').select('*').eq('id', sessao.user.id).single().then(({ data }) => setPerfil(data))
   }, [sessao])
+
+  useEffect(() => {
+    if (!perfil?.marina_id) { setNomeMarina(null); return }
+    buscarMarina(perfil.marina_id).then((m) => setNomeMarina(m?.nome || null)).catch(() => setNomeMarina(null))
+  }, [perfil?.marina_id])
 
   if (carregando) return <div className="tela-central">Carregando...</div>
 
@@ -125,8 +138,11 @@ export default function App() {
     )
   }
 
-  // RV Marine: shell interno já existente, com os itens de sempre.
-  const { titulo, Componente } = TELAS[telaAtiva]
+  // RV Marine: shell interno já existente, com os itens de sempre. Só a
+  // tela "vagas" (Painel de Controle) usa o nome de verdade da marina no
+  // título — as demais continuam com o próprio nome da tela (TELAS acima).
+  const { titulo: tituloTela, Componente } = TELAS[telaAtiva]
+  const titulo = telaAtiva === 'vagas' ? (nomeMarina || tituloTela) : tituloTela
 
   return (
     <Layout

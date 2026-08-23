@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv } from '../lib/exportarPlanilha'
+import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv, exportarArrecadacaoCsv } from '../lib/exportarPlanilha'
 import { buscarMarina, atualizarConfigMarina } from '../lib/db'
 import { lerConfigRampa, RAMPA_PADRAO, MENSAGENS_INDISPONIBILIDADE } from '../lib/agendaRampa'
+import { geocodePorCidade } from '../lib/clima'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
@@ -26,8 +27,11 @@ const CATEGORIAS = [
   { chave: 'clientes', label: 'Clientes' },
   { chave: 'manutencao', label: 'Manutenção' },
   { chave: 'agenda', label: 'Agenda' },
+  { chave: 'historico', label: 'Histórico' },
   { chave: 'acessos', label: 'Acessos' },
 ]
+
+const LOCALIZACAO_CLIMA_VAZIA = { cidade: '', latitude: null, longitude: null, local: '' }
 
 export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
@@ -40,10 +44,22 @@ export default function ConfiguracoesPainel({
   // Despacho — relatório automático de documentos
   emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
+  // Histórico de manobras — antes num modal solto no Painel de Controle,
+  // agora só aqui (categoria "Histórico"), junto da exportação da mesma
+  // planilha.
+  historicoManobras = [], tipoAgendamentoLabel = {},
 }) {
   const [categoria, setCategoria] = useState('financeiro')
   const [exportando, setExportando] = useState('')
   const [mensagemExportacao, setMensagemExportacao] = useState('')
+
+  // Localidade usada pra buscar a previsão do tempo do Painel de Controle
+  // (ver lib/clima.js) — cada marina configura a própria cidade aqui em vez
+  // de ficar fixa em Torres/RS pra todo mundo.
+  const [formLocalizacao, setFormLocalizacao] = useState(LOCALIZACAO_CLIMA_VAZIA)
+  const [buscandoCidade, setBuscandoCidade] = useState(false)
+  const [salvandoLocalizacao, setSalvandoLocalizacao] = useState(false)
+  const [mensagemLocalizacao, setMensagemLocalizacao] = useState('')
 
   // Agenda da rampa — carregada e salva aqui mesmo (não vem por prop, como
   // as outras seções, porque essa parte tem estado próprio grande demais
@@ -67,8 +83,56 @@ export default function ConfiguracoesPainel({
     const cfg = lerConfigRampa(marina)
     setFormRampa(cfg)
     setManutencoes(cfg.manutencoes)
+
+    const configJson = marina?.config_json || {}
+    setFormLocalizacao({
+      cidade: configJson.climaLocal || '',
+      latitude: configJson.climaLatitude ?? null,
+      longitude: configJson.climaLongitude ?? null,
+      local: configJson.climaLocal || '',
+    })
   }
   useEffect(() => { if (aberto) carregarConfigRampa() }, [aberto, marinaId])
+
+  // Busca a cidade digitada na API de geocoding (ver lib/clima.js) e só
+  // preenche latitude/longitude/local no formulário — ainda não salva
+  // nada, pra o administrador poder conferir o nome encontrado antes de
+  // confirmar (ex: "Torres, RS" vs. outra cidade de mesmo nome).
+  async function buscarCoordenadas() {
+    if (!formLocalizacao.cidade.trim()) return
+    setBuscandoCidade(true)
+    setMensagemLocalizacao('')
+    try {
+      const encontrado = await geocodePorCidade(formLocalizacao.cidade)
+      setFormLocalizacao((f) => ({ ...f, latitude: encontrado.latitude, longitude: encontrado.longitude, local: encontrado.local }))
+      setMensagemLocalizacao(`Cidade encontrada: ${encontrado.local}. Confira e clique em "Salvar localização".`)
+    } catch (err) {
+      setMensagemLocalizacao(err.message)
+    } finally {
+      setBuscandoCidade(false)
+    }
+  }
+
+  async function salvarLocalizacao(e) {
+    e.preventDefault()
+    if (formLocalizacao.latitude == null || formLocalizacao.longitude == null) {
+      setMensagemLocalizacao('Busque a cidade antes de salvar, pra confirmar as coordenadas certas.')
+      return
+    }
+    setSalvandoLocalizacao(true)
+    try {
+      await atualizarConfigMarina(marinaId, {
+        climaLatitude: formLocalizacao.latitude,
+        climaLongitude: formLocalizacao.longitude,
+        climaLocal: formLocalizacao.local,
+      })
+      setMensagemLocalizacao(`Localização salva: ${formLocalizacao.local}. A previsão do Painel de Controle já passa a usar essa cidade.`)
+    } catch (err) {
+      setMensagemLocalizacao('Não foi possível salvar: ' + err.message)
+    } finally {
+      setSalvandoLocalizacao(false)
+    }
+  }
 
   async function salvarConfigRampa(e) {
     e.preventDefault()
@@ -220,6 +284,20 @@ export default function ConfiguracoesPainel({
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div>
+              <strong>Exportar arrecadação detalhada</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Baixa uma planilha com todo o período de arrecadação (mensalidades confirmadas e consumo de
+                combustível pago/entregue) — não só o que estiver filtrado na tela Financeiro no momento.
+              </p>
+              <button type="button" onClick={() => exportar(exportarArrecadacaoCsv, 'arrecadacao', 'arrecadação detalhada')} disabled={exportando === 'arrecadacao'}>
+                {exportando === 'arrecadacao' ? 'Exportando…' : 'Exportar arrecadação detalhada'}
+              </button>
+              {mensagemExportacao && exportando === '' && (
+                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+              )}
             </div>
           </div>
         )}
@@ -392,6 +470,66 @@ export default function ConfiguracoesPainel({
                       <td>
                         <button type="button" onClick={() => removerManutencao(m.id)} disabled={!ehAdmin || salvandoManutencao}>Remover</button>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <strong>Localização (previsão do tempo)</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Cidade usada pra mostrar a previsão do tempo no cabeçalho do Painel de Controle. Busque a cidade da
+                marina e confirme antes de salvar — sem isso, o painel mostra a previsão de Torres/RS (padrão).
+              </p>
+              <div className="form-inline" style={{ marginBottom: 8 }}>
+                <input
+                  placeholder="Cidade, UF (ex: Torres, RS)" style={{ minWidth: 220 }} disabled={!ehAdmin}
+                  value={formLocalizacao.cidade}
+                  onChange={(e) => setFormLocalizacao({ ...formLocalizacao, cidade: e.target.value })}
+                />
+                <button type="button" onClick={buscarCoordenadas} disabled={!ehAdmin || buscandoCidade || !formLocalizacao.cidade.trim()}>
+                  {buscandoCidade ? 'Buscando…' : 'Buscar cidade'}
+                </button>
+                <button type="button" onClick={salvarLocalizacao} disabled={!ehAdmin || salvandoLocalizacao || formLocalizacao.latitude == null}>
+                  {salvandoLocalizacao ? 'Salvando…' : 'Salvar localização'}
+                </button>
+              </div>
+              {formLocalizacao.local && (
+                <p className="dica" style={{ margin: 0 }}>Localidade encontrada: <b>{formLocalizacao.local}</b></p>
+              )}
+              {mensagemLocalizacao && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemLocalizacao}</p>}
+            </div>
+          </div>
+        )}
+
+        {categoria === 'historico' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <strong>Histórico de manobras</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Toda descida e subida já confirmada na Fila de Rampa, mais recente primeiro.
+              </p>
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    <th className="col-responsavel">Responsável</th>
+                    <th>Horário</th>
+                    <th>Confirmado em</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historicoManobras.length === 0 && <tr><td colSpan={4}>Nenhuma manobra confirmada ainda.</td></tr>}
+                  {historicoManobras.map((a) => (
+                    <tr key={a.id}>
+                      <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{tipoAgendamentoLabel[a.tipo] || a.tipo}</td>
+                      <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
+                      <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+                      {/* Horário real da confirmação (concluido_em) — pode
+                          diferir do "Horário" ao lado, que é só o que o
+                          cliente informou ao pedir a descida/subida. */}
+                      <td>{a.concluido_em ? new Date(a.concluido_em).toLocaleString('pt-BR') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

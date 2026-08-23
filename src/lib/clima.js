@@ -3,14 +3,18 @@
  * sem chave de API) pra mostrar temperatura, condição do tempo e vento
  * em tempo real na tela que a equipe deixa aberta na marina.
  *
- * Coordenadas fixas de Torres/RS. Se um dia o sistema precisar atender
- * mais de uma marina em cidades diferentes, isso deve virar um campo em
- * marinas.config_json (mesmo padrão já usado pra apitos/e-mail do
- * relatório de documentos) em vez de constante fixa aqui.
+ * A previsão reflete a localidade de CADA marina, não mais uma cidade fixa:
+ * marinas.config_json guarda `climaLatitude`/`climaLongitude`/`climaLocal`
+ * (mesmo padrão já usado pra apitos/e-mail do relatório de documentos —
+ * ver ConfiguracoesPainel.jsx, categoria "Agenda"), preenchidos pelo
+ * administrador buscando a cidade da própria marina (geocodePorCidade,
+ * abaixo). Torres/RS continua como padrão só até a marina configurar a
+ * própria localidade — mantém o comportamento de sempre pra quem ainda não
+ * mexeu nessa configuração.
  * ============================================================ */
-const LATITUDE = -29.33528
-const LONGITUDE = -49.72694
-const LOCAL_LABEL = 'Torres/RS'
+const LATITUDE_PADRAO = -29.33528
+const LONGITUDE_PADRAO = -49.72694
+const LOCAL_PADRAO = 'Torres/RS'
 
 // Códigos de tempo WMO (padrão retornado pela Open-Meteo) mapeados pro
 // português e pra um dos 5 ícones usados no widget.
@@ -49,9 +53,16 @@ export function descreverClima(codigo) {
   return DESCRICAO_POR_CODIGO[codigo] || { texto: 'Indisponível', icone: 'nuvem' }
 }
 
-export async function buscarClimaAtual() {
+// `localizacao` é o que vem de marinas.config_json — { latitude, longitude,
+// local }. Qualquer parte que faltar (marina que ainda não configurou a
+// própria localidade) cai no padrão de Torres/RS, exatamente o
+// comportamento de antes.
+export async function buscarClimaAtual(localizacao) {
+  const latitude = localizacao?.latitude ?? LATITUDE_PADRAO
+  const longitude = localizacao?.longitude ?? LONGITUDE_PADRAO
+  const local = localizacao?.local || LOCAL_PADRAO
   const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}` +
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
     `&current=temperature_2m,wind_speed_10m,weather_code&timezone=America%2FSao_Paulo`
   const resposta = await fetch(url)
   if (!resposta.ok) throw new Error('Não foi possível obter o clima agora.')
@@ -59,10 +70,26 @@ export async function buscarClimaAtual() {
   const atual = dados.current
   const { texto, icone } = descreverClima(atual.weather_code)
   return {
-    local: LOCAL_LABEL,
+    local,
     temperatura: Math.round(atual.temperature_2m),
     descricao: texto,
     icone,
     velocidadeVento: Math.round(atual.wind_speed_10m),
   }
+}
+
+// Geocodificação por nome de cidade (ex: "Torres, RS" ou "Búzios, RJ"),
+// usada pelo administrador em Configurações → Agenda pra configurar a
+// localidade da própria marina sem precisar descobrir latitude/longitude na
+// mão. Mesma API Open-Meteo, sem chave — o endpoint de geocoding é
+// separado do de previsão.
+export async function geocodePorCidade(nomeCidade) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(nomeCidade)}&count=1&language=pt&format=json`
+  const resposta = await fetch(url)
+  if (!resposta.ok) throw new Error('Não foi possível buscar essa cidade agora.')
+  const dados = await resposta.json()
+  const resultado = dados?.results?.[0]
+  if (!resultado) throw new Error('Cidade não encontrada — tente incluir o estado (ex: "Torres, RS").')
+  const partes = [resultado.name, resultado.admin1].filter(Boolean)
+  return { latitude: resultado.latitude, longitude: resultado.longitude, local: partes.join('/') }
 }

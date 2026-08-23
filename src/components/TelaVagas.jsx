@@ -51,11 +51,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const [combustiveis, setCombustiveis] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
-  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
+  const [localizacaoClima, setLocalizacaoClima] = useState(null)
   // Aviso sonoro: vem ligado por padrão para todo mundo. É uma configuração
   // central da marina (marinas.config_json → avisoSonoroAtivado), não mais
   // um toggle local por sessão — só o administrador pode desligar/religar,
@@ -98,6 +98,14 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       setFormMensalidade(cfg.valorMensalidade != null ? String(cfg.valorMensalidade) : '')
       setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
       setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
+      // Localidade do clima (ver lib/clima.js) — configurada pelo
+      // administrador em Configurações → Agenda; sem isso, buscarClimaAtual
+      // já cai sozinha no padrão de Torres/RS.
+      setLocalizacaoClima(
+        cfg.climaLatitude != null && cfg.climaLongitude != null
+          ? { latitude: cfg.climaLatitude, longitude: cfg.climaLongitude, local: cfg.climaLocal }
+          : null
+      )
     })
   }
   useEffect(() => { carregarConfigMarina() }, [marinaId])
@@ -217,18 +225,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return () => { clearInterval(dados); clearInterval(relogio) }
   }, [marinaId])
 
-  // Temperatura/clima/vento de Torres-RS, atualizados sozinhos junto com o
-  // resto do painel (ver lib/clima.js). Se a chamada falhar (sem internet
+  // Temperatura/clima/vento da localidade configurada pela marina (padrão:
+  // Torres/RS, até alguém configurar — ver lib/clima.js), atualizados
+  // sozinhos junto com o resto do painel. Se a chamada falhar (sem internet
   // no momento, API fora do ar), simplesmente não mostra o widget — não
   // trava nem atrapalha o resto do Painel de Controle.
   useEffect(() => {
     function atualizarClima() {
-      buscarClimaAtual().then(setClima).catch(() => setClima(null))
+      buscarClimaAtual(localizacaoClima).then(setClima).catch(() => setClima(null))
     }
     atualizarClima()
     const intervalo = setInterval(atualizarClima, INTERVALO_CLIMA_MS)
     return () => clearInterval(intervalo)
-  }, [])
+  }, [localizacaoClima?.latitude, localizacaoClima?.longitude])
 
   async function mudarStatusAgendamento(id, status) {
     try {
@@ -533,12 +542,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
 
   return (
     <div>
-      <img
-        src="/rv-invictus-logo.png"
-        alt="RV Invictus — Consultoria e Gestão de Processos"
-        className="pagina-cliente-logo"
-      />
-
+      {/* A logo RV Invictus própria desta tela saiu daqui — agora mora no
+          cabeçalho institucional único do Layout.jsx (junto do nome da
+          marina, Admin, engrenagem e Sair), pra não duplicar a marca em
+          duas faixas separadas no topo da página. */}
       <div className="painel-controle-cabecalho">
         <p className="painel-controle-relogio">
           {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
@@ -559,10 +566,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
-        <button type="button" className="voltar" onClick={() => setModalHistoricoAberto(true)}>Histórico de manobras</button>
-      </div>
+      <h2 style={{ margin: '0 0 16px' }}>Fila de Rampa</h2>
 
       <table className="tabela tabela-fila">
         <thead>
@@ -615,49 +619,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         </div>
       )}
 
-      {modalHistoricoAberto && (
-        <div className="modal-fundo" onClick={() => setModalHistoricoAberto(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', maxWidth: 720 }}>
-            <h3>Histórico de manobras</h3>
-            <p className="dica">Toda descida e subida já confirmada na Fila de Rampa, mais recente primeiro.</p>
-
-            <table className="tabela tabela-fila">
-              <thead>
-                <tr>
-                  <th>Pedido</th>
-                  <th className="col-responsavel">Responsável</th>
-                  <th>Horário</th>
-                  <th>Confirmado em</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historicoManobras.length === 0 && <tr><td colSpan={4}>Nenhuma manobra confirmada ainda.</td></tr>}
-                {historicoManobras.map((a) => (
-                  <tr key={a.id}>
-                    <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
-                    <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-                    <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-                    {/* Horário real da confirmação (concluido_em) — pode
-                        diferir do "Horário" ao lado, que é só o que o
-                        cliente informou ao pedir a descida/subida. */}
-                    <td>{a.concluido_em ? new Date(a.concluido_em).toLocaleString('pt-BR') : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="acoes-modal">
-              <button type="button" onClick={() => setModalHistoricoAberto(false)}>Fechar</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Crédito discreto de marca, fechando o Painel de Controle — mesmo
+          gesto minimalista já usado no rodapé da sidebar e do login. */}
+      <a className="painel-controle-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">
+        RVinvictus.com.br
+      </a>
 
       <ConfiguracoesPainel
         aberto={modalConfiguracoesAberto}
         onFechar={() => setModalConfiguracoesAberto(false)}
         ehAdmin={ehAdmin}
         marinaId={marinaId}
+        historicoManobras={historicoManobras}
+        tipoAgendamentoLabel={TIPO_AGENDAMENTO_LABEL}
         formMensalidade={formMensalidade}
         onMudarMensalidade={setFormMensalidade}
         onSalvarMensalidade={salvarValorMensalidade}

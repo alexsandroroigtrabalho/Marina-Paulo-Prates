@@ -288,14 +288,14 @@ export default function TelaClientes({ marinaId }) {
                     )}
                   </div>
 
-                  <div className="acoes-modal" style={{ marginTop: 10, justifyContent: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                    <button type="button" onClick={() => alternarLiberacaoManual(c)}>
+                  <div className="cliente-card-acoes">
+                    <button type="button" className="botao-secundario" onClick={() => alternarLiberacaoManual(c)}>
                       {c.acesso_liberado_manual ? 'Revogar liberação manual' : 'Liberar acesso sem confirmação de pagamento'}
                     </button>
-                    <button type="button" onClick={() => alternarSuspensao(c)}>
+                    <button type="button" className="botao-secundario" onClick={() => alternarSuspensao(c)}>
                       {c.acesso_suspenso ? 'Reativar acesso' : 'Suspender acesso'}
                     </button>
-                    <button type="button" onClick={() => removerClienteConfirmado(c)} disabled={removendoId === c.id}>
+                    <button type="button" className="botao-secundario perigo" onClick={() => removerClienteConfirmado(c)} disabled={removendoId === c.id}>
                       {removendoId === c.id ? 'Removendo...' : 'Remover cliente'}
                     </button>
                     <button type="button" className="voltar" onClick={() => abrirFormEmbarcacaoExtra(c.id)}>

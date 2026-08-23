@@ -41,30 +41,6 @@ function montarLinhasArrecadacao(cobrancasDetalhado, pedidosAbastecimento) {
   return [...deCobrancas, ...deAbastecimentos].sort((a, b) => new Date(b.dataHora || 0) - new Date(a.dataHora || 0))
 }
 
-function exportarCsv(linhas) {
-  const cabecalho = ['Data/hora', 'Cliente', 'Embarcação/jet', 'Descrição', 'Valor', 'Status']
-  const corpo = linhas.map((l) => [
-    l.dataHora ? new Date(l.dataHora).toLocaleString('pt-BR') : '',
-    l.cliente || '',
-    l.embarcacao || '',
-    l.descricao || '',
-    l.valor.toFixed(2),
-    l.status || '',
-  ])
-  const csv = [cabecalho, ...corpo]
-    .map((linha) => linha.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';'))
-    .join('\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `arrecadacao-detalhada-${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
 // A aba Financeiro contém só a "Arrecadação detalhada" — a situação de
 // pagamento por cliente (chave "Pagamento efetuado"/"não efetuado") mora
 // exclusivamente na tela Clientes, sem réplica aqui, pra não ter duas
@@ -156,14 +132,13 @@ export default function TelaFinanceiro({ marinaId }) {
         <button type="button" className="voltar" onClick={limparFiltrosArrecadacao}>Limpar filtros</button>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-        <div className="stat-card" style={{ padding: '10px 16px' }}>
-          <span>Total arrecadado no período</span>
-          <strong>R$ {totalArrecadacaoFiltrada.toFixed(2)}</strong>
-        </div>
-        <button type="button" disabled={linhasFiltradas.length === 0} onClick={() => exportarCsv(linhasFiltradas)}>
-          Exportar CSV
-        </button>
+      {/* A exportação em planilha desta tela mudou de lugar: agora fica em
+          Configurações → Financeiro (engrenagem do Painel de Controle),
+          exportando sempre o período completo — não só o que estava
+          filtrado aqui na tela. */}
+      <div className="stat-card" style={{ padding: '10px 16px', marginBottom: 16 }}>
+        <span>Total arrecadado no período</span>
+        <strong>R$ {totalArrecadacaoFiltrada.toFixed(2)}</strong>
       </div>
 
       {carregandoArrecadacao ? (

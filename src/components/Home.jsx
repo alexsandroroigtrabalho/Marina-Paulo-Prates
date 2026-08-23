@@ -86,7 +86,6 @@ export default function Home({ onCadastro }) {
             </>
           ) : (
             <>
-              <p className="login-subtitulo">Informe seu e-mail pra receber o link de redefinição.</p>
               <label className="login-rotulo" htmlFor="email-recuperar">E-mail</label>
               <div className="login-campo">
                 <IconMail size={18} />

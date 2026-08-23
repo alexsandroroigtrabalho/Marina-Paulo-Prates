@@ -1,4 +1,4 @@
-import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos, listarAgendamentos } from './db'
+import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos, listarAgendamentos, listarCobrancasDetalhado, listarPedidosAbastecimento } from './db'
 import { labelStatusManutencao } from './statusManutencao'
 
 // Mesma tradução usada nas telas (Painel de Controle e painel do cliente) —
@@ -174,4 +174,59 @@ export async function exportarHistoricoManobrasCsv(marinaId) {
   ])
 
   baixarCsv(comData('historico_manobras'), cabecalho, linhas)
+}
+
+/* ---------- Arrecadação detalhada (Financeiro) ----------
+ * Mesma composição da tela Financeiro (mensalidades pagas + consumo de
+ * combustível pago/entregue — ver montarLinhasArrecadacao em
+ * TelaFinanceiro.jsx), mas sempre com TODO o período disponível: a
+ * exportação agora mora na engrenagem (Configurações → Financeiro), fora
+ * do contexto dos filtros de data/cliente/status que a tela usa só pra
+ * navegação em tela — mesmo princípio das outras exportações deste
+ * arquivo (planilha completa, não um recorte do que estava filtrado). */
+export async function exportarArrecadacaoCsv(marinaId) {
+  const [cobrancasDetalhado, pedidosAbastecimento] = await Promise.all([
+    listarCobrancasDetalhado(marinaId),
+    listarPedidosAbastecimento(marinaId),
+  ])
+
+  const deCobrancas = cobrancasDetalhado
+    .filter((c) => c.status === 'pago' && c.tipo === 'mensalidade')
+    .map((c) => ({
+      dataHora: c.pago_em,
+      cliente: c.clientes?.nome,
+      embarcacao: c.reservas?.embarcacoes?.nome || c.ordens_servico?.embarcacoes?.nome,
+      descricao: c.descricao,
+      valor: Number(c.valor),
+      formaPagamento: c.forma_pagamento,
+      status: c.status,
+    }))
+  const deAbastecimentos = pedidosAbastecimento
+    .filter((p) => ['pago', 'entregue'].includes(p.status))
+    .map((p) => ({
+      dataHora: p.pago_em || p.created_at,
+      cliente: p.clientes?.nome,
+      embarcacao: p.embarcacoes?.nome,
+      descricao: `Abastecimento — ${p.combustiveis?.nome || ''} (${Number(p.quantidade_litros).toFixed(2)} L)`.trim(),
+      valor: Number(p.valor_total),
+      formaPagamento: p.forma_pagamento,
+      status: p.status,
+    }))
+
+  const linhasArrecadacao = [...deCobrancas, ...deAbastecimentos]
+    .sort((a, b) => new Date(b.dataHora || 0) - new Date(a.dataHora || 0))
+
+  const cabecalho = ['Nº', 'Data/hora', 'Cliente', 'Embarcação/jet', 'Descrição', 'Valor (R$)', 'Forma de pagamento', 'Status']
+  const linhas = linhasArrecadacao.map((l, i) => [
+    i + 1,
+    formatarData(l.dataHora, true),
+    l.cliente,
+    l.embarcacao,
+    l.descricao,
+    formatarValor(l.valor),
+    l.formaPagamento,
+    l.status,
+  ])
+
+  baixarCsv(comData('arrecadacao_detalhada'), cabecalho, linhas)
 }
