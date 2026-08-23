@@ -332,8 +332,18 @@ export async function solicitarAgendamento(agendamento) {
   return data[0]
 }
 
+// Ao confirmar (status='concluido'), grava também `concluido_em` — o
+// instante real da confirmação, nunca editável pelo cliente. É esse campo
+// (não o `data_hora`, que o cliente escolhe livremente ao pedir a
+// descida/subida) que decide qual foi a movimentação mais recente de cada
+// embarcação — ver ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js.
+// Sem isso, uma descida confirmada agora podia "perder" pra uma subida
+// antiga se o cliente tivesse digitado um horário anterior ao dela, e a
+// embarcação recém-confirmada não aparecia em Navegando.
 export async function atualizarStatusAgendamento(id, status) {
-  const { error } = await db.from('agendamentos').update({ status }).eq('id', id)
+  const patch = { status }
+  if (status === 'concluido') patch.concluido_em = new Date().toISOString()
+  const { error } = await db.from('agendamentos').update(patch).eq('id', id)
   if (error) throw error
 }
 
@@ -357,6 +367,7 @@ export async function atualizarStatusResgate(id, status) {
 // retorno vindo do próprio cliente (nem mesmo depois de "Resgatado").
 export async function confirmarSubidaEmbarcacao(agendamentoRetirada) {
   const a = agendamentoRetirada
+  const agora = new Date().toISOString()
   const { data, error } = await db
     .from('agendamentos')
     .insert({
@@ -364,8 +375,9 @@ export async function confirmarSubidaEmbarcacao(agendamentoRetirada) {
       cliente_id: a.cliente_id,
       embarcacao_id: a.embarcacao_id,
       tipo: 'retorno',
-      data_hora: new Date().toISOString(),
+      data_hora: agora,
       status: 'concluido',
+      concluido_em: agora,
       observacoes: 'Subida confirmada diretamente pelo administrador no Painel de Controle (Navegando).',
     })
     .select()

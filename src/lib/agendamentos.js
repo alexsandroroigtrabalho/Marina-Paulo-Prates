@@ -4,15 +4,22 @@
 // marina e no indicador equivalente do painel do próprio cliente (mesma
 // lógica usada nos dois lugares, centralizada aqui pra nunca dessincronizar).
 //
-// Compara primeiro por `data_hora` (quando o cliente marcou que saiu/voltou)
-// e, em caso de empate, por `created_at` (quando o registro foi criado no
-// banco — sempre único e estritamente crescente, ao contrário de
-// `data_hora`). Esse empate acontece mais do que parece: o campo `data_hora`
-// só tem precisão de minuto, então uma retirada e um retorno solicitados
-// dentro do mesmo minuto colidem. Sem o desempate por `created_at`, qual das
-// duas "vencia" dependia da ordem (arbitrária, do Postgres) em que os
-// registros chegavam do banco — podendo fazer uma retirada recém-confirmada
-// não aparecer em Navegando, mesmo com a embarcação de fato na água.
+// Compara por `concluido_em` — o instante real em que o status virou
+// 'concluido', gravado automaticamente pelo aplicativo (ver
+// atualizarStatusAgendamento e confirmarSubidaEmbarcacao em lib/db.js) e
+// nunca editável por ninguém. De propósito, NÃO usa `data_hora` como
+// critério principal: esse campo é o horário que o próprio cliente digita
+// ao pedir a descida/subida, então nada garante que reflita a ordem real
+// dos acontecimentos — uma descida confirmada agora podia ter um
+// `data_hora` mais antigo que uma subida confirmada dias atrás (se o
+// cliente tivesse digitado um horário incomum), fazendo a embarcação
+// recém-confirmada não aparecer em Navegando mesmo estando de fato na água.
+//
+// `created_at` entra só como desempate final de segurança, pro caso raro de
+// dois registros terem `concluido_em` idêntico — é único e estritamente
+// crescente. Registros antigos (de antes dessa coluna existir) tiveram
+// `concluido_em` preenchido por uma migração com o melhor valor disponível
+// na época, então nunca ficam sem esse campo.
 export function ultimaMovimentacaoPorEmbarcacao(agendamentos) {
   const ultima = {}
   agendamentos
@@ -23,9 +30,10 @@ export function ultimaMovimentacaoPorEmbarcacao(agendamentos) {
         ultima[a.embarcacao_id] = a
         return
       }
-      const dataA = new Date(a.data_hora).getTime()
-      const dataAtual = new Date(atual.data_hora).getTime()
-      const maisRecente = dataA > dataAtual || (dataA === dataAtual && new Date(a.created_at) > new Date(atual.created_at))
+      const chave = (x) => new Date(x.concluido_em || x.data_hora).getTime()
+      const chaveA = chave(a)
+      const chaveAtual = chave(atual)
+      const maisRecente = chaveA > chaveAtual || (chaveA === chaveAtual && new Date(a.created_at) > new Date(atual.created_at))
       if (maisRecente) ultima[a.embarcacao_id] = a
     })
   return ultima

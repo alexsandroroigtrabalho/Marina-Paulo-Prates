@@ -235,6 +235,17 @@ CREATE TABLE marina.agendamentos (
 ALTER TABLE marina.agendamentos ADD COLUMN previsao_retorno TIMESTAMPTZ; -- só para tipo='retirada': quando o cliente prevê voltar, usado pro alerta de atraso no Painel de Controle
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_solicitado BOOLEAN DEFAULT false; -- OBSOLETO — substituído por resgate_status (ver abaixo); mantido só pra não quebrar bancos antigos, nada mais escreve nele
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solicitado | recebido | resgatado — fluxo do alerta de resgate (S.O.S.) no Painel de Controle, ver lib/statusResgate.js
+-- Instante real em que o status virou 'concluido', gravado sozinho pelo
+-- aplicativo (atualizarStatusAgendamento/confirmarSubidaEmbarcacao em
+-- lib/db.js) — nunca editável por ninguém, ao contrário de `data_hora`
+-- (que o cliente digita livremente ao pedir a descida/subida). É o campo
+-- que decide qual foi a movimentação mais recente de cada embarcação, pra
+-- "Navegando" no Painel de Controle e o indicador equivalente no painel do
+-- cliente — ver ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js.
+-- Sem isso, uma descida confirmada agora podia "perder" pra uma subida
+-- antiga se o cliente tivesse digitado um `data_hora` anterior ao dela.
+ALTER TABLE marina.agendamentos ADD COLUMN concluido_em TIMESTAMPTZ;
+UPDATE marina.agendamentos SET concluido_em = created_at WHERE status = 'concluido' AND concluido_em IS NULL;
 
 -- ------------------------------------------------------------
 -- 10. DOCUMENTOS DA EMBARCAÇÃO (TIE, seguro, habilitação, vistoria...)
