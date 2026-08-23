@@ -23,18 +23,25 @@ import { TEMA_PADRAO } from '../lib/tema'
 const QR_PAGAMENTO_DEMO = '00020126DEMO-PIX-MARINA5204000053039865802BR5913MARINA-MANAGER6009DEMO-QR'
 
 // Mensagens de status da Agenda (retirada/retorno), derivadas de
-// pagamento_confirmado + acesso_suspenso — os mesmos dois campos que a
-// policy "cliente_cria_agendamento" do banco usa pra travar/liberar de
-// verdade, então a mensagem na tela nunca destoa do que o banco permite.
+// pagamento_confirmado + acesso_suspenso + acesso_liberado_manual — os
+// mesmos 3 campos que a policy "cliente_cria_agendamento" do banco usa pra
+// travar/liberar de verdade, então a mensagem na tela nunca destoa do que o
+// banco permite. acesso_liberado_manual é a liberação manual da
+// administração (Painel de Controle → Clientes → "Liberar acesso sem
+// confirmação de pagamento") — libera a Agenda sem mexer no status
+// financeiro, então o pagamento continua "pendente" mesmo com liberado=true.
 function statusAgendaCliente(cliente) {
   if (!cliente) return null
   if (cliente.acesso_suspenso) {
     return { texto: 'Acesso suspenso pela administração da marina.', classe: 'cancelado', liberado: false }
   }
-  if (!cliente.pagamento_confirmado) {
-    return { texto: 'Aguardando pagamento — a Agenda é liberada automaticamente assim que a marina confirma.', classe: 'pendente', liberado: false }
+  if (cliente.pagamento_confirmado) {
+    return { texto: 'Pagamento confirmado — Agenda liberada.', classe: 'em-dia', liberado: true }
   }
-  return { texto: 'Pagamento confirmado — Agenda liberada.', classe: 'em-dia', liberado: true }
+  if (cliente.acesso_liberado_manual) {
+    return { texto: 'Acesso liberado manualmente pela administração da marina.', classe: 'em-dia', liberado: true }
+  }
+  return { texto: 'Aguardando pagamento — a Agenda é liberada automaticamente assim que a marina confirma.', classe: 'pendente', liberado: false }
 }
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']

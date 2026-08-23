@@ -70,7 +70,7 @@ export async function exportarClientesCsv(marinaId) {
       .join(' · ')
     const acesso = c.acesso_suspenso
       ? 'Suspenso'
-      : c.pagamento_confirmado ? 'Liberado' : 'Aguardando pagamento'
+      : c.pagamento_confirmado ? 'Liberado' : c.acesso_liberado_manual ? 'Liberado manualmente' : 'Aguardando pagamento'
     return [
       i + 1,
       c.nome,

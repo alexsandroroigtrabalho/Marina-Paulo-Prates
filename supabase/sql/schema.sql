@@ -86,6 +86,12 @@ ALTER TABLE marina.clientes ADD COLUMN cadastro_confirmado BOOLEAN DEFAULT true;
 ALTER TABLE marina.clientes ADD COLUMN pagamento_confirmado BOOLEAN DEFAULT true; -- "Pagamento efetuado" — libera a Agenda
 ALTER TABLE marina.clientes ALTER COLUMN pagamento_confirmado SET DEFAULT false;
 ALTER TABLE marina.clientes ADD COLUMN acesso_suspenso BOOLEAN DEFAULT false;     -- suspensão manual pela administração, independente do pagamento
+-- Liberação manual da Agenda mesmo com pagamento_confirmado = false — pra
+-- quando a administração quer dar acesso antes do pagamento cair (ex: cliente
+-- de confiança, pagamento em processamento). NÃO mexe em pagamento_confirmado
+-- (o status financeiro continua igual), só destrava a Agenda — ver policy
+-- "cliente_cria_agendamento" e statusAgendaCliente()/statusAcesso() no front.
+ALTER TABLE marina.clientes ADD COLUMN acesso_liberado_manual BOOLEAN DEFAULT false;
 
 -- ------------------------------------------------------------
 -- 4. EMBARCAÇÕES
@@ -433,15 +439,17 @@ CREATE POLICY "admin_marina_agendamentos" ON marina.agendamentos
 
 -- Agendamentos: cliente solicita, vê e cancela os próprios (enquanto ainda "solicitado")
 -- A Agenda (retirada/retorno) só aceita pedido de quem está com o pagamento
--- confirmado e não está com o acesso suspenso — aplica no banco a mesma
--- regra que a interface do cliente já impõe (mensagem "Aguardando
--- pagamento"), pra ninguém conseguir contornar a trava só chamando a API.
+-- confirmado (OU com a liberação manual da administração, acesso_liberado_manual)
+-- e não está com o acesso suspenso — aplica no banco a mesma regra que a
+-- interface do cliente já impõe (mensagem "Aguardando pagamento"), pra
+-- ninguém conseguir contornar a trava só chamando a API.
 CREATE POLICY "cliente_cria_agendamento" ON marina.agendamentos
   FOR INSERT TO authenticated
   WITH CHECK (
     cliente_id IN (
       SELECT id FROM marina.clientes
-      WHERE user_id = auth.uid() AND pagamento_confirmado = true AND acesso_suspenso = false
+      WHERE user_id = auth.uid() AND acesso_suspenso = false
+        AND (pagamento_confirmado = true OR acesso_liberado_manual = true)
     )
   );
 

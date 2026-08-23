@@ -5,13 +5,16 @@ const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
 const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', endereco: '', observacoes: '' }
 
-// Rótulo do acesso à Agenda: deriva sempre de pagamento_confirmado +
-// acesso_suspenso — não existe um 4º campo guardando isso separado, pra não
-// correr o risco de o rótulo e a trava real (ver policy "cliente_cria_agendamento"
-// no schema.sql) ficarem dessincronizados.
+// Rótulo do acesso à Agenda: deriva de pagamento_confirmado + acesso_suspenso
+// + acesso_liberado_manual — os mesmos 3 campos que a policy
+// "cliente_cria_agendamento" no schema.sql usa pra travar/liberar de
+// verdade, pra o rótulo nunca destoar do que o banco permite. Liberação
+// manual aparece com um texto próprio ("Liberado manualmente") pra ficar
+// claro que não foi o pagamento que destravou o acesso.
 function statusAcesso(cliente) {
   if (cliente.acesso_suspenso) return { texto: 'Suspenso', classe: 'cancelado' }
   if (cliente.pagamento_confirmado) return { texto: 'Liberado', classe: 'em-dia' }
+  if (cliente.acesso_liberado_manual) return { texto: 'Liberado manualmente', classe: 'em-dia' }
   return { texto: 'Aguardando pagamento', classe: 'pendente' }
 }
 
@@ -95,6 +98,21 @@ export default function TelaClientes({ marinaId }) {
 
   async function alternarSuspensao(cliente) {
     await salvarCliente({ id: cliente.id, acesso_suspenso: !cliente.acesso_suspenso })
+    carregar()
+  }
+
+  // Liberação manual da Agenda (e das demais áreas que dependem de
+  // pagamento) mesmo sem o pagamento confirmado — não mexe em
+  // pagamento_confirmado, só destrava o acesso à parte. Pede confirmação
+  // nos dois sentidos (liberar e revogar), já que muda o que o cliente
+  // consegue fazer no app.
+  async function alternarLiberacaoManual(cliente) {
+    const mensagem = cliente.acesso_liberado_manual
+      ? `Revogar a liberação manual de acesso de ${cliente.nome}? A Agenda voltará a depender da confirmação de pagamento.`
+      : `Liberar o acesso de ${cliente.nome} à Agenda e às demais áreas que dependem de pagamento, mesmo sem o pagamento confirmado?\n\n` +
+        'O status financeiro não é alterado automaticamente — o pagamento continua marcado como pendente até a administração confirmá-lo.'
+    if (!window.confirm(mensagem)) return
+    await salvarCliente({ id: cliente.id, acesso_liberado_manual: !cliente.acesso_liberado_manual })
     carregar()
   }
 
@@ -229,11 +247,23 @@ export default function TelaClientes({ marinaId }) {
                       Pagamento: {c.pagamento_confirmado ? 'Efetuado' : 'Pendente'}
                     </span>
                     <span className={`status-texto ${acesso.classe}`}>Acesso à Agenda: {acesso.texto}</span>
+                    {/* Indicador dedicado, além do rótulo acima, pra deixar bem visível
+                        que o acesso está liberado sem pagamento confirmado — some
+                        sozinho assim que o pagamento é confirmado ou a liberação é
+                        revogada. */}
+                    {c.acesso_liberado_manual && !c.pagamento_confirmado && !c.acesso_suspenso && (
+                      <span className="status-texto pendente" title="Acesso liberado manualmente pela administração, sem confirmação de pagamento">
+                        🔓 Liberado manualmente sem pagamento
+                      </span>
+                    )}
                   </div>
 
                   <div className="acoes-modal" style={{ marginTop: 10, justifyContent: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
                     <button type="button" onClick={() => alternarPagamento(c)}>
                       {c.pagamento_confirmado ? 'Marcar pagamento como pendente' : 'Confirmar pagamento'}
+                    </button>
+                    <button type="button" onClick={() => alternarLiberacaoManual(c)}>
+                      {c.acesso_liberado_manual ? 'Revogar liberação manual' : 'Liberar acesso sem confirmação de pagamento'}
                     </button>
                     <button type="button" onClick={() => alternarSuspensao(c)}>
                       {c.acesso_suspenso ? 'Reativar acesso' : 'Suspender acesso'}
