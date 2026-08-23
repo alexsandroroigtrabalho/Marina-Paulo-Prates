@@ -33,7 +33,7 @@ export default function AdminLogin({ onVoltar }) {
         <button type="submit" disabled={carregando} style={{ width: '100%' }}>{carregando ? 'Entrando...' : 'Entrar'}</button>
         <button type="button" className="voltar" onClick={onVoltar}>← Voltar</button>
       </form>
-      <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
+      <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
     </div>
   )
 }

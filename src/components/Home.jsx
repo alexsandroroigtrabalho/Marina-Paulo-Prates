@@ -23,7 +23,7 @@ export default function Home({ nomeMarina, onEscolherCliente, onEscolherAdmin })
           </button>
         </div>
       </div>
-      <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
+      <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
     </div>
   )
 }

@@ -60,7 +60,7 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
         <button className="nav-item sair" onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}>
           Sair
         </button>
-        <p className="sidebar-rodape">Desenvolvido por RV Invictus</p>
+        <a className="sidebar-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
       </aside>
       <main className="conteudo">
         <header className="topo">

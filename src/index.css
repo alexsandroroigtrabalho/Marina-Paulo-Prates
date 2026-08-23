@@ -78,7 +78,8 @@ body {
 /* Tela de login/acesso (Home, AdminLogin, AreaCliente, FichaCadastro — as
    4 telas que usam essa mesma classe): logo RV Invictus dourada centralizada
    no topo, card claro no meio (pra não perder contraste nos campos/botões
-   de acesso), crédito "Desenvolvido por RV Invictus" fixo no rodapé.
+   de acesso), crédito "Developed by RV Invictus.com.br" (link pro site da
+   empresa) fixo no rodapé.
    Fundo segue a combinação PREFERENCIAL do manual da marca — "fundo escuro
    + logo dourado" — com o azul-petróleo oficial (#0D1B2A) e uma trama sutil
    de losangos dourados (o "padrão gráfico auxiliar" do manual, aqui bem
@@ -99,6 +100,7 @@ body {
 }
 .login-rv-logo { width: min(230px, 55vw); height: auto; margin-top: 4px; }
 .login-rv-rodape {
+  display: block;
   margin: 0 0 4px;
   font-family: 'Cinzel', serif;
   font-size: 11px;
@@ -106,6 +108,7 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #D4AF37;
+  text-decoration: none;
   opacity: 0.85;
 }
 
@@ -160,6 +163,7 @@ body {
    e crédito centralizado ao final da página. */
 .pagina-cliente-logo { display: block; width: min(150px, 45vw); height: auto; margin: 0 auto 18px; }
 .pagina-cliente-rodape {
+  display: block;
   margin: 28px 0 4px;
   text-align: center;
   font-family: 'Cinzel', serif;
@@ -168,6 +172,7 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #D4AF37;
+  text-decoration: none;
 }
 
 /* Logo + crédito na barra lateral (fundo escuro --cor-primaria): usa a
@@ -176,6 +181,7 @@ body {
    logo abaixo, sempre no rodapé da sidebar — nunca sobre o conteúdo. */
 .sidebar-logo { display: block; width: 100%; max-width: 140px; height: auto; margin: 4px auto 22px; }
 .sidebar-rodape {
+  display: block;
   margin: 14px 0 0;
   text-align: center;
   font-family: 'Cinzel', serif;
@@ -184,7 +190,28 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #D4AF37;
+  text-decoration: none;
   opacity: 0.85;
+}
+
+/* Os 3 créditos de marca acima ("Developed by RV Invictus.com.br") viraram
+   links de verdade (para https://rvinvictus.com.br) — cor dourada travada
+   em todos os estados (padrão/visitado), só ganhando sublinhado discreto no
+   hover/foco pra dar a pista de que é clicável, sem mudar o visual padrão
+   do rodapé. */
+.login-rv-rodape:visited,
+.pagina-cliente-rodape:visited,
+.sidebar-rodape:visited {
+  color: #D4AF37;
+}
+.login-rv-rodape:hover,
+.login-rv-rodape:focus-visible,
+.pagina-cliente-rodape:hover,
+.pagina-cliente-rodape:focus-visible,
+.sidebar-rodape:hover,
+.sidebar-rodape:focus-visible {
+  text-decoration: underline;
+  opacity: 1;
 }
 
 /* ---------- Landing / seleção de perfil (Home) ---------- */
@@ -401,7 +428,7 @@ button.badge:hover { filter: brightness(0.95); }
 /* Relógio + clima na mesma linha, com espaço pra quebrar em telas estreitas
    sem sobrepor nada. O rótulo da cidade segue o padrão do manual da marca
    (Cinzel, caixa alta, tracking, dourado — mesmo tratamento do rodapé
-   "Desenvolvido por RV Invictus"); a leitura em si (temperatura/condição/
+   "Developed by RV Invictus.com.br"); a leitura em si (temperatura/condição/
    vento) usa a fonte normal do corpo, por ser dado que muda o tempo todo. */
 .painel-controle-cabecalho { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 16px; }
 .painel-clima { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }

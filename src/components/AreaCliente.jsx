@@ -37,7 +37,7 @@ export default function AreaCliente({ onVoltar }) {
           <button type="submit" disabled={carregando}>{carregando ? 'Entrando...' : 'Entrar'}</button>
           <button type="button" className="voltar" onClick={() => setEtapa('escolha')}>← Voltar</button>
         </form>
-        <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
+        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
       </div>
     )
   }
@@ -56,7 +56,7 @@ export default function AreaCliente({ onVoltar }) {
         <button className="btn-outline" onClick={() => setEtapa('cadastro')}>Fazer cadastro</button>
         <button type="button" className="voltar" onClick={onVoltar}>← Voltar</button>
       </div>
-      <p className="login-rv-rodape">Desenvolvido por RV Invictus</p>
+      <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
     </div>
   )
 }
