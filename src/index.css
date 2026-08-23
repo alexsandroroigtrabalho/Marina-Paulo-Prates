@@ -48,8 +48,14 @@ body {
    pra ficar sempre exatamente no meio da página independente da altura do
    conteúdo ao redor (uma tela curta, como "Em construção", não corta mais a
    logo por cima/baixo) — e `background-size: contain` garante que a logo
-   inteira sempre cabe dentro da caixa, sem cortar nenhuma parte dela. */
-.pagina-marca-dagua-despachos { position: relative; z-index: 0; }
+   inteira sempre cabe dentro da caixa, sem cortar nenhuma parte dela.
+   `min-height` no container: sem isso, "50%" seria só o meio da altura do
+   próprio conteúdo (que pode ser bem curto, tipo só o aviso "Em
+   construção"), empurrando a marca d'água pra perto do topo em vez do meio
+   vertical da página. Com essa altura mínima (deduzindo, aproximadamente, o
+   espaço do cabeçalho/abas acima), "50%" passa a cair no meio vertical da
+   tela de verdade, sem mudar a centralização horizontal. */
+.pagina-marca-dagua-despachos { position: relative; z-index: 0; min-height: calc(100vh - 120px); }
 .pagina-marca-dagua-despachos::before {
   content: '';
   position: absolute;
