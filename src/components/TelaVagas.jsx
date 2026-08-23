@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
-  listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, confirmarSubidaEmbarcacao,
+  listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
@@ -64,7 +64,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const [sonsAtivados, setSonsAtivados] = useState(true)
   const [salvandoAvisoSonoro, setSalvandoAvisoSonoro] = useState(false)
   const alarmeResgateRef = useRef(null)
-  const [confirmandoSubidaId, setConfirmandoSubidaId] = useState(null)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
   const [salvandoApitos, setSalvandoApitos] = useState(false)
@@ -237,24 +236,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       await carregar()
     } catch (err) {
       alert('Não foi possível atualizar a notificação: ' + err.message)
-    }
-  }
-
-  // Confirma diretamente, pela tabela Navegando, que uma embarcação subiu —
-  // sem precisar que o cliente solicite o retorno pelo app primeiro. Some
-  // da lista Navegando na hora (ver confirmarSubidaEmbarcacao em lib/db.js)
-  // e vira um registro de "Subida" concluída no Histórico de manobras e no
-  // Diário de Bordo do cliente, com data/hora.
-  async function confirmarSubida(a) {
-    if (confirmandoSubidaId) return
-    setConfirmandoSubidaId(a.id)
-    try {
-      await confirmarSubidaEmbarcacao(a)
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível confirmar a subida: ' + err.message)
-    } finally {
-      setConfirmandoSubidaId(null)
     }
   }
 
@@ -506,55 +487,34 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
         <td>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {a.resgate_status && a.resgate_status !== 'solicitado' ? (
-              // Pedido já recebido (ou resgatado): vira um seletor editável,
-              // igual ao padrão de status de Manutenção — salva na hora, sem
-              // precisar de um botão "Salvar" separado.
-              <select
-                value={a.resgate_status}
-                onChange={(e) => definirStatusResgate(a.id, e.target.value)}
-                title="Status do resgate"
-              >
-                {/* "Solicitação de resgate" fica de fora do seletor de propósito —
-                    esse estado só é alcançado pelo clique inicial no badge (ou
-                    pelo próprio cliente via S.O.S.); selecioná-lo aqui reativaria
-                    o apito contínuo de SOS por engano numa manobra que a equipe
-                    já confirmou ter recebido. */}
-                {STATUS_RESGATE.filter((s) => s.valor !== 'solicitado').map((s) => (
-                  <option key={s.valor} value={s.valor}>{s.label}</option>
-                ))}
-              </select>
-            ) : (
-              <button
-                type="button"
-                className={`badge status-${status.classe}`}
-                title={a.resgate_status === 'solicitado' ? 'Clique para confirmar o recebimento do pedido' : 'Clique para marcar Solicitação de resgate'}
-                onClick={() => avancarResgate(a.id, a.resgate_status)}
-              >
-                {status.texto}
-              </button>
-            )}
-
-            {/* "Confirmar subida": opção pedida pela administração — confirma
-                diretamente que a embarcação subiu/atracou, sem depender de o
-                cliente solicitar o retorno pelo app. Some da lista Navegando
-                na hora (ver confirmarSubidaEmbarcacao em lib/db.js) e vira um
-                registro de "Subida" concluída no Histórico de manobras e no
-                Diário de Bordo do cliente, com data/hora. Fica disponível
-                mesmo durante um resgate em andamento — é o único jeito de uma
-                embarcação sair da lista Navegando sem um pedido de retorno
-                vindo do cliente. */}
+          {a.resgate_status && a.resgate_status !== 'solicitado' ? (
+            // Pedido já recebido (ou resgatado): vira um seletor editável,
+            // igual ao padrão de status de Manutenção — salva na hora, sem
+            // precisar de um botão "Salvar" separado.
             <select
-              value=""
-              onChange={(e) => { if (e.target.value === 'confirmar_subida') confirmarSubida(a) }}
-              disabled={confirmandoSubidaId === a.id}
-              title="Confirmar a subida desta embarcação"
+              value={a.resgate_status}
+              onChange={(e) => definirStatusResgate(a.id, e.target.value)}
+              title="Status do resgate"
             >
-              <option value="" disabled>{confirmandoSubidaId === a.id ? 'Confirmando…' : 'Ação'}</option>
-              <option value="confirmar_subida">Confirmar subida</option>
+              {/* "Solicitação de resgate" fica de fora do seletor de propósito —
+                  esse estado só é alcançado pelo clique inicial no badge (ou
+                  pelo próprio cliente via S.O.S.); selecioná-lo aqui reativaria
+                  o apito contínuo de SOS por engano numa manobra que a equipe
+                  já confirmou ter recebido. */}
+              {STATUS_RESGATE.filter((s) => s.valor !== 'solicitado').map((s) => (
+                <option key={s.valor} value={s.valor}>{s.label}</option>
+              ))}
             </select>
-          </div>
+          ) : (
+            <button
+              type="button"
+              className={`badge status-${status.classe}`}
+              title={a.resgate_status === 'solicitado' ? 'Clique para confirmar o recebimento do pedido' : 'Clique para marcar Solicitação de resgate'}
+              onClick={() => avancarResgate(a.id, a.resgate_status)}
+            >
+              {status.texto}
+            </button>
+          )}
         </td>
       </tr>
     )

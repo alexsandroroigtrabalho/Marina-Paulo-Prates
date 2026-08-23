@@ -212,14 +212,11 @@ ALTER TABLE marina.cobrancas
 -- ------------------------------------------------------------
 -- 9. AGENDAMENTOS (solicitação do cliente: retirada para água / retorno)
 --
--- Além do fluxo normal (cliente solicita retirada/retorno pelo app, equipe
--- confirma na Fila de Rampa do Painel de Controle), um registro tipo
--- "retorno" já "concluido" também pode nascer direto da equipe: botão
--- "Confirmar subida" na tabela Navegando (ver confirmarSubidaEmbarcacao em
--- lib/db.js), usado quando a embarcação volta sem o cliente ter pedido o
--- retorno pelo app. É só isso que tira a embarcação da lista Navegando —
--- ela mostra sempre a última movimentação concluída de cada embarcação, e
--- vira "Subida" no Histórico de manobras e no Diário de Bordo do cliente.
+-- Cliente solicita retirada/retorno pelo app; a equipe confirma na Fila de
+-- Rampa do Painel de Controle ("Confirmar saída"/"Confirmar retorno"), o
+-- que muda o status para "concluido". "Navegando" mostra sempre quem teve
+-- como última movimentação concluída uma retirada (sem retorno concluído
+-- depois dela) — ver ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js.
 -- ------------------------------------------------------------
 CREATE TABLE marina.agendamentos (
   id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -236,8 +233,8 @@ ALTER TABLE marina.agendamentos ADD COLUMN previsao_retorno TIMESTAMPTZ; -- só 
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_solicitado BOOLEAN DEFAULT false; -- OBSOLETO — substituído por resgate_status (ver abaixo); mantido só pra não quebrar bancos antigos, nada mais escreve nele
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solicitado | recebido | resgatado — fluxo do alerta de resgate (S.O.S.) no Painel de Controle, ver lib/statusResgate.js
 -- Instante real em que o status virou 'concluido', gravado sozinho pelo
--- aplicativo (atualizarStatusAgendamento/confirmarSubidaEmbarcacao em
--- lib/db.js) — nunca editável por ninguém, ao contrário de `data_hora`
+-- aplicativo (atualizarStatusAgendamento em lib/db.js) — nunca editável
+-- por ninguém, ao contrário de `data_hora`
 -- (que o cliente digita livremente ao pedir a descida/subida). É o campo
 -- que decide qual foi a movimentação mais recente de cada embarcação, pra
 -- "Navegando" no Painel de Controle e o indicador equivalente no painel do

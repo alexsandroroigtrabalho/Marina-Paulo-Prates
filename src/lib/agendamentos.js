@@ -6,8 +6,8 @@
 //
 // Compara por `concluido_em` — o instante real em que o status virou
 // 'concluido', gravado automaticamente pelo aplicativo (ver
-// atualizarStatusAgendamento e confirmarSubidaEmbarcacao em lib/db.js) e
-// nunca editável por ninguém. De propósito, NÃO usa `data_hora` como
+// atualizarStatusAgendamento em lib/db.js) e nunca editável por ninguém.
+// De propósito, NÃO usa `data_hora` como
 // critério principal: esse campo é o horário que o próprio cliente digita
 // ao pedir a descida/subida, então nada garante que reflita a ordem real
 // dos acontecimentos — uma descida confirmada agora podia ter um
