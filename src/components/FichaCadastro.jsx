@@ -63,13 +63,13 @@ export default function FichaCadastro({ onVoltar }) {
           alt="RV Invictus — Consultoria e Gestão de Processos"
           className="login-rv-logo"
         />
-        <div className="card-login">
-          <h1>Cadastro enviado!</h1>
-          <p>Depois de enviado, a administração da marina confirma o cadastro e libera seu acesso.</p>
+        <div className="card-login login-sem-painel">
+          <h1 className="login-titulo">Cadastro enviado!</h1>
+          <p className="login-subtitulo">Depois de enviado, a administração da marina confirma o cadastro e libera seu acesso.</p>
           <button className="btn-primario" onClick={onVoltar}>Voltar ao início</button>
         </div>
         <footer className="login-rv-footer">
-          <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+          <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
         </footer>
       </div>
     )
@@ -82,8 +82,8 @@ export default function FichaCadastro({ onVoltar }) {
         alt="RV Invictus — Consultoria e Gestão de Processos"
         className="login-rv-logo"
       />
-      <form className="card-login" style={{ width: 400 }} onSubmit={concluirCadastro}>
-        <h1>Ficha de cadastro</h1>
+      <form className="card-login login-sem-painel" style={{ width: 400 }} onSubmit={concluirCadastro}>
+        <h1 className="login-titulo">Ficha de cadastro</h1>
         <input placeholder="Nome completo" required
           value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
         <input placeholder="Número da carteira de habilitação" required
@@ -97,9 +97,9 @@ export default function FichaCadastro({ onVoltar }) {
         <input placeholder="Endereço completo" required
           value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
 
-        <p style={{ margin: '8px 0 0', fontWeight: 600, color: 'var(--cor-primaria)' }}>Embarcação(ões)</p>
+        <p className="login-rotulo" style={{ margin: '8px 0 4px' }}>Embarcação(ões)</p>
         {embarcacoes.map((emb, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10, background: 'var(--cor-fundo)', borderRadius: 10 }}>
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10, background: 'rgba(245,245,240,0.05)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 10 }}>
             <select value={emb.tipo} onChange={(e) => atualizarEmbarcacao(i, 'tipo', e.target.value)}>
               <option>Barco</option>
               <option>Veleiro</option>
@@ -117,11 +117,11 @@ export default function FichaCadastro({ onVoltar }) {
 
         {erro && <div className="erro">{erro}</div>}
         <button type="submit" disabled={enviando}>{enviando ? 'Enviando...' : 'Concluir cadastro'}</button>
-        <p style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Depois de enviado, a administração confirma e libera o acesso.</p>
+        <p style={{ fontSize: 12, color: 'rgba(245,245,240,0.55)' }}>Depois de enviado, a administração confirma e libera o acesso.</p>
         <button type="button" className="voltar" onClick={onVoltar}>← Voltar</button>
       </form>
       <footer className="login-rv-footer">
-        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
       </footer>
     </div>
   )

@@ -70,7 +70,7 @@ export default function Home({ onCadastro }) {
       />
 
       {modo === 'recuperar' ? (
-        <form className="card-login login-sem-painel" onSubmit={recuperarSenha}>
+        <form className="card-login login-sem-painel login-card-centralizado" onSubmit={recuperarSenha}>
           <h1 className="login-titulo">Recuperar senha</h1>
           {recuperarEnviado ? (
             <>
@@ -94,7 +94,7 @@ export default function Home({ onCadastro }) {
           )}
         </form>
       ) : (
-        <form className="card-login login-sem-painel" onSubmit={entrar}>
+        <form className="card-login login-sem-painel login-card-centralizado" onSubmit={entrar}>
           <label className="login-rotulo" htmlFor="email-login">E-mail</label>
           <div className="login-campo">
             <IconMail size={18} />
@@ -130,7 +130,7 @@ export default function Home({ onCadastro }) {
       )}
 
       <footer className="login-rv-footer">
-        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
       </footer>
     </div>
   )
