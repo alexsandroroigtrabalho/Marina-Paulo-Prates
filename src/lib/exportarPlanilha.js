@@ -230,3 +230,24 @@ export async function exportarArrecadacaoCsv(marinaId) {
 
   baixarCsv(comData('arrecadacao_detalhada'), cabecalho, linhas)
 }
+
+/* ---------- Histórico de solicitações do cliente (painel do cliente) ----------
+ * Diferente das exportações acima (que buscam tudo de novo no banco), esta
+ * recebe os itens já prontos de TelaClienteDashboard.jsx: o mesmo recorte
+ * "Histórico de Solicitações" da engrenagem (Configurações → Histórico de
+ * solicitações) — solicitações já concluídas/pagas/aprovadas (saíram do
+ * Diário de Bordo ativo) e ainda dentro da janela de 5 dias que essa tela
+ * usa (ver diarioDeBordo/historicoSolicitacoes lá). Não é síncrona com o
+ * banco de propósito: é uma cópia em CSV exatamente do que o cliente está
+ * vendo na tela naquele momento, nada mais. */
+export function exportarHistoricoSolicitacoesCsv(itens) {
+  const cabecalho = ['Nº', 'Solicitação', 'Detalhe', 'Status', 'Data']
+  const linhas = itens.map((item, i) => [
+    i + 1,
+    item.titulo,
+    item.detalhe,
+    item.statusLabel,
+    formatarData(item.quando, true),
+  ])
+  baixarCsv(comData('meu_historico'), cabecalho, linhas)
+}
