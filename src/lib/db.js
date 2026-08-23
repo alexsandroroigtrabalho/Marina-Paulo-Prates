@@ -49,8 +49,22 @@ export async function listarClientes(marinaId) {
   return data
 }
 
+// Não usa .upsert() de propósito: num UPDATE parcial (ex: só { id,
+// pagamento_confirmado }, como a chave de pagamento e os botões de
+// suspender/liberar acesso fazem), o .upsert() do Supabase tenta o caminho
+// de INSERT (ON CONFLICT DO UPDATE) e a policy de RLS de INSERT
+// ("admin_marina_clientes", WITH CHECK marina_id = ...) é avaliada contra
+// a linha proposta — que não tem marina_id nesses updates parciais, então
+// vira NULL e a policy barra com "new row violates row-level security
+// policy". Separar update/insert evita esse caminho: o UPDATE só reavalia
+// a policy de UPDATE sobre a linha já existente (marina_id continua o
+// mesmo, sem violar o WITH CHECK).
 export async function salvarCliente(cliente) {
-  const { data, error } = await db.from('clientes').upsert(cliente).select()
+  const { id, ...campos } = cliente
+  const query = id
+    ? db.from('clientes').update(campos).eq('id', id)
+    : db.from('clientes').insert(campos)
+  const { data, error } = await query.select()
   if (error) throw error
   return data[0]
 }
