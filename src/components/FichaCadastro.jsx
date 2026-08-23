@@ -59,7 +59,7 @@ export default function FichaCadastro({ onVoltar }) {
     return (
       <div className="tela-central tela-login-rv">
         <img
-          src="/rv-invictus-logo.png"
+          src="/rv-invictus-logo-dourado.png"
           alt="RV Invictus — Consultoria e Gestão de Processos"
           className="login-rv-logo"
         />
@@ -76,7 +76,7 @@ export default function FichaCadastro({ onVoltar }) {
   return (
     <div className="tela-central tela-login-rv">
       <img
-        src="/rv-invictus-logo.png"
+        src="/rv-invictus-logo-dourado.png"
         alt="RV Invictus — Consultoria e Gestão de Processos"
         className="login-rv-logo"
       />

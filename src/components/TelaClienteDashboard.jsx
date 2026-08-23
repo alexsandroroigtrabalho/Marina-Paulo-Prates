@@ -219,6 +219,13 @@ export default function TelaClienteDashboard({ perfil }) {
   // tempo real (assinatura Realtime logo abaixo), pra nunca ficar
   // desatualizada quando a marina muda alguma coisa.
   const [configRampa, setConfigRampa] = useState(RAMPA_PADRAO)
+  // Fica false até a Agenda da rampa real da marina ser carregada pela
+  // primeira vez — enquanto isso, `configRampa` ainda está no valor padrão
+  // (RAMPA_PADRAO), que pode não bater com o que a marina configurou de
+  // verdade (horário, intervalo, manutenções). Os botões "Descida"/"Subida"
+  // ficam desabilitados até virar true, pra nunca oferecer um horário com
+  // base no padrão genérico em vez da configuração real (ver abrirModal).
+  const [configRampaCarregada, setConfigRampaCarregada] = useState(false)
   const [modalServicosAberto, setModalServicosAberto] = useState(false)
   // Dentro do modal "Serviços": qual dos 3 tipos o cliente escolheu (null =
   // ainda no seletor inicial), e, se for "regularizacao", qual categoria da
@@ -253,14 +260,35 @@ export default function TelaClienteDashboard({ perfil }) {
       const { data: emb, error: erroEmb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
       if (erroEmb) throw erroEmb
       setEmbarcacoes(emb || [])
-      setAgendamentos(await listarAgendamentosCliente(cli.id))
-      setLaudos(await listarLaudosCliente(cli.id))
-      setDespachos(await listarDespachosCliente(cli.id))
-      setOrdensServico(await listarOrdensServicoCliente(cli.id))
-      setCombustiveis((await listarCombustiveis(cli.marina_id)).filter((c) => c.ativo))
-      setAbastecimentos(await listarPedidosAbastecimentoCliente(cli.id))
-      setAutorizados(await listarAutorizados(cli.id))
-      setConfigRampa(lerConfigRampa(await buscarMarina(cli.marina_id)))
+      // As buscas abaixo não dependem umas das outras — rodar em paralelo
+      // (em vez de um await atrás do outro, como antes) deixa o
+      // carregamento bem mais rápido e, principalmente, encurta ao máximo a
+      // janela em que `cliente` já está definido (botões "Descida"/"Subida"
+      // liberados) mas `configRampa` ainda não chegou — é essa janela que o
+      // `configRampaCarregada` abaixo fecha de vez, mas menos tempo nela é
+      // sempre melhor.
+      // Nomes com sufixo "Carregado(s)" de propósito, pra não sombrear os
+      // states de mesmo nome (agendamentos, laudos, etc.) declarados lá em
+      // cima — evita confusão em quem for mexer aqui depois.
+      const [agendamentosCarregados, laudosCarregados, despachosCarregados, ordensServicoCarregadas, combustiveisCarregados, abastecimentosCarregados, autorizadosCarregados, marinaCarregada] = await Promise.all([
+        listarAgendamentosCliente(cli.id),
+        listarLaudosCliente(cli.id),
+        listarDespachosCliente(cli.id),
+        listarOrdensServicoCliente(cli.id),
+        listarCombustiveis(cli.marina_id),
+        listarPedidosAbastecimentoCliente(cli.id),
+        listarAutorizados(cli.id),
+        buscarMarina(cli.marina_id),
+      ])
+      setAgendamentos(agendamentosCarregados)
+      setLaudos(laudosCarregados)
+      setDespachos(despachosCarregados)
+      setOrdensServico(ordensServicoCarregadas)
+      setCombustiveis(combustiveisCarregados.filter((c) => c.ativo))
+      setAbastecimentos(abastecimentosCarregados)
+      setAutorizados(autorizadosCarregados)
+      setConfigRampa(lerConfigRampa(marinaCarregada))
+      setConfigRampaCarregada(true)
     } catch (err) {
       // Não derruba a tela — mantém o que já estava carregado e avisa, pra
       // dar pra tentar de novo (ex: recarregando a página) em vez de ficar
@@ -317,6 +345,15 @@ export default function TelaClienteDashboard({ perfil }) {
     const statusAgenda = statusAgendaCliente(cliente)
     if (!statusAgenda?.liberado) {
       alert(statusAgenda?.texto || 'Aguardando pagamento — fale com a administração da marina.')
+      return
+    }
+    // Mesma ideia pra Agenda da rampa: o botão já fica desabilitado
+    // enquanto ainda não carregou a configuração real da marina, mas essa
+    // checagem aqui garante que o formulário nunca abre com o horário
+    // padrão genérico (RAMPA_PADRAO) em vez do que a marina configurou de
+    // verdade — ver configRampaCarregada.
+    if (!configRampaCarregada) {
+      alert('Carregando os horários da rampa — tente novamente em instantes.')
       return
     }
     setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data: '', hora: '', observacoes: '', autorizado_id: '', previsao_retorno: '' })
@@ -661,14 +698,14 @@ export default function TelaClienteDashboard({ perfil }) {
           <div className="painel-cliente-acoes">
             <div className="painel-cliente-linha">
               <button type="button" className="painel-cliente-btn painel-cliente-btn-primario"
-                disabled={!statusAgendaCliente(cliente)?.liberado}
-                title={!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined}
+                disabled={!statusAgendaCliente(cliente)?.liberado || !configRampaCarregada}
+                title={!configRampaCarregada ? 'Carregando horários da rampa…' : (!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined)}
                 onClick={() => abrirModal('retirada')}>
                 <IconTimao size={20} /> Descida
               </button>
               <button type="button" className="painel-cliente-btn painel-cliente-btn-outline"
-                disabled={!statusAgendaCliente(cliente)?.liberado}
-                title={!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined}
+                disabled={!statusAgendaCliente(cliente)?.liberado || !configRampaCarregada}
+                title={!configRampaCarregada ? 'Carregando horários da rampa…' : (!statusAgendaCliente(cliente)?.liberado ? statusAgendaCliente(cliente)?.texto : undefined)}
                 onClick={() => abrirModal('retorno')}>
                 <IconAnchor size={20} /> Subida
               </button>

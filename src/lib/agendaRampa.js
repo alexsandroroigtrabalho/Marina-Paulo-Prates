@@ -38,19 +38,6 @@ export function lerConfigRampa(marina) {
   }
 }
 
-// Uma data (string "YYYY-MM-DD") cai dentro de algum período de manutenção
-// cadastrado? — usado pra decidir se mostra o aviso de manutenção mesmo
-// antes do cliente escolher um horário específico.
-export function diaTemManutencao(configRampa, dataYMD) {
-  if (!dataYMD) return false
-  const inicioDia = new Date(`${dataYMD}T00:00:00`)
-  const fimDia = new Date(`${dataYMD}T23:59:59`)
-  return configRampa.manutencoes.some((per) => {
-    if (!per.inicio || !per.fim) return false
-    return new Date(per.fim) > inicioDia && new Date(per.inicio) < fimDia
-  })
-}
-
 // Gera os horários (strings "HH:mm") disponíveis pra uma data, respeitando:
 // horário de funcionamento da rampa, o intervalo fixo entre solicitações
 // (padrão 15min, configurável) e as manutenções programadas. Se a data for

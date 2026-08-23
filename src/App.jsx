@@ -59,7 +59,12 @@ export default function App() {
     if (entrada === 'admin') return <AdminLogin onVoltar={() => setEntrada('home')} />
     return (
       <Home
-        nomeMarina={TEMA_PADRAO.nomeExibicao}
+        // Nome do produto em destaque na tela de login — "RV Marine Pro",
+        // fixo aqui de propósito (não usa TEMA_PADRAO.nomeExibicao, que
+        // continua "Marina Paulo Prates" e segue sendo o nome operacional
+        // da marina usado no cabeçalho do Painel de Controle e em outras
+        // telas internas — a troca pedida foi só para a tela de login).
+        nomeMarina="RV Marine Pro"
         onEscolherCliente={() => setEntrada('cliente')}
         onEscolherAdmin={() => setEntrada('admin')}
       />

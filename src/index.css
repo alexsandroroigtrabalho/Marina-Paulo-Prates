@@ -75,11 +75,29 @@ body {
 
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }
 
-/* Tela de login: logo RV Invictus centralizada no topo, card no meio,
-   crédito "Desenvolvido por RV Invictus" fixo no rodapé — segue o manual
-   da marca (fonte Cinzel, caixa alta, tracking, dourado #D4AF37). */
-.tela-login-rv { flex-direction: column; justify-content: space-between; }
-.login-rv-logo { width: min(280px, 60vw); height: auto; margin-top: 8px; }
+/* Tela de login/acesso (Home, AdminLogin, AreaCliente, FichaCadastro — as
+   4 telas que usam essa mesma classe): logo RV Invictus dourada centralizada
+   no topo, card claro no meio (pra não perder contraste nos campos/botões
+   de acesso), crédito "Desenvolvido por RV Invictus" fixo no rodapé.
+   Fundo segue a combinação PREFERENCIAL do manual da marca — "fundo escuro
+   + logo dourado" — com o azul-petróleo oficial (#0D1B2A) e uma trama sutil
+   de losangos dourados (o "padrão gráfico auxiliar" do manual, aqui bem
+   abaixo do teto de opacidade de 10-25% dele pra nunca brigar com o texto
+   por cima). O .card-login continua com fundo branco de propósito: a
+   sofisticação fica no entorno (fundo/logo/tipografia), os campos em si
+   precisam do contraste mais alto possível. */
+.tela-login-rv {
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(212,175,55,0.14), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px),
+    repeating-linear-gradient(-45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px);
+  overflow: hidden;
+}
+.login-rv-logo { width: min(230px, 55vw); height: auto; margin-top: 4px; }
 .login-rv-rodape {
   margin: 0 0 4px;
   font-family: 'Cinzel', serif;
@@ -87,6 +105,53 @@ body {
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #D4AF37;
+  opacity: 0.85;
+}
+
+/* Cartão de acesso (login/cadastro) sobre o fundo escuro: continua branco,
+   só ganha uma borda/sombra com um toque de dourado pra se integrar à
+   paleta sem perder contraste nos campos. */
+.tela-login-rv .card-login {
+  box-shadow: 0 20px 50px rgba(0,0,0,0.35), 0 0 0 1px rgba(212,175,55,0.25);
+}
+
+/* Botões da tela de login/acesso — dourado sólido (primário) e contorno
+   dourado (secundário), a combinação "dourado sobre azul-petróleo" que o
+   manual descreve como a mais sofisticada da marca. Sobrescreve
+   .btn-primario/.btn-outline (e os botões simples dentro de .card-login)
+   só dentro de .tela-login-rv — o resto do sistema (cadastro do cliente já
+   logado, painel do cliente etc.) continua com os botões azuis normais. */
+.tela-login-rv .btn-primario,
+.tela-login-rv .card-login button[type='submit'],
+.tela-login-rv .card-login button.btn-primario,
+.tela-login-rv .btn-outline,
+.tela-login-rv .card-login button.btn-outline {
+  font-family: 'Montserrat', sans-serif;
+  letter-spacing: 0.03em;
+}
+.tela-login-rv .btn-primario,
+.tela-login-rv .card-login button[type='submit'],
+.tela-login-rv .card-login button.btn-primario {
+  background: #D4AF37;
+  color: #0D1B2A;
+  border: 1px solid #D4AF37;
+}
+.tela-login-rv .btn-primario:hover,
+.tela-login-rv .card-login button[type='submit']:hover,
+.tela-login-rv .card-login button.btn-primario:hover {
+  background: #e2c260;
+}
+.tela-login-rv .btn-outline,
+.tela-login-rv .card-login button.btn-outline {
+  background: transparent;
+  color: #D4AF37;
+  border: 1.5px solid rgba(212,175,55,0.55);
+}
+.tela-login-rv .btn-outline:hover,
+.tela-login-rv .card-login button.btn-outline:hover {
+  background: rgba(212,175,55,0.08);
+  border-color: #D4AF37;
   color: #D4AF37;
 }
 
@@ -124,17 +189,44 @@ body {
 
 /* ---------- Landing / seleção de perfil (Home) ---------- */
 .landing.tela-login-rv { justify-content: space-between; gap: 0; }
-.landing-conteudo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.landing-conteudo { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 420px; }
 .landing {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; height: 100vh; text-align: center; padding: 24px;
 }
-.landing .icone-ancora {
-  width: 64px; height: 64px; color: var(--cor-primaria); margin-bottom: 8px;
+
+/* Nome do produto ("RV Marine Pro") em destaque — tipografia do manual da
+   marca (Cinzel Bold, caixa alta, tracking 9%, dourado #D4AF37), do mesmo
+   jeito que o logotipo oficial usa Cinzel pro nome "RV Invictus". O
+   ::after desenha o friso fino dourado abaixo do nome (sem sombra, contorno
+   ou efeito no logo em si — só um traço simples, dentro do que o manual
+   permite pra composição da página). */
+.landing h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: clamp(26px, 6vw, 38px);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #D4AF37;
+  margin: 6px 0 0;
+  line-height: 1.15;
 }
-.landing h1 { color: #000; font-size: 26px; margin: 0; }
-.landing p.subtitulo { color: var(--cor-texto-suave); margin: 4px 0 28px; }
-.landing .acoes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 340px; }
+.landing h1::after {
+  content: '';
+  display: block;
+  width: 64px;
+  height: 1px;
+  margin: 14px auto 0;
+  background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+}
+.landing p.subtitulo {
+  font-family: 'Montserrat', sans-serif;
+  color: rgba(245,245,240,0.72);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  margin: 14px 0 8px;
+}
+.landing .acoes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; margin-top: 8px; }
 
 .btn-primario, .btn-outline {
   padding: 14px 20px; border-radius: 999px; font-size: 15px; font-weight: 600;

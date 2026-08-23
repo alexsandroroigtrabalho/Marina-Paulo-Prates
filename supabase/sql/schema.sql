@@ -265,22 +265,44 @@ UPDATE marina.agendamentos SET concluido_em = created_at WHERE status = 'conclui
 -- mesmo que ela já tenha passado das 48h — senão um barco que ficasse mais
 -- tempo que isso na água sumiria da tela por causa da limpeza, não porque
 -- voltou de fato. Roda sozinha via pg_cron, a cada hora.
+--
+-- Antes de apagar, solta o vínculo de qualquer pedido de abastecimento que
+-- aponte pra um desses agendamentos (marina.pedidos_abastecimento.agendamento_id
+-- = NULL) — sem isso o DELETE falhava com violação de foreign key (achado
+-- e corrigido depois de rodar em produção: o job ficou falhando em toda
+-- execução até essa correção). O pedido de abastecimento em si nunca é
+-- apagado, só perde a referência de qual descida/subida aconteceu durante.
 CREATE OR REPLACE FUNCTION marina.limpar_historico_manobras_antigo()
 RETURNS void
-LANGUAGE sql
+LANGUAGE plpgsql
 AS $$
+DECLARE
+  ids_a_apagar uuid[];
+BEGIN
   WITH vencedor AS (
     SELECT DISTINCT ON (embarcacao_id) id, tipo
     FROM marina.agendamentos
     WHERE status = 'concluido' AND embarcacao_id IS NOT NULL
     ORDER BY embarcacao_id, COALESCE(concluido_em, data_hora) DESC, created_at DESC
   )
-  DELETE FROM marina.agendamentos a
+  SELECT array_agg(a.id) INTO ids_a_apagar
+  FROM marina.agendamentos a
   WHERE a.status = 'concluido'
     AND COALESCE(a.concluido_em, a.data_hora) < now() - interval '48 hours'
     AND NOT EXISTS (
       SELECT 1 FROM vencedor v WHERE v.id = a.id AND v.tipo = 'retirada'
     );
+
+  IF ids_a_apagar IS NULL THEN
+    RETURN;
+  END IF;
+
+  UPDATE marina.pedidos_abastecimento
+  SET agendamento_id = NULL
+  WHERE agendamento_id = ANY(ids_a_apagar);
+
+  DELETE FROM marina.agendamentos WHERE id = ANY(ids_a_apagar);
+END;
 $$;
 SELECT cron.schedule(
   'limpar-historico-manobras-antigo',
