@@ -83,6 +83,28 @@ function cardMarina(titulo: string, corpo: string) {
 </div>`
 }
 
+// E-mail de redefinição de senha (Marina Manager) — identidade visual
+// própria (azul-petróleo + dourado), diferente do cardMarina genérico
+// acima porque é ponto de contato direto com a marca, mesma lógica que já
+// aplicamos na tela de login: fundo escuro, Cinzel/dourado no título,
+// botão dourado sólido como única ação da tela.
+function emailRedefinirSenha(link: string) {
+  return `<div style="background:#0D1B2A;padding:40px 20px;font-family:Arial,sans-serif;">
+  <div style="max-width:460px;margin:0 auto;background:#0D1B2A;border:1px solid rgba(212,175,55,0.25);border-radius:10px;padding:36px 32px;text-align:center;">
+    <p style="margin:0 0 22px;font-family:Georgia,'Times New Roman',serif;letter-spacing:3px;text-transform:uppercase;color:#D4AF37;font-size:12px;">RV Invictus</p>
+    <h2 style="margin:0 0 14px;font-family:Georgia,'Times New Roman',serif;color:#F5F5F0;font-size:21px;letter-spacing:0.3px;">Redefinir senha</h2>
+    <p style="margin:0 0 28px;color:rgba(245,245,240,0.72);font-size:14px;line-height:1.6;">
+      Recebemos um pedido para redefinir a senha da sua conta na Marina Manager.
+      Clique no botão abaixo para criar uma nova senha. Se você não pediu isso,
+      pode ignorar este e-mail com segurança — sua senha atual continua valendo.
+    </p>
+    <a href="${link}" style="display:inline-block;padding:14px 34px;background:#D4AF37;color:#0D1B2A;
+       text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">Redefinir senha</a>
+    <p style="margin:26px 0 0;color:rgba(245,245,240,0.4);font-size:11px;">Este link expira em algumas horas por segurança.</p>
+  </div>
+</div>`
+}
+
 // Planilha (CSV ; com BOM) de documentos vencidos ou a vencer em ate 30 dias
 // para uma marina, enviada por e-mail via Resend com o CSV em anexo. Sem
 // nenhum documento nessa situacao: no envio manual (forcarEnvio truthy)
@@ -127,7 +149,7 @@ async function enviarRelatorioDocumentos(RESEND_API_KEY: string, marinaId: strin
       String(d.tipo || '').replace('_', ' '), d.numero_documento || '',
       d.data_validade || '', situacaoDocumento(d.data_validade),
     ])
-    const csv = '\uFEFF' + [cabecalho, ...linhasCsv].map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const csv = '﻿' + [cabecalho, ...linhasCsv].map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n')
     const nomeArquivo = `relatorio-documentos-${nomeMarina.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`
     anexos = [{ filename: nomeArquivo, content: paraBase64(csv) }]
     descricaoResumo = `${linhas.length} documento(s) vencido(s) ou a vencer nos proximos 30 dias. A planilha completa esta em anexo.`
@@ -152,6 +174,47 @@ async function enviarRelatorioDocumentos(RESEND_API_KEY: string, marinaId: strin
   return { marina_id: marinaId, enviado: true, documentos: linhas.length }
 }
 
+// Redefinição de senha (Marina Manager) — gera o link oficial de recovery
+// pela Admin API do Supabase (sem disparar o e-mail padrão do GoTrue) e
+// manda esse link pelo Resend, com o template acima. Por privacidade,
+// nunca revela pro cliente se o e-mail existe ou não: qualquer falha aqui
+// (usuário não encontrado, Resend fora do ar etc.) ainda responde sucesso
+// — só loga pra investigar depois — exatamente como o resetPasswordForEmail
+// padrão do Supabase já se comporta.
+async function enviarRecuperacaoSenha(RESEND_API_KEY: string, para: string, redirectTo: string) {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
+      method: 'POST',
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'recovery', email: para, options: { redirect_to: redirectTo || PORTAL_URL } }),
+    })
+    // deno-lint-ignore no-explicit-any
+    const linkData: any = await linkRes.json()
+    const actionLink = linkData?.action_link || linkData?.properties?.action_link
+
+    if (!linkRes.ok || !actionLink) {
+      console.error('recuperar_senha: generate_link falhou', linkRes.status, linkData)
+      return { ok: true }
+    }
+
+    const html = emailRedefinirSenha(actionLink)
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: FROM, to: [para], subject: 'Redefinição de senha — RV Invictus', html }),
+    })
+    const data = await res.json()
+    if (!res.ok) { console.error('recuperar_senha: resend falhou', data); return { ok: true } }
+    return { ok: true, id: data.id }
+  } catch (err) {
+    console.error('recuperar_senha: erro inesperado', err)
+    return { ok: true }
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -161,7 +224,7 @@ serve(async (req: Request) => {
 
     // deno-lint-ignore no-explicit-any
     const body: Record<string, any> = await req.json()
-    const { tipo, para, nome, habilitacao, escola_id, senha, descricao, marina_id } = body
+    const { tipo, para, nome, habilitacao, escola_id, senha, descricao, marina_id, redirectTo } = body
 
     // Relatorio de documentos da marina: tela "Despachos" manda marina_id
     // (botao "Enviar relatorio agora" -> forca o envio mesmo se estiver tudo
@@ -185,6 +248,13 @@ serve(async (req: Request) => {
         }
       }
       return json({ processadas: resultados.length, resultados })
+    }
+
+    // Redefinição de senha (Marina Manager, tela de login -> "Esqueci minha
+    // senha"). Não depende de escola_id nem marina_id — só do e-mail.
+    if (tipo === 'recuperar_senha') {
+      const resultado = await enviarRecuperacaoSenha(RESEND_API_KEY, para, redirectTo)
+      return json(resultado)
     }
 
     const escola = await getEscolaConfig(escola_id)
@@ -214,7 +284,7 @@ serve(async (req: Request) => {
   <h2 style="margin:0 0 16px;color:#0A2756">Ola, ${nome}!</h2>
   ${corpoCustom ? `<p style="margin:0 0 20px;line-height:1.7">${corpoCustom}</p>` : `<p style="margin:0 0 12px;line-height:1.6">Sua matricula foi confirmada com sucesso na <strong>${nomeEscola}</strong>.</p><p style="margin:0 0 20px;line-height:1.6">Acesse o portal com o e-mail <strong>${para}</strong>. Se ainda nao definiu sua senha, clique em Esqueci minha senha na tela de login.</p>`}
   ${linkGrupo ? `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:14px 18px;margin:0 0 20px"><p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#2E7D32">Grupo da turma no WhatsApp</p><a href="${linkGrupo}" style="color:#1565C0;font-size:13px;word-break:break-all">${linkGrupo}</a></div>` : ''}
-  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block;padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">Acessar meu portal</a>
+  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block:padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">Acessar meu portal</a>
   <hr style="margin:32px 0;border:none;border-top:1px solid #e5e5e5" />
   <p style="margin:0;font-size:12px;color:#888">${nomeEscola} - Portal powered by RV Invictus</p>
 </div>`
@@ -259,7 +329,7 @@ serve(async (req: Request) => {
   <h2 style="margin:0 0 16px;color:#0A2756">Parabens, ${nome}!</h2>
   <p style="margin:0 0 12px;line-height:1.6">Seu certificado de <strong>${hab}</strong> foi emitido pela <strong>${nomeEscola}</strong> e esta disponivel no portal.</p>
   <p style="margin:0 0 20px;line-height:1.6;font-size:13px;color:#555">Sua habilitacao nautica sera processada pela Marinha do Brasil e ficara disponivel na sua conta Gov.br em breve.</p>
-  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block;padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">Baixar certificado</a>
+  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block:padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">Baixar certificado</a>
   <hr style="margin:32px 0;border:none;border-top:1px solid #e5e5e5" />
   <p style="margin:0;font-size:12px;color:#888">${nomeEscola} - Portal powered by RV Invictus</p>
 </div>`
@@ -271,7 +341,7 @@ serve(async (req: Request) => {
       html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
   <h2 style="margin:0 0 16px;color:#0A2756">Ola, ${nome}!</h2>
   ${corpoCustom ? `<p style="margin:0 0 20px;line-height:1.7">${corpoCustom}</p>` : `<p style="margin:0 0 12px;line-height:1.6">Identificamos que sua matricula na <strong>${nomeEscola}</strong> ainda nao foi confirmada.</p><p style="margin:0 0 20px;line-height:1.6">Conclua o pagamento para garantir sua vaga.</p>`}
-  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block;padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:20px">Concluir minha matricula</a>
+  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block:padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:20px">Concluir minha matricula</a>
   ${emailEscola || telefone ? `<div style="background:#F4F8FF;border:1px solid #B5D4F4;border-radius:8px;padding:14px 18px;margin:0 0 20px"><p style="margin:0 0 6px;font-size:13px;font-weight:600">Duvidas? Fale com a escola:</p>${emailEscola ? `<p style="margin:0 0 4px;font-size:13px"><a href="mailto:${emailEscola}" style="color:#1565C0">${emailEscola}</a></p>` : ''}${telefone ? `<p style="margin:0;font-size:13px">${telefone}</p>` : ''}</div>` : ''}
   <hr style="margin:32px 0;border:none;border-top:1px solid #e5e5e5" />
   <p style="margin:0;font-size:12px;color:#888">${nomeEscola} - Portal powered by RV Invictus</p>
@@ -289,7 +359,7 @@ serve(async (req: Request) => {
     <ul style="margin:0;padding-left:18px;font-size:13px;color:#5D4037">${itensHtml}</ul>
   </div>
   ${mensagemExtra ? `<p style="margin:0 0 20px;line-height:1.6;font-size:13px;background:#F4F8FF;border:1px solid #B5D4F4;border-radius:8px;padding:14px 18px">${mensagemExtra}</p>` : ''}
-  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block;padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:20px">Acessar meu portal</a>
+  <a href="${PORTAL_URL}?escola=${escola_id || ''}" style="display:inline-block:padding:12px 28px;background:#0A2756;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;margin-bottom:20px">Acessar meu portal</a>
   ${emailEscola || telefone ? `<div style="background:#F4F8FF;border:1px solid #B5D4F4;border-radius:8px;padding:14px 18px;margin:0 0 20px"><p style="margin:0 0 6px;font-size:13px;font-weight:600">Duvidas? Fale com a escola:</p>${emailEscola ? `<p style="margin:0 0 4px;font-size:13px"><a href="mailto:${emailEscola}" style="color:#1565C0">${emailEscola}</a></p>` : ''}${telefone ? `<p style="margin:0;font-size:13px">${telefone}</p>` : ''}</div>` : ''}
   <hr style="margin:32px 0;border:none;border-top:1px solid #e5e5e5" />
   <p style="margin:0;font-size:12px;color:#888">${nomeEscola} - Portal powered by RV Invictus</p>

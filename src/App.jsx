@@ -3,6 +3,7 @@ import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
 import Home from './components/Home'
 import FichaCadastro from './components/FichaCadastro'
+import RedefinirSenha from './components/RedefinirSenha'
 import Layout from './components/Layout'
 import TelaVagas from './components/TelaVagas'
 import TelaClientes from './components/TelaClientes'
@@ -29,6 +30,12 @@ export default function App() {
   const [sessao, setSessao] = useState(null)
   const [perfil, setPerfil] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  // true quando o usuário chegou pelo link de "Esqueci minha senha" (evento
+  // 'PASSWORD_RECOVERY' do Supabase Auth, disparado ao abrir o link do
+  // e-mail) — nesse caso o Supabase já autentica a sessão, mas ela só serve
+  // pra autorizar a troca de senha; a tela RedefinirSenha.jsx precisa
+  // aparecer antes de liberar qualquer outra tela do sistema.
+  const [recuperandoSenha, setRecuperandoSenha] = useState(false)
   // Página de entrada única: 'login' (padrão) ou 'cadastro'. A antiga escolha
   // manual "Sou cliente" / "Administração" (Home -> AreaCliente / AdminLogin,
   // cada uma com formulário próprio) foi removida — agora só existe uma tela
@@ -46,7 +53,10 @@ export default function App() {
       setSessao(session)
       setCarregando(false)
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setSessao(session))
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      setSessao(session)
+      if (event === 'PASSWORD_RECOVERY') setRecuperandoSenha(true)
+    })
     return () => listener.subscription.unsubscribe()
   }, [])
 
@@ -56,6 +66,12 @@ export default function App() {
   }, [sessao])
 
   if (carregando) return <div className="tela-central">Carregando...</div>
+
+  // Link de redefinição de senha clicado: pede a nova senha antes de
+  // liberar qualquer tela do sistema, mesmo já havendo uma sessão válida.
+  if (recuperandoSenha) {
+    return <RedefinirSenha onConcluido={() => setRecuperandoSenha(false)} />
+  }
 
   // Não logado: uma única tela de login. "Realizar cadastro" leva à ficha de
   // cadastro já existente — não há criação de conta nova nesse fluxo.

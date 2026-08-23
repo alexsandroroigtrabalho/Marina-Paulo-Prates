@@ -16,11 +16,16 @@ import { supabase } from '../lib/supabase'
 // Montserrat do manual da marca, paleta dourado/azul-petróleo) — sem copiar
 // cores ou o cartão promocional "Garanta sua vaga" do modelo original.
 //
-// "Esqueci minha senha" usa supabase.auth.resetPasswordForEmail, que já
-// vem pronto no client Supabase já configurado no projeto (não é uma
-// arquitetura nova) — envia o e-mail de redefinição do próprio Supabase
-// Auth. Se preferir não ter essa opção agora, é só remover o bloco
-// `modo === 'recuperar'` e o link abaixo.
+// "Esqueci minha senha" chama a Edge Function send-email (tipo
+// 'recuperar_senha') em vez de supabase.auth.resetPasswordForEmail direto —
+// assim o e-mail sai pelo Resend, com a identidade visual da marca, em vez
+// do e-mail genérico do Supabase. A function gera o link oficial de
+// recovery pela Admin API (não dispara o e-mail padrão do GoTrue) e manda
+// esse link pelo Resend. Do lado do cliente o comportamento é idêntico:
+// nunca revela se o e-mail existe ou não, mesma mensagem sempre. Quem
+// clica no link volta pro app com uma sessão de recuperação — App.jsx
+// detecta o evento 'PASSWORD_RECOVERY' do Supabase Auth e mostra a tela
+// RedefinirSenha.jsx antes de liberar qualquer outra coisa.
 export default function Home({ onCadastro }) {
   const [modo, setModo] = useState('login') // login | recuperar
   const [email, setEmail] = useState('')
@@ -43,7 +48,9 @@ export default function Home({ onCadastro }) {
     e.preventDefault()
     setErro(null)
     setCarregando(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    const { error } = await supabase.functions.invoke('send-email', {
+      body: { tipo: 'recuperar_senha', para: email, redirectTo: window.location.origin },
+    })
     if (error) setErro(error.message)
     else setRecuperarEnviado(true)
     setCarregando(false)
