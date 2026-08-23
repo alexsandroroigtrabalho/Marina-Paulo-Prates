@@ -255,21 +255,40 @@ export default function TelaClienteDashboard({ perfil }) {
 
   useEffect(() => { carregar() }, [perfil])
 
-  // Enquanto o cliente está com essa tela aberta, busca os agendamentos de
-  // novo periodicamente — sem isso, uma mudança de status do resgate feita
-  // pela equipe no Painel de Controle (Pedido recebido / Resgatado) só
-  // apareceria aqui depois de um F5 manual. Mesmo intervalo (10s) usado pelo
-  // Painel de Controle da equipe pra se manter atualizado sozinho. Falha
-  // silenciosa aqui é aceitável (é só uma atualização automática em segundo
-  // plano) — o dado mostrado só fica um pouco desatualizado até a próxima
-  // tentativa, sem interromper o que o cliente está fazendo na tela.
+  // Atualização automática em tempo real: sempre que a administração mudar
+  // o status de um agendamento, ordem de serviço, despacho, laudo, pedido de
+  // abastecimento, cobrança, ou liberar/suspender o acesso do próprio
+  // cliente, o Supabase Realtime avisa este canal na hora — sem precisar de
+  // F5. carregar() já busca tudo de novo (cliente, agendamentos, laudos,
+  // despachos, ordens de serviço, abastecimentos, cobranças), então o
+  // Painel, a Agenda e o Diário de Bordo ficam sincronizados juntos, sempre
+  // com os mesmos rótulos/cores já usados em cada status (STATUS_LABEL,
+  // labelStatusManutencao, labelStatusResgate, classeStatusDiario) — nada
+  // disso muda aqui, só passa a atualizar sozinho. O polling a cada 30s
+  // continua como reserva, só pro caso raro do canal cair (troca de rede,
+  // app em segundo plano); falha silenciosa aqui é aceitável, o dado só
+  // fica um pouco desatualizado até a próxima tentativa.
   useEffect(() => {
     if (!cliente) return
-    const intervalo = setInterval(() => {
-      listarAgendamentosCliente(cliente.id).then(setAgendamentos).catch(() => {})
-    }, 10000)
-    return () => clearInterval(intervalo)
-  }, [cliente])
+    const idCliente = cliente.id
+    const canal = supabase
+      .channel(`cliente-${idCliente}-status`)
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'agendamentos', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'ordens_servico', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'despachos', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'laudos', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'cobrancas', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'clientes', filter: `id=eq.${idCliente}` }, () => carregar())
+      .subscribe()
+
+    const intervalo = setInterval(() => { carregar() }, 30000)
+
+    return () => {
+      supabase.removeChannel(canal)
+      clearInterval(intervalo)
+    }
+  }, [cliente?.id])
 
   function abrirModal(tipo) {
     // Guarda de segurança: os botões já ficam desabilitados quando o acesso

@@ -588,4 +588,33 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA marina GRANT ALL ON SEQUENCES TO anon, authen
 
 -- Expor o schema "marina" na API REST do PostgREST (além do "public" já existente)
 ALTER ROLE authenticator SET pgrst.db_schemas = 'public, marina';
+
+-- ============================================================
+-- Realtime (postgres_changes) — Painel do Cliente
+-- ============================================================
+-- Sem isto, uma mudança de status feita pela administração (agendamentos/
+-- resgate, ordens de serviço, despachos, laudos, pedidos de abastecimento,
+-- cobranças, liberação/suspensão de acesso) só chegava na tela do cliente
+-- depois de um F5 manual. REPLICA IDENTITY FULL garante que o Realtime
+-- também tenha a linha completa em updates/deletes, necessário para o
+-- filtro por cliente_id/id funcionar em todos os eventos. As políticas de
+-- RLS de SELECT já existentes (cliente_ve_proprios_*, cliente_proprio_dados
+-- etc.) continuam sendo aplicadas pelo Realtime — um cliente só recebe
+-- eventos das próprias linhas.
+ALTER TABLE marina.agendamentos REPLICA IDENTITY FULL;
+ALTER TABLE marina.ordens_servico REPLICA IDENTITY FULL;
+ALTER TABLE marina.despachos REPLICA IDENTITY FULL;
+ALTER TABLE marina.laudos REPLICA IDENTITY FULL;
+ALTER TABLE marina.pedidos_abastecimento REPLICA IDENTITY FULL;
+ALTER TABLE marina.clientes REPLICA IDENTITY FULL;
+ALTER TABLE marina.cobrancas REPLICA IDENTITY FULL;
+
+ALTER PUBLICATION supabase_realtime ADD TABLE
+  marina.agendamentos,
+  marina.ordens_servico,
+  marina.despachos,
+  marina.laudos,
+  marina.pedidos_abastecimento,
+  marina.clientes,
+  marina.cobrancas;
 NOTIFY pgrst, 'reload config';
