@@ -235,6 +235,19 @@ button.badge:hover { filter: brightness(0.95); }
 .status-em_andamento, .status-reservada { background: #DCEEF4; color: var(--cor-primaria); }
 .status-ocupada { background: #E7ECEF; color: #445; }
 
+/* ---------- Manutenção: status em cores de farol (verde/amarelo/vermelho) ----------
+   Classes próprias (".status-manut-*"), não reaproveitando ".status-concluida"/
+   ".status-em_andamento" acima — essas são compartilhadas com Financeiro
+   ("pago") e Vagas ("disponível"/"reservada"), e mudar o tom ali afetaria
+   telas que não pediram essa mudança. Mesma construção visual do resto do
+   sistema (fundo clarinho + texto na mesma cor mais escura, pill do .badge),
+   só que com tons claramente verde/amarelo/vermelho pra leitura rápida. */
+.status-manut-concluida { background: #DCEEDB; color: #2F7D32; }
+.status-manut-em_andamento { background: #FFF3C4; color: #8A6D00; }
+.status-manut-aguardando_peca { background: #FBDADA; color: #B3261E; }
+.status-manut-aberta { background: #F1E3D6; color: #8B5A2B; }
+.status-manut-cancelada { background: #E7ECEF; color: #445; }
+
 /* ---------- Documentação / Laudos / Despachos ---------- */
 .status-solicitado, .status-protocolado, .status-agendado { background: #DCEEF4; color: var(--cor-primaria); }
 .status-em_analise { background: #FCE6DA; color: var(--cor-alerta); }

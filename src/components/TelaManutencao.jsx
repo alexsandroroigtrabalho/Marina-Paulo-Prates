@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listarOrdensServico, criarOrdemServico, atualizarStatusOS, listarEmbarcacoes, listarClientes } from '../lib/db'
+import { STATUS_MANUTENCAO, labelStatusManutencao } from '../lib/statusManutencao'
 
 const TIPOS = ['limpeza', 'manutencao_motor', 'jet_ski', 'guincho', 'combustivel', 'pintura', 'outro']
 
@@ -57,16 +58,17 @@ export default function TelaManutencao({ marinaId }) {
               <td>{o.clientes?.nome}</td>
               <td>{o.tipo_servico?.replace('_', ' ')}</td>
               <td>{o.prioridade}</td>
-              <td><span className={`badge status-${o.status}`}>{o.status}</span></td>
+              <td><span className={`badge status-manut-${o.status}`}>{labelStatusManutencao(o.status)}</span></td>
               <td>
-                {o.status !== 'concluida' && (
-                  <select value={o.status} onChange={(e) => atualizarStatusOS(o.id, e.target.value).then(carregar)}>
-                    <option value="aberta">Aberta</option>
-                    <option value="em_andamento">Em andamento</option>
-                    <option value="concluida">Concluída</option>
-                    <option value="cancelada">Cancelada</option>
-                  </select>
-                )}
+                {/* Sempre editável — inclusive depois de "Concluído", caso o
+                    administrador precise reabrir ou corrigir o status. A
+                    troca já salva na hora (onChange chama atualizarStatusOS
+                    direto, sem precisar de um botão "Salvar" separado). */}
+                <select value={o.status} onChange={(e) => atualizarStatusOS(o.id, e.target.value).then(carregar)}>
+                  {STATUS_MANUTENCAO.map((s) => (
+                    <option key={s.valor} value={s.valor}>{s.label}</option>
+                  ))}
+                </select>
               </td>
             </tr>
           ))}

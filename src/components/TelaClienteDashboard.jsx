@@ -11,6 +11,7 @@ import {
   solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
+import { labelStatusManutencao } from '../lib/statusManutencao'
 import { TEMA_PADRAO } from '../lib/tema'
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
@@ -103,11 +104,9 @@ const STATUS_LABEL = {
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
   entregue: 'Entregue',
-  // Status de ordens_servico (marina.ordens_servico) — grafia feminina,
-  // distintos dos de agendamentos ("concluido"/"cancelado").
-  aberta: 'Aberta',
-  concluida: 'Concluída',
-  cancelada: 'Cancelada',
+  // Status de ordens_servico (marina.ordens_servico) agora vem de
+  // lib/statusManutencao (labelStatusManutencao), não daqui — era a única
+  // origem que usava "aberta"/"concluida"/"cancelada" (grafia feminina).
 }
 
 // Nomes por extenso dos tipos de manobra, usados no Diário de Bordo (o
@@ -416,7 +415,10 @@ export default function TelaClienteDashboard({ perfil }) {
       icone: IconTools,
       titulo: `Manutenção — ${TIPOS_MANUTENCAO.find((t) => t.key === os.tipo_servico)?.label || os.tipo_servico}${os.embarcacoes?.nome ? ` — ${os.embarcacoes.nome}` : ''}`,
       detalhe: os.descricao || '',
-      statusLabel: STATUS_LABEL[os.status] || os.status,
+      // Rótulo vem da mesma fonte usada na tela Manutenção da equipe e na
+      // planilha exportada (lib/statusManutencao), pra manter o texto do
+      // status igual em todo lugar que mostra manutenção.
+      statusLabel: labelStatusManutencao(os.status),
       statusClasse: classeStatusDiario(os.status),
       quando: os.data_abertura,
     })),

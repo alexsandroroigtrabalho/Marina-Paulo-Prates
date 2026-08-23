@@ -1,4 +1,5 @@
 import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos } from './db'
+import { labelStatusManutencao } from './statusManutencao'
 
 /* ============================================================
  * Exportação de planilhas (CSV) usadas pela engrenagem de cada aba
@@ -103,7 +104,7 @@ export async function exportarManutencaoCsv(marinaId) {
     o.tipo_servico?.replace('_', ' '),
     o.descricao,
     o.prioridade,
-    o.status?.replace('_', ' '),
+    labelStatusManutencao(o.status),
     o.responsavel,
     formatarData(o.data_abertura, true),
     formatarData(o.data_agendada, true),
