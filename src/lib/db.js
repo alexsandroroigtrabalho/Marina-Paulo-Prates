@@ -277,8 +277,10 @@ export async function atualizarStatusAgendamento(id, status) {
   if (error) throw error
 }
 
-export async function atualizarResgateAgendamento(id, resgateSolicitado) {
-  const { error } = await db.from('agendamentos').update({ resgate_solicitado: resgateSolicitado }).eq('id', id)
+// status: null (sem resgate), 'solicitado', 'recebido' ou 'resgatado' — ver
+// lib/statusResgate.js para o fluxo completo.
+export async function atualizarStatusResgate(id, status) {
+  const { error } = await db.from('agendamentos').update({ resgate_status: status }).eq('id', id)
   if (error) throw error
 }
 

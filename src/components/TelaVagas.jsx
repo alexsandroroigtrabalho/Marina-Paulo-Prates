@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import {
-  listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento,
+  listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina,
 } from '../lib/db'
 import { ativarSons, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
+import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -223,12 +224,14 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     idsConhecidosRef.current = idsAtuais
   }, [idsLinhaFilaAtual, configApitos, sonsAtivados])
 
-  // Alarme de "Solicita resgate": enquanto qualquer embarcação na água
-  // estiver com o resgate marcado, o painel toca o apito de SOS em loop
-  // (não é um aviso único como descida/retorno) — só para quando o
-  // administrador confirma/cancela o resgate (clicando no badge, que
-  // desmarca resgate_solicitado) ou quando o aviso sonoro é desabilitado.
-  const temResgateAtivo = naAgua.some((a) => a.resgate_solicitado)
+  // Alarme de "Solicitação de resgate": enquanto qualquer embarcação na água
+  // estiver nesse status inicial, o painel toca o apito de SOS em loop (não
+  // é um aviso único como descida/retorno) — para assim que o administrador
+  // CONFIRMA o pedido (clique que avança pra "Pedido recebido", ver
+  // avancarResgate) ou quando o aviso sonoro é desabilitado. Depois de
+  // confirmado, o alerta continua visível (badge/seletor vermelho) até virar
+  // "Resgatado", só sem o apito contínuo.
+  const temResgateAtivo = naAgua.some((a) => a.resgate_status === 'solicitado')
   useEffect(() => {
     if (temResgateAtivo && sonsAtivados) {
       if (!alarmeResgateRef.current) {
@@ -309,12 +312,12 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     )
   }
 
-  // Status da embarcação navegando: 3 estados. "Solicita resgate" é um alerta
-  // manual (fica assim até alguém desmarcar) e tem prioridade sobre o resto;
-  // sem isso, o relógio decide sozinho — Navegando (verde) até completar 2h
-  // de atraso sobre a previsão de retorno, daí vira Excedeu retorno (vermelho).
+  // Status da embarcação navegando: um alerta de resgate ativo (ver
+  // lib/statusResgate.js) tem prioridade sobre o resto; sem isso, o relógio
+  // decide sozinho — Navegando (verde) até completar 2h de atraso sobre a
+  // previsão de retorno, daí vira Excedeu retorno (vermelho).
   function statusNavegando(a) {
-    if (a.resgate_solicitado) return { classe: 'resgate', texto: 'Solicita resgate' }
+    if (a.resgate_status) return { classe: `resgate-${a.resgate_status}`, texto: labelStatusResgate(a.resgate_status) }
     if (a.previsao_retorno) {
       const previsto = new Date(a.previsao_retorno).getTime()
       if (agora.getTime() >= previsto + 2 * 60 * 60 * 1000) return { classe: 'excedeu_retorno', texto: 'Excedeu retorno' }
@@ -322,8 +325,22 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     return { classe: 'navegando', texto: 'Navegando' }
   }
 
-  async function alternarResgate(id, valorAtual) {
-    await atualizarResgateAgendamento(id, !valorAtual)
+  // Clique no badge do resgate — comportamento depende do estado atual:
+  //  - Sem alerta (Navegando/Excedeu retorno): marca "Solicitação de
+  //    resgate" manualmente (a equipe percebeu que a embarcação precisa de
+  //    ajuda, sem esperar o cliente acionar o S.O.S. pelo app).
+  //  - "Solicitação de resgate": confirma o recebimento do pedido — avança
+  //    automaticamente pra "Pedido recebido" (continua vermelho) e para o
+  //    apito contínuo de SOS.
+  // A opção "Resgatado" (fechar o atendimento) fica no seletor que aparece
+  // assim que o pedido já foi recebido — ver definirStatusResgate abaixo.
+  async function avancarResgate(id, statusAtual) {
+    await atualizarStatusResgate(id, statusAtual ? 'recebido' : 'solicitado')
+    carregar()
+  }
+
+  async function definirStatusResgate(id, status) {
+    await atualizarStatusResgate(id, status)
     carregar()
   }
 
@@ -340,14 +357,29 @@ export default function TelaVagas({ marinaId, onAcoes }) {
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
         <td>
-          <button
-            type="button"
-            className={`badge status-${status.classe}`}
-            title={a.resgate_solicitado ? 'Clique para cancelar o alerta' : 'Clique para marcar Solicita resgate'}
-            onClick={() => alternarResgate(a.id, a.resgate_solicitado)}
-          >
-            {status.texto}
-          </button>
+          {a.resgate_status && a.resgate_status !== 'solicitado' ? (
+            // Pedido já recebido (ou resgatado): vira um seletor editável,
+            // igual ao padrão de status de Manutenção — salva na hora, sem
+            // precisar de um botão "Salvar" separado.
+            <select
+              value={a.resgate_status}
+              onChange={(e) => definirStatusResgate(a.id, e.target.value)}
+              title="Status do resgate"
+            >
+              {STATUS_RESGATE.map((s) => (
+                <option key={s.valor} value={s.valor}>{s.label}</option>
+              ))}
+            </select>
+          ) : (
+            <button
+              type="button"
+              className={`badge status-${status.classe}`}
+              title={a.resgate_status === 'solicitado' ? 'Clique para confirmar o recebimento do pedido' : 'Clique para marcar Solicitação de resgate'}
+              onClick={() => avancarResgate(a.id, a.resgate_status)}
+            >
+              {status.texto}
+            </button>
+          )}
         </td>
       </tr>
     )

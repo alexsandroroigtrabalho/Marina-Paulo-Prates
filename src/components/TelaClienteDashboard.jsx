@@ -6,12 +6,13 @@ import {
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
-  listarAgendamentosCliente, solicitarAgendamento, atualizarResgateAgendamento, listarLaudosCliente, listarDespachosCliente,
+  listarAgendamentosCliente, solicitarAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
+import { labelStatusResgate } from '../lib/statusResgate'
 import { TEMA_PADRAO } from '../lib/tema'
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
@@ -113,6 +114,18 @@ const STATUS_LABEL = {
 // Painel de Controle da equipe tem seu próprio TIPO_AGENDAMENTO_LABEL igual
 // a este, em TelaVagas.jsx).
 const TIPO_AGENDAMENTO_LABEL = { retirada: 'Retirada', retorno: 'Retorno' }
+
+// Textos do S.O.S. por etapa do resgate (ver lib/statusResgate.js) — usados
+// no botão de ação e no Diário de Bordo.
+const DETALHE_STATUS_RESGATE = {
+  solicitado: 'Resgate solicitado à equipe da marina',
+  recebido: 'Equipe confirmou o recebimento do pedido — a caminho',
+  resgatado: 'Atendimento concluído pela equipe',
+}
+const MENSAGEM_BOTAO_RESGATE = {
+  solicitado: 'Resgate solicitado — aguarde a equipe',
+  recebido: 'Pedido recebido — equipe a caminho',
+}
 
 // Agrupa os status de todas as origens (agendamentos, abastecimento,
 // manutenção, despachos, laudos) em 3 cores só, pro Diário de Bordo não
@@ -220,6 +233,19 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   useEffect(() => { carregar() }, [perfil])
+
+  // Enquanto o cliente está com essa tela aberta, busca os agendamentos de
+  // novo periodicamente — sem isso, uma mudança de status do resgate feita
+  // pela equipe no Painel de Controle (Pedido recebido / Resgatado) só
+  // apareceria aqui depois de um F5 manual. Mesmo intervalo (10s) usado pelo
+  // Painel de Controle da equipe pra se manter atualizado sozinho.
+  useEffect(() => {
+    if (!cliente) return
+    const intervalo = setInterval(() => {
+      listarAgendamentosCliente(cliente.id).then(setAgendamentos)
+    }, 10000)
+    return () => clearInterval(intervalo)
+  }, [cliente])
 
   function abrirModal(tipo) {
     // Guarda de segurança: os botões já ficam desabilitados quando o acesso
@@ -367,7 +393,7 @@ export default function TelaClienteDashboard({ perfil }) {
   // Embarcação do cliente que está navegando agora — mesma lógica do Painel
   // de Controle da marina (a manobra concluída mais recente de cada
   // embarcação): se a última foi uma retirada, o barco ainda está na água.
-  // É essa linha que o botão S.O.S. atualiza com resgate_solicitado = true.
+  // É essa linha que o botão S.O.S. atualiza com resgate_status = 'solicitado'.
   const ultimaPorEmbarcacaoCliente = {}
   agendamentos.filter((a) => a.status === 'concluido' && a.embarcacao_id).forEach((a) => {
     const atual = ultimaPorEmbarcacaoCliente[a.embarcacao_id]
@@ -379,7 +405,7 @@ export default function TelaClienteDashboard({ perfil }) {
     if (!agendamentoNavegando) return
     if (!confirm('Confirma que deseja solicitar resgate para sua embarcação? A equipe da marina será avisada imediatamente no Painel de Controle.')) return
     try {
-      await atualizarResgateAgendamento(agendamentoNavegando.id, true)
+      await atualizarStatusResgate(agendamentoNavegando.id, 'solicitado')
       await carregar()
     } catch (err) {
       alert(err.message)
@@ -441,16 +467,18 @@ export default function TelaClienteDashboard({ perfil }) {
       quando: l.data_solicitacao,
     })),
     // S.O.S.: só mostra o estado ATUAL (não existe histórico com data/hora
-    // de pedidos de resgate anteriores — resgate_solicitado é um booleano
-    // na própria linha do agendamento em navegação).
-    ...(agendamentoNavegando?.resgate_solicitado
+    // de pedidos de resgate anteriores — resgate_status é um campo só na
+    // própria linha do agendamento em navegação). Continua em vermelho
+    // ("sos") em "Solicitação de resgate" e "Pedido recebido"; vira verde
+    // ("em-dia") quando a equipe marca "Resgatado".
+    ...(agendamentoNavegando?.resgate_status
       ? [{
           id: `sos-${agendamentoNavegando.id}`,
           icone: IconLifebuoy,
           titulo: `S.O.S. — ${agendamentoNavegando.embarcacoes?.nome || 'embarcação'}`,
-          detalhe: 'Resgate solicitado à equipe da marina',
-          statusLabel: 'Aguardando equipe',
-          statusClasse: 'sos',
+          detalhe: DETALHE_STATUS_RESGATE[agendamentoNavegando.resgate_status] || '',
+          statusLabel: labelStatusResgate(agendamentoNavegando.resgate_status),
+          statusClasse: agendamentoNavegando.resgate_status === 'resgatado' ? 'em-dia' : 'sos',
           quando: agendamentoNavegando.data_hora,
         }]
       : []),
@@ -566,16 +594,14 @@ export default function TelaClienteDashboard({ perfil }) {
 
             <button
               type="button"
-              className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando?.resgate_solicitado ? 'enviado' : ''}`}
-              disabled={!agendamentoNavegando || agendamentoNavegando.resgate_solicitado}
+              className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando?.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado' ? 'enviado' : ''}`}
+              disabled={!agendamentoNavegando || (agendamentoNavegando.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado')}
               onClick={solicitarResgate}
             >
               <IconLifebuoy size={20} />
               {!agendamentoNavegando
                 ? 'S.O.S. — nenhuma embarcação no mar'
-                : agendamentoNavegando.resgate_solicitado
-                  ? 'Resgate solicitado — aguarde a equipe'
-                  : 'S.O.S. — Solicitar resgate'}
+                : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. — Solicitar resgate'}
             </button>
 
             <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
