@@ -19,10 +19,10 @@ const ITENS_MENU = [
 const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Operador' }
 
 // Nessas telas o cargo some inteiro do cabeçalho (nem "Admin" aparece) — a
-// pedido da administração. Financeiro já ficava assim antes; agora
-// Manutenção, Despachos e Abastecimento entraram na mesma lista. Painel de
-// Controle e Clientes continuam mostrando o cargo normalmente.
-const TELAS_SEM_CARGO = ['financeiro', 'manutencao', 'documentacao', 'abastecimento']
+// pedido da administração. Financeiro já ficava assim antes; depois entraram
+// Manutenção, Despachos e Abastecimento, e agora também Clientes. Só o
+// Painel de Controle continua mostrando o cargo normalmente.
+const TELAS_SEM_CARGO = ['financeiro', 'manutencao', 'documentacao', 'abastecimento', 'clientes']
 
 // Botão de engrenagem no cabeçalho, do lado do nome do usuário — abre direto
 // a tela única "Configurações do sistema" (Painel de Controle). Antes era um
