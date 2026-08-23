@@ -664,7 +664,12 @@ export default function TelaClienteDashboard({ perfil }) {
                   : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. — Solicitar resgate'}
             </button>
 
-            <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
+            {/* "Serviços" — desativado temporariamente a pedido da administração:
+                continua visível, no mesmo padrão visual, mas o clique não abre
+                mais o modal (abrirModalServicos, ainda intacto logo abaixo — é
+                só trocar o onClick de volta pra reativar), só avisa "Em
+                construção". */}
+            <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={() => alert('Em construção')}>
               <IconClipboardList size={20} /> Serviços
             </button>
             <p className="painel-cliente-nota">Abastecimento, Manutenção e Regularização</p>

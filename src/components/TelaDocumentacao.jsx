@@ -84,7 +84,7 @@ export default function TelaDocumentacao({ marinaId }) {
   return (
     <div>
       <div className="abas">
-        <button className={aba === 'documentos' ? 'ativo' : ''} onClick={() => setAba('documentos')}>Documentos das embarcações</button>
+        <button className={aba === 'documentos' ? 'ativo' : ''} onClick={() => setAba('documentos')}>Documentos</button>
         {/* "Laudos técnicos" e "Despachos (Capitania)" — desativados
             temporariamente a pedido da administração: continuam visíveis,
             no mesmo padrão visual (nunca ficam "ativo", já que `aba` nunca
