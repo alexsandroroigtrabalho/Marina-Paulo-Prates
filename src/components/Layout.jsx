@@ -44,6 +44,17 @@ export default function Layout({
 }) {
   const app = APLICACOES.find((a) => a.chave === appSelecionada)
 
+  // A logo centralizada no cabeçalho agora é exclusiva do Painel de
+  // Controle — nas demais telas de RV Marine (Clientes/Financeiro/
+  // Manutenção/Abastecimento) ela sai do topo e vira marca d'água atrás do
+  // próprio conteúdo (mesma técnica de .pagina-marca-dagua, ver index.css);
+  // na tela de seleção de aplicações e nas 3 "Em construção" a logo do topo
+  // também some — essas já mostram sua própria marca d'água grande via
+  // PaginaMarcaDagua.jsx, então uma segunda logo no cabeçalho seria
+  // duplicada.
+  const mostrarLogoTopo = appSelecionada === 'marine' && telaAtiva === 'vagas'
+  const mostrarMarcaDaguaCorpo = appSelecionada === 'marine' && telaAtiva !== 'vagas'
+
   return (
     <div className="app-shell">
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
@@ -116,20 +127,19 @@ export default function Layout({
       </aside>
       <main className="conteudo">
         <header className="topo">
-          {/* Cabeçalho institucional único da área interna, em 3 colunas
-              (título | logo | ações) — a logo fica sempre centralizada no
-              meio da página, em QUALQUER aba (inclusive na tela de seleção
-              de aplicações, onde não há título nenhum do lado esquerdo:
-              a coluna simplesmente fica vazia, sem tirar a logo do centro,
-              já que as colunas de fora têm a mesma largura — ver
-              grid-template-columns 1fr auto 1fr abaixo). Versão preta da
-              logo: o fundo aqui é claro, a combinação que o manual reserva
-              pra logo dourada é só sobre fundo escuro (sidebar/login). */}
+          {/* Cabeçalho institucional em 3 colunas (título | logo | ações).
+              A logo centralizada no topo só aparece no Painel de Controle
+              (mostrarLogoTopo acima) — nas demais telas a coluna do meio
+              fica vazia (auto-width colapsa a 0, título e ações continuam
+              nas próprias pontas normalmente, ver grid-template-columns
+              1fr auto 1fr abaixo). Versão preta da logo: o fundo aqui é
+              claro, a combinação que o manual reserva pra logo dourada é
+              só sobre fundo escuro (sidebar/login). */}
           <div className="topo-titulo-area">
             {titulo && <h1>{titulo}</h1>}
           </div>
           <div className="topo-logo-area">
-            <img src="/rv-invictus-logo.png" alt="RV Invictus" className="topo-logo" />
+            {mostrarLogoTopo && <img src="/rv-invictus-logo.png" alt="RV Invictus" className="topo-logo" />}
           </div>
           <div className="topo-direita">
             {appSelecionada === 'marine' && !TELAS_SEM_CARGO.includes(telaAtiva) && (
@@ -144,7 +154,7 @@ export default function Layout({
             </button>
           </div>
         </header>
-        <div className="corpo">{children}</div>
+        <div className={`corpo ${mostrarMarcaDaguaCorpo ? 'corpo-marca-dagua' : ''}`}>{children}</div>
       </main>
     </div>
   )
