@@ -331,7 +331,7 @@ export default function TelaClienteDashboard({ perfil }) {
     // entre abrir o formulário e enviar (ex: administração cadastrou uma
     // manutenção nesse meio-tempo), barra aqui também.
     if (!horariosDisponiveis(configRampa, formAgendamento.data).includes(formAgendamento.hora)) {
-      alert(`Esse horário não está mais disponível. ${configRampa.mensagemManutencao}`)
+      alert(`Esse horário não está mais disponível. ${configRampa.mensagemIndisponibilidade}`)
       return
     }
     setEnviandoAgendamento(true)
@@ -744,10 +744,14 @@ export default function TelaClienteDashboard({ perfil }) {
                 <option key={h} value={h}>{h}</option>
               ))}
             </select>
+            {/* Mensagem de indisponibilidade: uma só, escolhida pelo
+                administrador entre as 3 opções fixas (Configurações →
+                Agenda) — aparece sempre que a rampa estiver indisponível
+                pra data escolhida (fora do horário de funcionamento, dentro
+                de manutenção, etc.), nunca fixa na tela. */}
             {formAgendamento.data && horariosDisponiveis(configRampa, formAgendamento.data).length === 0 && (
-              <p className="dica" style={{ color: 'var(--cor-alerta)', margin: '-4px 0 0' }}>{configRampa.mensagemManutencao}</p>
+              <p className="dica" style={{ color: 'var(--cor-alerta)', margin: '-4px 0 0' }}>{configRampa.mensagemIndisponibilidade}</p>
             )}
-            <p className="dica" style={{ margin: '-4px 0 0' }}>{configRampa.mensagemProblema}</p>
             {modalTipo === 'retirada' && (
               <>
                 <label className="dica" style={{ marginBottom: -8 }}>Previsão de subida (opcional)</label>

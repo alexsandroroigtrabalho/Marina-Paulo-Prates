@@ -41,8 +41,9 @@ CREATE TABLE marina.marinas (
 --   rampaAbertura / rampaFechamento      (Agenda — horário "HH:mm" de funcionamento da rampa; padrão 08:00–18:00)
 --   rampaIntervaloMinutos                (Agenda — intervalo fixo entre solicitações de descida/subida; padrão 15)
 --   rampaManutencoes                     (Agenda — array de {id, inicio, fim, motivo}, períodos em que a rampa fica indisponível)
---   rampaMensagemManutencao              (Agenda — aviso mostrado ao cliente quando a data escolhida está em manutenção)
---   rampaMensagemProblema                (Agenda — aviso fixo de instrução em caso de problema, mostrado junto à Agenda do cliente)
+--   rampaMensagemIndisponibilidade        (Agenda — uma das 3 opções fixas de src/lib/agendaRampa.js: "Rampa em
+--                                          manutenção" | "Aguarde" | "Rampa fechada (feriado)"; mostrada ao cliente
+--                                          sempre que a rampa estiver indisponível pra data escolhida)
 -- Só admin pode gravar aqui (policy "admin_atualiza_propria_marina" abaixo).
 -- rampaIntervaloMinutos também é lido direto pelo Postgres — ver a policy
 -- "cliente_cria_agendamento" (marina.agendamentos, mais abaixo), que recusa

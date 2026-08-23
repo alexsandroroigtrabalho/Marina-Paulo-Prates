@@ -6,13 +6,20 @@
 // administrador edita) quanto o painel do cliente (onde o horário
 // escolhido tem que respeitar essas mesmas regras) precisam da mesma
 // lógica — pra nunca dessincronizar qual horário está disponível.
+// As únicas 3 mensagens de indisponibilidade que o administrador pode
+// escolher (caixa de seleção única em Configurações → Agenda) — substituem
+// os antigos 2 campos de texto livre. Qual estiver selecionada é a que
+// aparece pro cliente sempre que a rampa estiver indisponível, seja por
+// estar fora do horário de funcionamento, dentro de um período de
+// manutenção, ou qualquer outro motivo — é uma mensagem só, de uso geral.
+export const MENSAGENS_INDISPONIBILIDADE = ['Rampa em manutenção', 'Aguarde', 'Rampa fechada (feriado)']
+
 export const RAMPA_PADRAO = {
   abertura: '08:00',
   fechamento: '18:00',
   intervaloMinutos: 15,
   manutencoes: [],
-  mensagemManutencao: 'Rampa em manutenção',
-  mensagemProblema: 'Em caso de problema, aguarde',
+  mensagemIndisponibilidade: MENSAGENS_INDISPONIBILIDADE[0],
 }
 
 // Lê a configuração da rampa a partir do registro da marina (o mesmo objeto
@@ -25,8 +32,9 @@ export function lerConfigRampa(marina) {
     fechamento: cfg.rampaFechamento || RAMPA_PADRAO.fechamento,
     intervaloMinutos: Number(cfg.rampaIntervaloMinutos) || RAMPA_PADRAO.intervaloMinutos,
     manutencoes: Array.isArray(cfg.rampaManutencoes) ? cfg.rampaManutencoes : RAMPA_PADRAO.manutencoes,
-    mensagemManutencao: cfg.rampaMensagemManutencao || RAMPA_PADRAO.mensagemManutencao,
-    mensagemProblema: cfg.rampaMensagemProblema || RAMPA_PADRAO.mensagemProblema,
+    mensagemIndisponibilidade: MENSAGENS_INDISPONIBILIDADE.includes(cfg.rampaMensagemIndisponibilidade)
+      ? cfg.rampaMensagemIndisponibilidade
+      : RAMPA_PADRAO.mensagemIndisponibilidade,
   }
 }
 

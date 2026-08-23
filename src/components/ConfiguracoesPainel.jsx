@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv } from '../lib/exportarPlanilha'
 import { buscarMarina, atualizarConfigMarina } from '../lib/db'
-import { lerConfigRampa, RAMPA_PADRAO } from '../lib/agendaRampa'
+import { lerConfigRampa, RAMPA_PADRAO, MENSAGENS_INDISPONIBILIDADE } from '../lib/agendaRampa'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
@@ -79,8 +79,7 @@ export default function ConfiguracoesPainel({
         rampaAbertura: formRampa.abertura,
         rampaFechamento: formRampa.fechamento,
         rampaIntervaloMinutos: Math.max(5, Number(formRampa.intervaloMinutos) || 15),
-        rampaMensagemManutencao: formRampa.mensagemManutencao || RAMPA_PADRAO.mensagemManutencao,
-        rampaMensagemProblema: formRampa.mensagemProblema || RAMPA_PADRAO.mensagemProblema,
+        rampaMensagemIndisponibilidade: formRampa.mensagemIndisponibilidade || RAMPA_PADRAO.mensagemIndisponibilidade,
       })
       setMensagemRampa('Configurações da Agenda da rampa salvas com sucesso.')
     } catch (err) {
@@ -356,14 +355,11 @@ export default function ConfiguracoesPainel({
                     onChange={(e) => setFormRampa({ ...formRampa, intervaloMinutos: e.target.value })} />
                 </label>
                 <label>
-                  Mensagem — rampa em manutenção
-                  <input required value={formRampa.mensagemManutencao} disabled={!ehAdmin}
-                    onChange={(e) => setFormRampa({ ...formRampa, mensagemManutencao: e.target.value })} />
-                </label>
-                <label>
-                  Mensagem — em caso de problema
-                  <input required value={formRampa.mensagemProblema} disabled={!ehAdmin}
-                    onChange={(e) => setFormRampa({ ...formRampa, mensagemProblema: e.target.value })} />
+                  Mensagem de indisponibilidade
+                  <select required value={formRampa.mensagemIndisponibilidade} disabled={!ehAdmin}
+                    onChange={(e) => setFormRampa({ ...formRampa, mensagemIndisponibilidade: e.target.value })}>
+                    {MENSAGENS_INDISPONIBILIDADE.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
                 </label>
                 <button type="submit" disabled={!ehAdmin || salvandoRampa} style={{ alignSelf: 'flex-start' }}>
                   {salvandoRampa ? 'Salvando…' : 'Salvar'}
