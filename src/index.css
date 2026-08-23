@@ -133,41 +133,6 @@ body {
   margin: 0;
 }
 
-/* Marca d'água atrás do conteúdo de Clientes/Financeiro/Manutenção/
-   Abastecimento — mesma técnica (opacidade 0.14, z-index atrás de tudo) de
-   .pagina-marca-dagua acima, mas com a logo HORIZONTAL (o mesmo arquivo
-   /rv-invictus-logo.png usado no cabeçalho do Painel de Controle, não a
-   vertical) — pedido explícito pra manter a mesma logo em qualquer marca
-   d'água dessas 4 telas. Proporção da caixa (2.5:1, min(480px,70%) x
-   min(192px,30vh)) casa com a proporção real do arquivo (900x359px),
-   então background-size:contain nunca sobra espaço vazio em volta. Aplicada
-   em cima de telas que já têm conteúdo de verdade (tabelas, cards) em vez
-   de ficar sozinha na página. Sem o deslocamento +110px da sidebar que
-   .pagina-marca-dagua usa: essas 4 telas só existem dentro de RV Marine,
-   onde a sidebar fica escondida por padrão (position:fixed, revela só no
-   hover) — .corpo aqui já ocupa a largura visível inteira, então 50%
-   simples já cai no centro certo. min-height garante que a marca d'água
-   caia no meio vertical da tela mesmo quando o conteúdo é curto (poucos
-   cards); com conteúdo mais alto que a viewport, ela passa a ficar no meio
-   do total rolável — mesmo comportamento já aceito em
-   .pagina-marca-dagua-despachos. */
-.corpo-marca-dagua { position: relative; z-index: 0; min-height: calc(100vh - 160px); }
-.corpo-marca-dagua::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: -1;
-  pointer-events: none;
-  width: min(480px, 70%);
-  height: min(192px, 30vh);
-  background-image: url('/rv-invictus-logo.png');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  opacity: 0.14;
-}
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }
 
 /* Tela de login/acesso (Home, AdminLogin, AreaCliente, FichaCadastro — as
