@@ -85,8 +85,17 @@ export default function TelaDocumentacao({ marinaId }) {
     <div>
       <div className="abas">
         <button className={aba === 'documentos' ? 'ativo' : ''} onClick={() => setAba('documentos')}>Documentos das embarcações</button>
-        <button className={aba === 'laudos' ? 'ativo' : ''} onClick={() => setAba('laudos')}>Laudos técnicos</button>
-        <button className={aba === 'despachos' ? 'ativo' : ''} onClick={() => setAba('despachos')}>Despachos (Capitania)</button>
+        {/* "Laudos técnicos" e "Despachos (Capitania)" — desativados
+            temporariamente a pedido da administração: continuam visíveis,
+            no mesmo padrão visual (nunca ficam "ativo", já que `aba` nunca
+            passa a valer 'laudos'/'despachos' por aqui), mas o clique não
+            navega mais pra essas abas, só avisa "Em construção". As telas
+            (JSX mais abaixo, `aba === 'laudos'`/`aba === 'despachos'`) e o
+            carregamento de dados continuam intactos, prontos pra reativar —
+            basta trocar o onClick de volta pra `() => setAba('laudos')` /
+            `() => setAba('despachos')`. */}
+        <button className={aba === 'laudos' ? 'ativo' : ''} onClick={() => alert('Em construção')}>Laudos técnicos</button>
+        <button className={aba === 'despachos' ? 'ativo' : ''} onClick={() => alert('Em construção')}>Despachos (Capitania)</button>
       </div>
 
       {aba === 'documentos' && (

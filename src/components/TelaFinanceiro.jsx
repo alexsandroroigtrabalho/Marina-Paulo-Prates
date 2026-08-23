@@ -42,16 +42,14 @@ function montarLinhasArrecadacao(cobrancasDetalhado, pedidosAbastecimento) {
 }
 
 function exportarCsv(linhas) {
-  const cabecalho = ['Data/hora', 'Cliente', 'Embarcação/jet', 'Descrição', 'Valor', 'Forma de pagamento', 'Status', 'Identificador/comprovante']
+  const cabecalho = ['Data/hora', 'Cliente', 'Embarcação/jet', 'Descrição', 'Valor', 'Status']
   const corpo = linhas.map((l) => [
     l.dataHora ? new Date(l.dataHora).toLocaleString('pt-BR') : '',
     l.cliente || '',
     l.embarcacao || '',
     l.descricao || '',
     l.valor.toFixed(2),
-    l.formaPagamento || '',
     l.status || '',
-    l.comprovante || '',
   ])
   const csv = [cabecalho, ...corpo]
     .map((linha) => linha.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';'))
@@ -180,14 +178,12 @@ export default function TelaFinanceiro({ marinaId }) {
                 <th>Embarcação/jet</th>
                 <th>Descrição</th>
                 <th>Valor</th>
-                <th>Forma de pagamento</th>
                 <th>Status</th>
-                <th>Comprovante</th>
               </tr>
             </thead>
             <tbody>
               {linhasFiltradas.length === 0 && (
-                <tr><td colSpan={8}>Nenhum pagamento encontrado para os filtros selecionados.</td></tr>
+                <tr><td colSpan={6}>Nenhum pagamento encontrado para os filtros selecionados.</td></tr>
               )}
               {linhasFiltradas.map((l) => (
                 <tr key={l.id}>
@@ -196,9 +192,7 @@ export default function TelaFinanceiro({ marinaId }) {
                   <td>{l.embarcacao || '—'}</td>
                   <td>{l.descricao || '—'}</td>
                   <td>R$ {l.valor.toFixed(2)}</td>
-                  <td>{l.formaPagamento || '—'}</td>
                   <td><span className={`badge status-${l.status}`}>{l.status}</span></td>
-                  <td>{l.comprovante || '—'}</td>
                 </tr>
               ))}
             </tbody>
