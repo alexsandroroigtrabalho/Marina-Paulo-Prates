@@ -74,47 +74,20 @@ function MenuExportar({ telaAtiva, marinaId }) {
   )
 }
 
-// Menu de engrenagem no cabeçalho, do lado do nome do usuário — reúne as
-// ações do Painel de Controle (ativar sons, histórico de manobras, gerenciar
-// combustíveis) que antes ficavam como botões fixos em cima da Fila de
-// Rampa. Só aparece quando a tela ativa é o Painel de Controle (TelaVagas
-// repassa as ações via App.jsx; nas outras telas `acoes` vem null).
+// Botão de engrenagem no cabeçalho, do lado do nome do usuário — abre direto
+// a tela única "Configurações do sistema" (Painel de Controle). Antes era um
+// menu dropdown com os itens soltos (aviso sonoro, histórico, combustíveis,
+// apitos); todos migraram pra lá (ver ConfiguracoesPainel.jsx), então virou
+// um botão simples em vez de dropdown — "Histórico de manobras" ganhou seu
+// próprio botão fixo na página do Painel de Controle, por não ser uma
+// configuração. Só aparece quando a tela ativa é o Painel de Controle
+// (TelaVagas repassa a ação via App.jsx; nas outras telas `acoes` vem null).
 function MenuAcoesPainel({ acoes }) {
-  const [aberto, setAberto] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (!aberto) return
-    function aoClicarFora(e) {
-      if (ref.current && !ref.current.contains(e.target)) setAberto(false)
-    }
-    document.addEventListener('mousedown', aoClicarFora)
-    return () => document.removeEventListener('mousedown', aoClicarFora)
-  }, [aberto])
-
   if (!acoes) return null
-
-  function executar(acao) {
-    acao()
-    setAberto(false)
-  }
-
   return (
-    <div className="menu-acoes" ref={ref}>
-      <button type="button" className="menu-acoes-botao" onClick={() => setAberto(!aberto)} title="Ações do painel">
-        <IconSettings size={18} />
-      </button>
-      {aberto && (
-        <div className="menu-acoes-dropdown">
-          <button type="button" onClick={() => executar(acoes.alternarSons)}>
-            {acoes.sonsAtivados ? '🔕 Desabilitar aviso sonoro' : '🔔 Habilitar aviso sonoro'}
-          </button>
-          <button type="button" onClick={() => executar(acoes.abrirHistorico)}>Histórico de manobras</button>
-          <button type="button" onClick={() => executar(acoes.abrirCombustiveis)}>Gerenciar combustíveis</button>
-          <button type="button" onClick={() => executar(acoes.abrirConfigApitos)}>Configurar apitos</button>
-        </div>
-      )}
-    </div>
+    <button type="button" className="menu-acoes-botao" onClick={acoes.abrirConfiguracoes} title="Configurações do sistema">
+      <IconSettings size={18} />
+    </button>
   )
 }
 

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
+import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
-  listarDocumentos, buscarMarina, atualizarConfigMarina,
+  listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
 import { ativarSons, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
+import ConfiguracoesPainel from './ConfiguracoesPainel'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -41,42 +43,68 @@ function statusLinha(a) {
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
-export default function TelaVagas({ marinaId, onAcoes }) {
+export default function TelaVagas({ marinaId, perfil, onAcoes }) {
+  const ehAdmin = perfil?.role === 'admin'
   const [agendamentos, setAgendamentos] = useState([])
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
   const [combustiveis, setCombustiveis] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
-  const [modalCombustiveisAberto, setModalCombustiveisAberto] = useState(false)
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
+  const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [sonsAtivados, setSonsAtivados] = useState(false)
   const alarmeResgateRef = useRef(null)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
-  const [modalApitosAberto, setModalApitosAberto] = useState(false)
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
   const [salvandoApitos, setSalvandoApitos] = useState(false)
 
-  // Carrega a quantidade de apitos configurada pela marina (se ainda não
-  // configurou nada, fica no padrão: 1 apito longo na descida, 3 curtos no
-  // retorno — igual já era antes de existir essa configuração).
-  useEffect(() => {
+  // Configurações do sistema — todas centralizadas no Painel de Controle
+  // (ver ConfiguracoesPainel.jsx). Mensalidade e o e-mail do relatório de
+  // documentos vencidos moram no mesmo marinas.config_json que os apitos,
+  // então entram na mesma leitura/gravação abaixo.
+  const [formMensalidade, setFormMensalidade] = useState('')
+  const [salvandoMensalidade, setSalvandoMensalidade] = useState(false)
+  const [emailRelatorio, setEmailRelatorio] = useState('')
+  const [salvandoEmailRelatorio, setSalvandoEmailRelatorio] = useState(false)
+  const [ultimoEnvioRelatorio, setUltimoEnvioRelatorio] = useState(null)
+  const [enviandoRelatorio, setEnviandoRelatorio] = useState(false)
+  const [mensagemRelatorio, setMensagemRelatorio] = useState('')
+
+  // Carrega a configuração da marina (apitos, valor da mensalidade, e-mail
+  // do relatório de documentos) — tudo em marinas.config_json. Se ainda não
+  // configurou nada, apitos ficam no padrão (1 longo na descida, 3 curtos no
+  // retorno) e os demais campos ficam vazios.
+  function carregarConfigMarina() {
     if (!marinaId) return
     buscarMarina(marinaId).then((m) => {
       const cfg = m?.config_json || {}
-      setConfigApitos({
+      const apitos = {
         descida: cfg.apitosDescida ?? APITOS_PADRAO.descida,
         retorno: cfg.apitosRetorno ?? APITOS_PADRAO.retorno,
-      })
+      }
+      setConfigApitos(apitos)
+      setFormApitos(apitos)
+      setFormMensalidade(cfg.valorMensalidade != null ? String(cfg.valorMensalidade) : '')
+      setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
+      setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
     })
-  }, [marinaId])
-
-  function abrirConfigApitos() {
-    setFormApitos(configApitos)
-    setModalApitosAberto(true)
   }
+  useEffect(() => { carregarConfigMarina() }, [marinaId])
+
+  // Atualização em tempo real: uma configuração alterada por outro
+  // administrador (em outra aba/sessão) aparece aqui na hora, sem F5 — mesmo
+  // padrão já usado em clientes/agendamentos/etc.
+  useEffect(() => {
+    if (!marinaId) return
+    const canal = supabase
+      .channel(`config-marina-${marinaId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'marinas', filter: `id=eq.${marinaId}` }, () => carregarConfigMarina())
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [marinaId])
 
   async function salvarConfigApitos(e) {
     e.preventDefault()
@@ -88,11 +116,54 @@ export default function TelaVagas({ marinaId, onAcoes }) {
       }
       await atualizarConfigMarina(marinaId, { apitosDescida: novoConfig.descida, apitosRetorno: novoConfig.retorno })
       setConfigApitos(novoConfig)
-      setModalApitosAberto(false)
     } catch (err) {
       alert('Não foi possível salvar os apitos: ' + err.message)
     } finally {
       setSalvandoApitos(false)
+    }
+  }
+
+  async function salvarValorMensalidade(e) {
+    e.preventDefault()
+    setSalvandoMensalidade(true)
+    try {
+      await atualizarConfigMarina(marinaId, { valorMensalidade: Number(formMensalidade) })
+    } catch (err) {
+      alert('Não foi possível salvar a mensalidade: ' + err.message)
+    } finally {
+      setSalvandoMensalidade(false)
+    }
+  }
+
+  async function salvarEmailRelatorio(e) {
+    e.preventDefault()
+    setSalvandoEmailRelatorio(true)
+    setMensagemRelatorio('')
+    try {
+      await atualizarConfigMarina(marinaId, { emailRelatorioDocumentos: emailRelatorio })
+      setMensagemRelatorio('E-mail salvo. O relatório diário passa a ser enviado para este endereço.')
+    } catch (err) {
+      setMensagemRelatorio(`Não foi possível salvar: ${err.message}`)
+    } finally {
+      setSalvandoEmailRelatorio(false)
+    }
+  }
+
+  async function enviarRelatorioAgora() {
+    setEnviandoRelatorio(true)
+    setMensagemRelatorio('')
+    try {
+      const resultado = await enviarRelatorioDocumentosAgora(marinaId)
+      setUltimoEnvioRelatorio(new Date().toISOString())
+      setMensagemRelatorio(
+        resultado?.documentos > 0
+          ? `Relatório enviado com ${resultado.documentos} documento(s) vencido(s)/a vencer.`
+          : 'Relatório enviado — nenhum documento vencido ou a vencer nos próximos 30 dias.'
+      )
+    } catch (err) {
+      setMensagemRelatorio(`Não foi possível enviar: ${err.message}`)
+    } finally {
+      setEnviandoRelatorio(false)
     }
   }
 
@@ -282,17 +353,13 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   }
 
   // Repassa as ações do painel (aviso sonoro, histórico, combustíveis) pro
-  // menu de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
-  // esses botões não moram mais fixos em cima da Fila de Rampa.
+  // botão de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
+  // agora abre direto a tela única "Configurações do sistema" (antes era um
+  // menu dropdown com os itens soltos; todos migraram pra lá, ver
+  // ConfiguracoesPainel.jsx).
   useEffect(() => {
-    onAcoes?.({
-      sonsAtivados,
-      alternarSons: alternarSonsPainel,
-      abrirHistorico: () => setModalHistoricoAberto(true),
-      abrirCombustiveis: () => setModalCombustiveisAberto(true),
-      abrirConfigApitos,
-    })
-  }, [sonsAtivados, configApitos])
+    onAcoes?.({ abrirConfiguracoes: () => setModalConfiguracoesAberto(true) })
+  }, [])
 
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
   function linhaNotificacao(a) {
@@ -446,7 +513,10 @@ export default function TelaVagas({ marinaId, onAcoes }) {
         )}
       </div>
 
-      <h2 style={{ margin: '0 0 16px' }}>Fila de Rampa</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Fila de Rampa</h2>
+        <button type="button" className="voltar" onClick={() => setModalHistoricoAberto(true)}>Histórico de manobras</button>
+      </div>
 
       <table className="tabela tabela-fila">
         <thead>
@@ -499,55 +569,6 @@ export default function TelaVagas({ marinaId, onAcoes }) {
         </div>
       )}
 
-      {modalCombustiveisAberto && (
-        <div className="modal-fundo" onClick={() => setModalCombustiveisAberto(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', maxWidth: 640 }}>
-            <h3>Gerenciar combustíveis</h3>
-            <p className="dica">Preço e estoque usados no pedido de abastecimento feito pelo cliente pelo app.</p>
-
-            <form className="form-inline" onSubmit={salvarNovoCombustivel}>
-              <input required placeholder="Nome (ex: Gasolina, Diesel Marítimo)" value={formCombustivel.nome}
-                onChange={(e) => setFormCombustivel({ ...formCombustivel, nome: e.target.value })} />
-              <input required type="number" step="0.01" placeholder="Preço por litro (R$)" value={formCombustivel.preco_litro}
-                onChange={(e) => setFormCombustivel({ ...formCombustivel, preco_litro: e.target.value })} />
-              <input required type="number" step="0.01" placeholder="Estoque (litros)" value={formCombustivel.estoque_litros}
-                onChange={(e) => setFormCombustivel({ ...formCombustivel, estoque_litros: e.target.value })} />
-              <button type="submit">+ Adicionar combustível</button>
-            </form>
-
-            <table className="tabela">
-              <thead><tr><th>Combustível</th><th>Preço/litro</th><th>Estoque (L)</th><th>Ativo</th></tr></thead>
-              <tbody>
-                {combustiveis.length === 0 && <tr><td colSpan={4}>Nenhum combustível cadastrado ainda.</td></tr>}
-                {combustiveis.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.nome}</td>
-                    <td>
-                      <input type="number" step="0.01" defaultValue={c.preco_litro} style={{ width: 90 }}
-                        onBlur={(e) => Number(e.target.value) !== Number(c.preco_litro) && atualizarCampoCombustivel(c, 'preco_litro', e.target.value)} />
-                    </td>
-                    <td>
-                      <input type="number" step="0.01" defaultValue={c.estoque_litros} style={{ width: 90 }}
-                        onBlur={(e) => Number(e.target.value) !== Number(c.estoque_litros) && atualizarCampoCombustivel(c, 'estoque_litros', e.target.value)} />
-                    </td>
-                    <td>
-                      <label className="toggle">
-                        <input type="checkbox" checked={c.ativo} onChange={(e) => atualizarCampoCombustivel(c, 'ativo', e.target.checked)} />
-                        <span className="trilho" />
-                      </label>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="acoes-modal">
-              <button type="button" onClick={() => setModalCombustiveisAberto(false)}>Fechar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {modalHistoricoAberto && (
         <div className="modal-fundo" onClick={() => setModalHistoricoAberto(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', maxWidth: 720 }}>
@@ -581,32 +602,34 @@ export default function TelaVagas({ marinaId, onAcoes }) {
         </div>
       )}
 
-      {modalApitosAberto && (
-        <div className="modal-fundo" onClick={() => setModalApitosAberto(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
-            <h3>Configurar apitos</h3>
-            <p className="dica">Quantas vezes o sinal sonoro toca ao confirmar cada manobra na Fila de Rampa. Vale para toda a equipe.</p>
-
-            <form className="form-vertical" onSubmit={salvarConfigApitos}>
-              <label>
-                Apitos na saída (descida)
-                <input required type="number" min={1} step={1} value={formApitos.descida}
-                  onChange={(e) => setFormApitos({ ...formApitos, descida: e.target.value })} />
-              </label>
-              <label>
-                Apitos na chegada (retorno)
-                <input required type="number" min={1} step={1} value={formApitos.retorno}
-                  onChange={(e) => setFormApitos({ ...formApitos, retorno: e.target.value })} />
-              </label>
-
-              <div className="acoes-modal">
-                <button type="button" onClick={() => setModalApitosAberto(false)}>Cancelar</button>
-                <button type="submit" disabled={salvandoApitos}>{salvandoApitos ? 'Salvando…' : 'Salvar'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ConfiguracoesPainel
+        aberto={modalConfiguracoesAberto}
+        onFechar={() => setModalConfiguracoesAberto(false)}
+        ehAdmin={ehAdmin}
+        formMensalidade={formMensalidade}
+        onMudarMensalidade={setFormMensalidade}
+        onSalvarMensalidade={salvarValorMensalidade}
+        salvandoMensalidade={salvandoMensalidade}
+        combustiveis={combustiveis}
+        formCombustivel={formCombustivel}
+        onMudarFormCombustivel={setFormCombustivel}
+        onSalvarNovoCombustivel={salvarNovoCombustivel}
+        onAtualizarCampoCombustivel={atualizarCampoCombustivel}
+        sonsAtivados={sonsAtivados}
+        onAlternarSons={alternarSonsPainel}
+        formApitos={formApitos}
+        onMudarApitos={setFormApitos}
+        onSalvarApitos={salvarConfigApitos}
+        salvandoApitos={salvandoApitos}
+        emailRelatorio={emailRelatorio}
+        onMudarEmailRelatorio={setEmailRelatorio}
+        onSalvarEmailRelatorio={salvarEmailRelatorio}
+        salvandoEmailRelatorio={salvandoEmailRelatorio}
+        ultimoEnvioRelatorio={ultimoEnvioRelatorio}
+        onEnviarRelatorioAgora={enviarRelatorioAgora}
+        enviandoRelatorio={enviandoRelatorio}
+        mensagemRelatorio={mensagemRelatorio}
+      />
     </div>
   )
 }

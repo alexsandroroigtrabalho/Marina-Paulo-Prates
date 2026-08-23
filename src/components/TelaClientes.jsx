@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas } from '../lib/db'
+import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas, buscarMarina } from '../lib/db'
 import { statusAcessoCliente } from '../lib/statusPagamento'
 import ChavePagamento from './ChavePagamento'
 
@@ -25,6 +25,10 @@ export default function TelaClientes({ marinaId }) {
   const [formEmbarcacaoExtra, setFormEmbarcacaoExtra] = useState({ ...EMBARCACAO_VAZIA })
   const [salvandoExtra, setSalvandoExtra] = useState(false)
   const [removendoId, setRemovendoId] = useState(null)
+  // Valor da mensalidade configurado em Painel de Controle → Configurações
+  // → Financeiro (marinas.config_json.valorMensalidade) — mostrado aqui
+  // como referência, não é mais uma média calculada das cobranças.
+  const [valorMensalidadeConfig, setValorMensalidadeConfig] = useState(null)
 
   async function carregar() {
     if (!marinaId) return
@@ -32,7 +36,24 @@ export default function TelaClientes({ marinaId }) {
     setClientes(c); setEmbarcacoes(e); setCobrancas(cob)
   }
 
+  function carregarConfigMarina() {
+    if (!marinaId) return
+    buscarMarina(marinaId).then((m) => setValorMensalidadeConfig(m?.config_json?.valorMensalidade ?? null))
+  }
+
   useEffect(() => { carregar() }, [marinaId])
+  useEffect(() => { carregarConfigMarina() }, [marinaId])
+
+  // Atualização em tempo real da mensalidade configurada — muda assim que o
+  // administrador salva um novo valor em Configurações, sem F5.
+  useEffect(() => {
+    if (!marinaId) return
+    const canal = supabase
+      .channel(`clientes-${marinaId}-config-marina`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'marinas', filter: `id=eq.${marinaId}` }, () => carregarConfigMarina())
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [marinaId])
 
   // Atualização automática em tempo real: além do próprio administrador
   // mexendo na chave de pagamento, o status também pode mudar sozinho (o
@@ -199,10 +220,6 @@ export default function TelaClientes({ marinaId }) {
 
   const totalArrecadado = cobrancas.filter((c) => c.status === 'pago').reduce((s, c) => s + Number(c.valor), 0)
   const pagamentosPendentes = clientes.filter((c) => !c.pagamento_confirmado).length
-  const mensalidades = cobrancas.filter((c) => c.tipo === 'mensalidade')
-  const mensalidadeMedia = mensalidades.length
-    ? mensalidades.reduce((s, c) => s + Number(c.valor), 0) / mensalidades.length
-    : 0
 
   function embarcacoesDoCliente(clienteId) {
     return embarcacoes.filter((e) => e.cliente_id === clienteId)
@@ -227,8 +244,8 @@ export default function TelaClientes({ marinaId }) {
               <strong>{pagamentosPendentes}</strong>
             </div>
             <div className="stat-card">
-              <span>Mensalidade</span>
-              <strong>R$ {mensalidadeMedia.toFixed(2)}</strong>
+              <span>Mensalidade (valor configurado)</span>
+              <strong>{valorMensalidadeConfig != null ? `R$ ${Number(valorMensalidadeConfig).toFixed(2)}` : 'Não configurado'}</strong>
             </div>
           </div>
 

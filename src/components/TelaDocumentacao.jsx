@@ -4,7 +4,6 @@ import {
   listarDocumentos, salvarDocumento,
   listarLaudos, atualizarLaudo,
   listarDespachos, criarDespacho, atualizarDespacho,
-  buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
@@ -43,14 +42,6 @@ export default function TelaDocumentacao({ marinaId }) {
   const [salvandoDoc, setSalvandoDoc] = useState(false)
   const [salvandoDespacho, setSalvandoDespacho] = useState(false)
 
-  // Relatório automático de documentos vencidos/a vencer (enviado por
-  // e-mail, diariamente, pra quem estiver cadastrado aqui).
-  const [emailRelatorio, setEmailRelatorio] = useState('')
-  const [salvandoEmailRelatorio, setSalvandoEmailRelatorio] = useState(false)
-  const [ultimoEnvioRelatorio, setUltimoEnvioRelatorio] = useState(null)
-  const [enviandoRelatorio, setEnviandoRelatorio] = useState(false)
-  const [mensagemRelatorio, setMensagemRelatorio] = useState('')
-
   async function carregar() {
     if (!marinaId) return
     const [e, c, d, l, desp] = await Promise.all([
@@ -61,45 +52,6 @@ export default function TelaDocumentacao({ marinaId }) {
   }
 
   useEffect(() => { carregar() }, [marinaId])
-
-  useEffect(() => {
-    if (!marinaId) return
-    buscarMarina(marinaId).then((m) => {
-      const cfg = m?.config_json || {}
-      setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
-      setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
-    })
-  }, [marinaId])
-
-  async function salvarEmailRelatorio(e) {
-    e.preventDefault()
-    setSalvandoEmailRelatorio(true)
-    setMensagemRelatorio('')
-    try {
-      await atualizarConfigMarina(marinaId, { emailRelatorioDocumentos: emailRelatorio })
-      setMensagemRelatorio('E-mail salvo. O relatório diário passa a ser enviado para este endereço.')
-    } finally {
-      setSalvandoEmailRelatorio(false)
-    }
-  }
-
-  async function enviarRelatorioAgora() {
-    setEnviandoRelatorio(true)
-    setMensagemRelatorio('')
-    try {
-      const resultado = await enviarRelatorioDocumentosAgora(marinaId)
-      setUltimoEnvioRelatorio(new Date().toISOString())
-      setMensagemRelatorio(
-        resultado?.documentos > 0
-          ? `Relatório enviado com ${resultado.documentos} documento(s) vencido(s)/a vencer.`
-          : 'Relatório enviado — nenhum documento vencido ou a vencer nos próximos 30 dias.'
-      )
-    } catch (err) {
-      setMensagemRelatorio(`Não foi possível enviar: ${err.message}`)
-    } finally {
-      setEnviandoRelatorio(false)
-    }
-  }
 
   async function salvarNovoDocumento(e) {
     e.preventDefault()
@@ -222,30 +174,9 @@ export default function TelaDocumentacao({ marinaId }) {
       {aba === 'despachos' && (
         <>
           <p className="dica">Acompanhamento de regularização junto à Capitania dos Portos (registro, transferência, baixa, renovação de TIE).</p>
-
-          <div style={{
-            background: 'var(--cor-card)', borderRadius: 'var(--raio)', boxShadow: 'var(--sombra)',
-            padding: 20, marginBottom: 24,
-          }}>
-            <strong>Relatório automático de documentos vencidos</strong>
-            <p className="dica" style={{ margin: '4px 0 14px' }}>
-              Todo dia o sistema confere quem está com TIE, seguro, habilitação do condutor ou vistoria vencidos (ou vencendo em até 1 mês) e envia uma planilha para o e-mail cadastrado abaixo.
-            </p>
-            <form className="form-inline" onSubmit={salvarEmailRelatorio} style={{ marginBottom: 8 }}>
-              <input
-                type="email" required placeholder="e-mail@exemplo.com" style={{ minWidth: 240 }}
-                value={emailRelatorio} onChange={(e) => setEmailRelatorio(e.target.value)}
-              />
-              <button type="submit" disabled={salvandoEmailRelatorio}>{salvandoEmailRelatorio ? 'Salvando…' : 'Salvar e-mail'}</button>
-              <button type="button" onClick={enviarRelatorioAgora} disabled={enviandoRelatorio || !emailRelatorio}>
-                {enviandoRelatorio ? 'Enviando…' : 'Enviar relatório agora'}
-              </button>
-            </form>
-            <p className="dica" style={{ margin: 0 }}>
-              {ultimoEnvioRelatorio ? `Último envio: ${new Date(ultimoEnvioRelatorio).toLocaleString('pt-BR')}` : 'Ainda não foi enviado nenhum relatório para este e-mail.'}
-            </p>
-            {mensagemRelatorio && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemRelatorio}</p>}
-          </div>
+          <p className="dica" style={{ marginTop: -8, marginBottom: 20 }}>
+            O e-mail do relatório automático de documentos vencidos foi movido para <b>Painel de Controle → engrenagem de Configurações → Despacho</b>.
+          </p>
 
           <form className="form-inline" onSubmit={abrirNovoDespacho}>
             <select required value={formDespacho.cliente_id} onChange={(e) => setFormDespacho({ ...formDespacho, cliente_id: e.target.value })}>

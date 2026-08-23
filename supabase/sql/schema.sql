@@ -31,6 +31,13 @@ CREATE TABLE marina.marinas (
   config_json   JSONB DEFAULT '{}',           -- branding, cores, logotipo
   created_at    TIMESTAMPTZ DEFAULT now()
 );
+-- Chaves de config_json usadas hoje pela tela "Configurações do sistema"
+-- (Painel de Controle → engrenagem — ver components/ConfiguracoesPainel.jsx):
+--   apitosDescida / apitosRetorno        (Notificações — quantidade de apitos por manobra)
+--   valorMensalidade                     (Financeiro — valor de referência da mensalidade)
+--   emailRelatorioDocumentos             (Despacho — e-mail do relatório automático)
+--   ultimoEnvioRelatorioDocumentos       (Despacho — carimbo do último envio, grafado pela Edge Function send-email)
+-- Só admin pode gravar aqui (policy "admin_atualiza_propria_marina" abaixo).
 
 -- ------------------------------------------------------------
 -- 2. PERFIS (usuários do sistema, vinculados ao auth.users do Supabase)
@@ -577,10 +584,17 @@ CREATE POLICY "staff_ve_propria_marina" ON marina.marinas
   FOR SELECT TO authenticated
   USING (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
 
-CREATE POLICY "staff_atualiza_propria_marina" ON marina.marinas
+-- Atualizar a marina (config_json — apitos, valor da mensalidade, e-mail
+-- do relatório de documentos) é restrito a admin: desde que essas 3
+-- configurações viraram a tela única "Configurações do sistema" no Painel
+-- de Controle, só o administrador pode alterá-las (funcionário/operador
+-- continuam podendo VER, via "staff_ve_propria_marina" acima). Substituiu
+-- a antiga "staff_atualiza_propria_marina", que também liberava
+-- funcionário/operador.
+CREATE POLICY "admin_atualiza_propria_marina" ON marina.marinas
   FOR UPDATE TO authenticated
   USING (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
-         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) IN ('admin','funcionario','operador'))
+         AND (SELECT role FROM marina.perfis WHERE id = auth.uid()) = 'admin')
   WITH CHECK (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
 
 
@@ -615,6 +629,10 @@ ALTER TABLE marina.laudos REPLICA IDENTITY FULL;
 ALTER TABLE marina.pedidos_abastecimento REPLICA IDENTITY FULL;
 ALTER TABLE marina.clientes REPLICA IDENTITY FULL;
 ALTER TABLE marina.cobrancas REPLICA IDENTITY FULL;
+-- marina.marinas também entrou aqui pra tela "Configurações do sistema"
+-- (Painel de Controle): mensalidade, apitos e e-mail do relatório de
+-- documentos atualizam sozinhos nas outras telas assim que o admin salva.
+ALTER TABLE marina.marinas REPLICA IDENTITY FULL;
 
 ALTER PUBLICATION supabase_realtime ADD TABLE
   marina.agendamentos,
@@ -623,7 +641,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE
   marina.laudos,
   marina.pedidos_abastecimento,
   marina.clientes,
-  marina.cobrancas;
+  marina.cobrancas,
+  marina.marinas;
 
 -- ============================================================
 -- Reset automático de pagamentos — todo dia 5 do mês (pg_cron)
