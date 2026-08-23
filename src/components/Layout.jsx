@@ -50,10 +50,13 @@ export default function Layout({
   // segunda logo (mesmo em marca d'água) no topo ficaria redundante ali. Em
   // todas as outras telas (Painel de Controle, Clientes, Financeiro,
   // Manutenção, Abastecimento e as 3 aplicações "Em construção") a logo
-  // continua no cabeçalho, na mesma posição/tamanho/arquivo de sempre — só
-  // com opacidade reduzida (ver .topo-logo no index.css), virando marca
-  // d'água ali mesmo em vez de sumir.
+  // continua no cabeçalho, na mesma posição/tamanho/arquivo de sempre — com
+  // opacidade reduzida (ver .topo-logo no index.css), virando marca d'água
+  // ali mesmo em vez de sumir — EXCETO no Painel de Controle, onde a logo
+  // volta a ser sólida (.topo-logo-solida), a pedido explícito: desfaz só
+  // essa parte da mudança, sem mexer em mais nada.
   const mostrarLogoTopo = appSelecionada !== null
+  const logoSolida = appSelecionada === 'marine' && telaAtiva === 'vagas'
 
   return (
     <div className="app-shell">
@@ -143,7 +146,13 @@ export default function Layout({
             {titulo && <h1>{titulo}</h1>}
           </div>
           <div className="topo-logo-area">
-            {mostrarLogoTopo && <img src="/rv-invictus-logo.png" alt="RV Invictus" className="topo-logo" />}
+            {mostrarLogoTopo && (
+              <img
+                src="/rv-invictus-logo.png"
+                alt="RV Invictus"
+                className={`topo-logo ${logoSolida ? 'topo-logo-solida' : ''}`}
+              />
+            )}
           </div>
           <div className="topo-direita">
             {appSelecionada === 'marine' && !TELAS_SEM_CARGO.includes(telaAtiva) && (
