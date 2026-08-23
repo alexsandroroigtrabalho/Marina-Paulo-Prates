@@ -9,6 +9,7 @@ export default function TelaManutencao({ marinaId }) {
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [clientes, setClientes] = useState([])
   const [form, setForm] = useState({ embarcacao_id: '', cliente_id: '', tipo_servico: 'limpeza', descricao: '', prioridade: 'normal' })
+  const [salvando, setSalvando] = useState(false)
 
   async function carregar() {
     if (!marinaId) return
@@ -20,9 +21,16 @@ export default function TelaManutencao({ marinaId }) {
 
   async function nova(e) {
     e.preventDefault()
-    await criarOrdemServico({ marina_id: marinaId, ...form })
-    setForm({ embarcacao_id: '', cliente_id: '', tipo_servico: 'limpeza', descricao: '', prioridade: 'normal' })
-    carregar()
+    setSalvando(true)
+    try {
+      await criarOrdemServico({ marina_id: marinaId, ...form })
+      setForm({ embarcacao_id: '', cliente_id: '', tipo_servico: 'limpeza', descricao: '', prioridade: 'normal' })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível abrir a ordem de serviço: ' + err.message)
+    } finally {
+      setSalvando(false)
+    }
   }
 
   return (
@@ -46,7 +54,7 @@ export default function TelaManutencao({ marinaId }) {
           <option value="urgente">Urgente</option>
         </select>
         <input placeholder="Descrição" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
-        <button type="submit">+ Abrir ordem de serviço</button>
+        <button type="submit" disabled={salvando}>{salvando ? 'Salvando...' : '+ Abrir ordem de serviço'}</button>
       </form>
 
       <table className="tabela">
@@ -64,7 +72,7 @@ export default function TelaManutencao({ marinaId }) {
                     administrador precise reabrir ou corrigir o status. A
                     troca já salva na hora (onChange chama atualizarStatusOS
                     direto, sem precisar de um botão "Salvar" separado). */}
-                <select value={o.status} onChange={(e) => atualizarStatusOS(o.id, e.target.value).then(carregar)}>
+                <select value={o.status} onChange={(e) => atualizarStatusOS(o.id, e.target.value).then(carregar).catch((err) => alert('Não foi possível atualizar o status: ' + err.message))}>
                   {STATUS_MANUTENCAO.map((s) => (
                     <option key={s.valor} value={s.valor}>{s.label}</option>
                   ))}

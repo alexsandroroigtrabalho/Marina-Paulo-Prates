@@ -6,9 +6,9 @@ import {
   listarDespachos, criarDespacho, atualizarDespacho,
   buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
+import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 
 const TIPOS_DOCUMENTO = ['TIE', 'seguro', 'seguro_obrigatorio', 'habilitacao_condutor', 'vistoria', 'outro']
-const TIPOS_DESPACHO = ['registro', 'transferencia', 'baixa', 'renovacao_tie', 'outro']
 
 function diasParaVencer(dataValidade) {
   if (!dataValidade) return null
@@ -35,7 +35,13 @@ export default function TelaDocumentacao({ marinaId }) {
   const [despachos, setDespachos] = useState([])
 
   const [formDoc, setFormDoc] = useState({ embarcacao_id: '', tipo: 'TIE', numero_documento: '', data_emissao: '', data_validade: '' })
-  const [formDespacho, setFormDespacho] = useState({ cliente_id: '', embarcacao_id: '', tipo: 'registro', numero_protocolo: '', data_protocolo: '' })
+  // Mesmo catálogo de serviços que o cliente usa pra pedir um despacho
+  // (lib/servicosDespacho.js) — assim um despacho aberto aqui pela equipe
+  // usa exatamente os mesmos valores de `tipo` que um pedido feito pelo
+  // cliente, em vez de uma lista solta e diferente.
+  const [formDespacho, setFormDespacho] = useState({ cliente_id: '', embarcacao_id: '', tipo: SERVICOS_DESPACHO[0].key, numero_protocolo: '', data_protocolo: '' })
+  const [salvandoDoc, setSalvandoDoc] = useState(false)
+  const [salvandoDespacho, setSalvandoDespacho] = useState(false)
 
   // Relatório automático de documentos vencidos/a vencer (enviado por
   // e-mail, diariamente, pra quem estiver cadastrado aqui).
@@ -97,16 +103,30 @@ export default function TelaDocumentacao({ marinaId }) {
 
   async function salvarNovoDocumento(e) {
     e.preventDefault()
-    await salvarDocumento({ marina_id: marinaId, ...formDoc })
-    setFormDoc({ embarcacao_id: '', tipo: 'TIE', numero_documento: '', data_emissao: '', data_validade: '' })
-    carregar()
+    setSalvandoDoc(true)
+    try {
+      await salvarDocumento({ marina_id: marinaId, ...formDoc })
+      setFormDoc({ embarcacao_id: '', tipo: 'TIE', numero_documento: '', data_emissao: '', data_validade: '' })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível registrar o documento: ' + err.message)
+    } finally {
+      setSalvandoDoc(false)
+    }
   }
 
   async function abrirNovoDespacho(e) {
     e.preventDefault()
-    await criarDespacho({ marina_id: marinaId, ...formDespacho })
-    setFormDespacho({ cliente_id: '', embarcacao_id: '', tipo: 'registro', numero_protocolo: '', data_protocolo: '' })
-    carregar()
+    setSalvandoDespacho(true)
+    try {
+      await criarDespacho({ marina_id: marinaId, ...formDespacho })
+      setFormDespacho({ cliente_id: '', embarcacao_id: '', tipo: SERVICOS_DESPACHO[0].key, numero_protocolo: '', data_protocolo: '' })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível abrir o despacho: ' + err.message)
+    } finally {
+      setSalvandoDespacho(false)
+    }
   }
 
   return (
@@ -130,7 +150,7 @@ export default function TelaDocumentacao({ marinaId }) {
             <input placeholder="Número do documento" value={formDoc.numero_documento} onChange={(e) => setFormDoc({ ...formDoc, numero_documento: e.target.value })} />
             <input type="date" placeholder="Emissão" value={formDoc.data_emissao} onChange={(e) => setFormDoc({ ...formDoc, data_emissao: e.target.value })} />
             <input type="date" required placeholder="Validade" value={formDoc.data_validade} onChange={(e) => setFormDoc({ ...formDoc, data_validade: e.target.value })} />
-            <button type="submit">+ Registrar documento</button>
+            <button type="submit" disabled={salvandoDoc}>{salvandoDoc ? 'Salvando...' : '+ Registrar documento'}</button>
           </form>
 
           <table className="tabela">
@@ -174,7 +194,7 @@ export default function TelaDocumentacao({ marinaId }) {
                     <input
                       placeholder="Nome / CREA"
                       defaultValue={l.responsavel_tecnico || ''}
-                      onBlur={(e) => e.target.value !== (l.responsavel_tecnico || '') && atualizarLaudo(l.id, { responsavel_tecnico: e.target.value }).then(carregar)}
+                      onBlur={(e) => e.target.value !== (l.responsavel_tecnico || '') && atualizarLaudo(l.id, { responsavel_tecnico: e.target.value }).then(carregar).catch((err) => alert('Não foi possível salvar o responsável técnico: ' + err.message))}
                     />
                   </td>
                   <td>
@@ -182,7 +202,7 @@ export default function TelaDocumentacao({ marinaId }) {
                       <select value={l.status} onChange={(e) => {
                         const patch = { status: e.target.value }
                         if (e.target.value === 'emitido') patch.data_emissao = new Date().toISOString()
-                        atualizarLaudo(l.id, patch).then(carregar)
+                        atualizarLaudo(l.id, patch).then(carregar).catch((err) => alert('Não foi possível atualizar o laudo: ' + err.message))
                       }}>
                         <option value="solicitado">Solicitado</option>
                         <option value="agendado">Agendado</option>
@@ -237,11 +257,17 @@ export default function TelaDocumentacao({ marinaId }) {
               {embarcacoes.filter((e) => e.cliente_id === formDespacho.cliente_id).map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <select value={formDespacho.tipo} onChange={(e) => setFormDespacho({ ...formDespacho, tipo: e.target.value })}>
-              {TIPOS_DESPACHO.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+              {CATEGORIAS_SERVICOS.map((cat) => (
+                <optgroup key={cat.key} label={cat.titulo}>
+                  {SERVICOS_DESPACHO.filter((s) => s.categoria === cat.key).map((s) => (
+                    <option key={s.key} value={s.key}>{s.titulo}</option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
             <input placeholder="Nº protocolo (opcional)" value={formDespacho.numero_protocolo} onChange={(e) => setFormDespacho({ ...formDespacho, numero_protocolo: e.target.value })} />
             <input type="date" value={formDespacho.data_protocolo} onChange={(e) => setFormDespacho({ ...formDespacho, data_protocolo: e.target.value })} />
-            <button type="submit">+ Abrir despacho</button>
+            <button type="submit" disabled={salvandoDespacho}>{salvandoDespacho ? 'Salvando...' : '+ Abrir despacho'}</button>
           </form>
 
           <table className="tabela">
@@ -260,7 +286,7 @@ export default function TelaDocumentacao({ marinaId }) {
                       <select value={d.status} onChange={(e) => {
                         const patch = { status: e.target.value }
                         if (e.target.value === 'concluido') patch.data_conclusao = new Date().toISOString().slice(0, 10)
-                        atualizarDespacho(d.id, patch).then(carregar)
+                        atualizarDespacho(d.id, patch).then(carregar).catch((err) => alert('Não foi possível atualizar o despacho: ' + err.message))
                       }}>
                         <option value="protocolado">Protocolado</option>
                         <option value="em_analise">Em análise</option>

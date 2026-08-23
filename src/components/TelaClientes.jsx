@@ -92,13 +92,21 @@ export default function TelaClientes({ marinaId }) {
   }
 
   async function alternarPagamento(cliente) {
-    await salvarCliente({ id: cliente.id, pagamento_confirmado: !cliente.pagamento_confirmado })
-    carregar()
+    try {
+      await salvarCliente({ id: cliente.id, pagamento_confirmado: !cliente.pagamento_confirmado })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar o pagamento: ' + err.message)
+    }
   }
 
   async function alternarSuspensao(cliente) {
-    await salvarCliente({ id: cliente.id, acesso_suspenso: !cliente.acesso_suspenso })
-    carregar()
+    try {
+      await salvarCliente({ id: cliente.id, acesso_suspenso: !cliente.acesso_suspenso })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar o acesso: ' + err.message)
+    }
   }
 
   // Liberação manual da Agenda (e das demais áreas que dependem de
@@ -112,8 +120,12 @@ export default function TelaClientes({ marinaId }) {
       : `Liberar o acesso de ${cliente.nome} à Agenda e às demais áreas que dependem de pagamento, mesmo sem o pagamento confirmado?\n\n` +
         'O status financeiro não é alterado automaticamente — o pagamento continua marcado como pendente até a administração confirmá-lo.'
     if (!window.confirm(mensagem)) return
-    await salvarCliente({ id: cliente.id, acesso_liberado_manual: !cliente.acesso_liberado_manual })
-    carregar()
+    try {
+      await salvarCliente({ id: cliente.id, acesso_liberado_manual: !cliente.acesso_liberado_manual })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar a liberação manual: ' + err.message)
+    }
   }
 
   // Remoção definitiva do cadastro. Pede confirmação por ser irreversível.
@@ -182,6 +194,8 @@ export default function TelaClientes({ marinaId }) {
       })
       setClienteExpandido(null)
       await carregar()
+    } catch (err) {
+      alert('Não foi possível salvar a embarcação: ' + err.message)
     } finally {
       setSalvandoExtra(false)
     }

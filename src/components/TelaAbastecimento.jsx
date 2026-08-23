@@ -29,14 +29,22 @@ export default function TelaAbastecimento({ marinaId }) {
 
   async function salvarNovoCombustivel(e) {
     e.preventDefault()
-    await salvarCombustivel({ marina_id: marinaId, ...formCombustivel })
-    setFormCombustivel({ nome: '', preco_litro: '', estoque_litros: '' })
-    carregar()
+    try {
+      await salvarCombustivel({ marina_id: marinaId, ...formCombustivel })
+      setFormCombustivel({ nome: '', preco_litro: '', estoque_litros: '' })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível adicionar o combustível: ' + err.message)
+    }
   }
 
   async function atualizarCampoCombustivel(combustivel, campo, valor) {
-    await salvarCombustivel({ id: combustivel.id, marina_id: marinaId, nome: combustivel.nome, ativo: combustivel.ativo, [campo]: valor })
-    carregar()
+    try {
+      await salvarCombustivel({ id: combustivel.id, marina_id: marinaId, nome: combustivel.nome, ativo: combustivel.ativo, [campo]: valor })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível salvar essa alteração: ' + err.message)
+    }
   }
 
   return (
@@ -101,7 +109,7 @@ export default function TelaAbastecimento({ marinaId }) {
                 <td><span className={`badge status-${p.status}`}>{STATUS_LABEL[p.status] || p.status}</span></td>
                 <td>
                   {p.status !== 'entregue' && p.status !== 'cancelado' && (
-                    <select value={p.status} onChange={(e) => atualizarStatusAbastecimento(p.id, e.target.value).then(carregar)}>
+                    <select value={p.status} onChange={(e) => atualizarStatusAbastecimento(p.id, e.target.value).then(carregar).catch((err) => alert('Não foi possível atualizar o pedido: ' + err.message))}>
                       <option value="solicitado">Solicitado</option>
                       <option value="confirmado">Confirmado</option>
                       <option value="aguardando_pagamento">Aguardando pagamento</option>

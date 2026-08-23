@@ -4,7 +4,7 @@ import { supabase, db } from '../lib/supabase'
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', numero_inscricao: '' }
 
 export default function FichaCadastro({ onVoltar }) {
-  const [form, setForm] = useState({ carteira: '', telefone: '', email: '', senha: '', endereco: '' })
+  const [form, setForm] = useState({ nome: '', carteira: '', telefone: '', email: '', senha: '', endereco: '' })
   const [embarcacoes, setEmbarcacoes] = useState([{ ...EMBARCACAO_VAZIA }])
   const [enviando, setEnviando] = useState(false)
   const [concluido, setConcluido] = useState(false)
@@ -28,7 +28,7 @@ export default function FichaCadastro({ onVoltar }) {
       const { data: clienteRows, error: erroCliente } = await db.from('clientes').insert({
         marina_id: marinaId,
         user_id: data.user?.id,
-        nome: form.email.split('@')[0],
+        nome: form.nome,
         email: form.email,
         telefone: form.telefone,
         cpf_cnpj: form.carteira,
@@ -82,6 +82,8 @@ export default function FichaCadastro({ onVoltar }) {
       />
       <form className="card-login" style={{ width: 400 }} onSubmit={concluirCadastro}>
         <h1>Ficha de cadastro</h1>
+        <input placeholder="Nome completo" required
+          value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
         <input placeholder="Número da carteira de habilitação" required
           value={form.carteira} onChange={(e) => setForm({ ...form, carteira: e.target.value })} />
         <input placeholder="Telefone (WhatsApp)" required

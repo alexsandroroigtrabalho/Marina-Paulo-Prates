@@ -221,22 +221,36 @@ export default function TelaClienteDashboard({ perfil }) {
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
   const [pedidoGerado, setPedidoGerado] = useState(null) // pedido recém-criado, para mostrar o QR
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false)
+  const [enviandoResgate, setEnviandoResgate] = useState(false)
+
+  const [erroCarregamento, setErroCarregamento] = useState(null)
 
   async function carregar() {
-    const { data: cli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
-    setCliente(cli)
-    if (!cli) return
-    const { data: cob } = await db.from('cobrancas').select('*').eq('cliente_id', cli.id)
-    setCobrancas(cob || [])
-    const { data: emb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
-    setEmbarcacoes(emb || [])
-    setAgendamentos(await listarAgendamentosCliente(cli.id))
-    setLaudos(await listarLaudosCliente(cli.id))
-    setDespachos(await listarDespachosCliente(cli.id))
-    setOrdensServico(await listarOrdensServicoCliente(cli.id))
-    setCombustiveis((await listarCombustiveis(cli.marina_id)).filter((c) => c.ativo))
-    setAbastecimentos(await listarPedidosAbastecimentoCliente(cli.id))
-    setAutorizados(await listarAutorizados(cli.id))
+    try {
+      const { data: cli, error: erroCli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
+      if (erroCli) throw erroCli
+      setCliente(cli)
+      setErroCarregamento(null)
+      if (!cli) return
+      const { data: cob, error: erroCob } = await db.from('cobrancas').select('*').eq('cliente_id', cli.id)
+      if (erroCob) throw erroCob
+      setCobrancas(cob || [])
+      const { data: emb, error: erroEmb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
+      if (erroEmb) throw erroEmb
+      setEmbarcacoes(emb || [])
+      setAgendamentos(await listarAgendamentosCliente(cli.id))
+      setLaudos(await listarLaudosCliente(cli.id))
+      setDespachos(await listarDespachosCliente(cli.id))
+      setOrdensServico(await listarOrdensServicoCliente(cli.id))
+      setCombustiveis((await listarCombustiveis(cli.marina_id)).filter((c) => c.ativo))
+      setAbastecimentos(await listarPedidosAbastecimentoCliente(cli.id))
+      setAutorizados(await listarAutorizados(cli.id))
+    } catch (err) {
+      // Não derruba a tela — mantém o que já estava carregado e avisa, pra
+      // dar pra tentar de novo (ex: recarregando a página) em vez de ficar
+      // com um painel em branco sem explicação.
+      setErroCarregamento(err.message)
+    }
   }
 
   useEffect(() => { carregar() }, [perfil])
@@ -245,11 +259,14 @@ export default function TelaClienteDashboard({ perfil }) {
   // novo periodicamente — sem isso, uma mudança de status do resgate feita
   // pela equipe no Painel de Controle (Pedido recebido / Resgatado) só
   // apareceria aqui depois de um F5 manual. Mesmo intervalo (10s) usado pelo
-  // Painel de Controle da equipe pra se manter atualizado sozinho.
+  // Painel de Controle da equipe pra se manter atualizado sozinho. Falha
+  // silenciosa aqui é aceitável (é só uma atualização automática em segundo
+  // plano) — o dado mostrado só fica um pouco desatualizado até a próxima
+  // tentativa, sem interromper o que o cliente está fazendo na tela.
   useEffect(() => {
     if (!cliente) return
     const intervalo = setInterval(() => {
-      listarAgendamentosCliente(cliente.id).then(setAgendamentos)
+      listarAgendamentosCliente(cliente.id).then(setAgendamentos).catch(() => {})
     }, 10000)
     return () => clearInterval(intervalo)
   }, [cliente])
@@ -315,14 +332,22 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   async function alternarAutorizado(autorizado) {
-    await atualizarAutorizado(autorizado.id, { ativo: !autorizado.ativo })
-    carregar()
+    try {
+      await atualizarAutorizado(autorizado.id, { ativo: !autorizado.ativo })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar essa pessoa autorizada: ' + err.message)
+    }
   }
 
   async function excluirAutorizado(id) {
     if (!confirm('Remover esta pessoa autorizada?')) return
-    await removerAutorizado(id)
-    carregar()
+    try {
+      await removerAutorizado(id)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível remover essa pessoa autorizada: ' + err.message)
+    }
   }
 
   function abrirModalServicos() {
@@ -409,13 +434,16 @@ export default function TelaClienteDashboard({ perfil }) {
   const agendamentoNavegando = Object.values(ultimaPorEmbarcacaoCliente).find((a) => a.tipo === 'retirada') || null
 
   async function solicitarResgate() {
-    if (!agendamentoNavegando) return
+    if (!agendamentoNavegando || enviandoResgate) return
     if (!confirm('Confirma que deseja solicitar resgate para sua embarcação? A equipe da marina será avisada imediatamente no Painel de Controle.')) return
+    setEnviandoResgate(true)
     try {
       await atualizarStatusResgate(agendamentoNavegando.id, 'solicitado')
       await carregar()
     } catch (err) {
       alert(err.message)
+    } finally {
+      setEnviandoResgate(false)
     }
   }
 
@@ -569,7 +597,13 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       </header>
 
-      {!cliente && <p>Seu cadastro ainda está em análise pela administração da marina.</p>}
+      {erroCarregamento && (
+        <div className="erro" style={{ marginBottom: 12 }}>
+          Não foi possível atualizar seus dados agora ({erroCarregamento}). Tente recarregar a página.
+        </div>
+      )}
+
+      {!cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração da marina.</p>}
 
       {cliente && (
         <>
@@ -602,13 +636,15 @@ export default function TelaClienteDashboard({ perfil }) {
             <button
               type="button"
               className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando?.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado' ? 'enviado' : ''}`}
-              disabled={!agendamentoNavegando || (agendamentoNavegando.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado')}
+              disabled={!agendamentoNavegando || enviandoResgate || (agendamentoNavegando.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado')}
               onClick={solicitarResgate}
             >
               <IconLifebuoy size={20} />
               {!agendamentoNavegando
                 ? 'S.O.S. — nenhuma embarcação no mar'
-                : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. — Solicitar resgate'}
+                : enviandoResgate
+                  ? 'Enviando...'
+                  : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. — Solicitar resgate'}
             </button>
 
             <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>

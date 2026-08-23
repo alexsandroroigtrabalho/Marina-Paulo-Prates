@@ -9,6 +9,7 @@ const ITENS_MENU = [
   { chave: 'financeiro', label: 'Financeiro' },
   { chave: 'manutencao', label: 'Manutenção' },
   { chave: 'documentacao', label: 'Despachos' },
+  { chave: 'abastecimento', label: 'Abastecimento' },
 ]
 
 // Cada aba com exportação tem sua própria planilha (dados completos da

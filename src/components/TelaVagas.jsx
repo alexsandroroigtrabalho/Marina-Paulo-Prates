@@ -89,6 +89,8 @@ export default function TelaVagas({ marinaId, onAcoes }) {
       await atualizarConfigMarina(marinaId, { apitosDescida: novoConfig.descida, apitosRetorno: novoConfig.retorno })
       setConfigApitos(novoConfig)
       setModalApitosAberto(false)
+    } catch (err) {
+      alert('Não foi possível salvar os apitos: ' + err.message)
     } finally {
       setSalvandoApitos(false)
     }
@@ -135,27 +137,43 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   }, [])
 
   async function mudarStatusAgendamento(id, status) {
-    await atualizarStatusAgendamento(id, status)
-    carregar()
+    try {
+      await atualizarStatusAgendamento(id, status)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar a notificação: ' + err.message)
+    }
   }
 
   // O único status que o painel altera aqui é "entregue" — o pedido só
   // aparece no painel depois de já estar pago via Pix (ver abastecimentosAtivos).
   async function marcarAbastecimentoEntregue(id) {
-    await atualizarStatusAbastecimento(id, 'entregue')
-    carregar()
+    try {
+      await atualizarStatusAbastecimento(id, 'entregue')
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível marcar o abastecimento como entregue: ' + err.message)
+    }
   }
 
   async function salvarNovoCombustivel(e) {
     e.preventDefault()
-    await salvarCombustivel({ marina_id: marinaId, ...formCombustivel })
-    setFormCombustivel({ nome: '', preco_litro: '', estoque_litros: '' })
-    carregar()
+    try {
+      await salvarCombustivel({ marina_id: marinaId, ...formCombustivel })
+      setFormCombustivel({ nome: '', preco_litro: '', estoque_litros: '' })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível adicionar o combustível: ' + err.message)
+    }
   }
 
   async function atualizarCampoCombustivel(combustivel, campo, valor) {
-    await salvarCombustivel({ id: combustivel.id, marina_id: marinaId, nome: combustivel.nome, ativo: combustivel.ativo, [campo]: valor })
-    carregar()
+    try {
+      await salvarCombustivel({ id: combustivel.id, marina_id: marinaId, nome: combustivel.nome, ativo: combustivel.ativo, [campo]: valor })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível salvar essa alteração: ' + err.message)
+    }
   }
 
   // Embarcações "na água agora": a última movimentação concluída de cada
@@ -335,13 +353,21 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   // A opção "Resgatado" (fechar o atendimento) fica no seletor que aparece
   // assim que o pedido já foi recebido — ver definirStatusResgate abaixo.
   async function avancarResgate(id, statusAtual) {
-    await atualizarStatusResgate(id, statusAtual ? 'recebido' : 'solicitado')
-    carregar()
+    try {
+      await atualizarStatusResgate(id, statusAtual ? 'recebido' : 'solicitado')
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar o status do resgate: ' + err.message)
+    }
   }
 
   async function definirStatusResgate(id, status) {
-    await atualizarStatusResgate(id, status)
-    carregar()
+    try {
+      await atualizarStatusResgate(id, status)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar o status do resgate: ' + err.message)
+    }
   }
 
   // Linha de "Navegando" — só o essencial: quem está com a embarcação, desde
@@ -366,7 +392,12 @@ export default function TelaVagas({ marinaId, onAcoes }) {
               onChange={(e) => definirStatusResgate(a.id, e.target.value)}
               title="Status do resgate"
             >
-              {STATUS_RESGATE.map((s) => (
+              {/* "Solicitação de resgate" fica de fora do seletor de propósito —
+                  esse estado só é alcançado pelo clique inicial no badge (ou
+                  pelo próprio cliente via S.O.S.); selecioná-lo aqui reativaria
+                  o apito contínuo de SOS por engano numa manobra que a equipe
+                  já confirmou ter recebido. */}
+              {STATUS_RESGATE.filter((s) => s.valor !== 'solicitado').map((s) => (
                 <option key={s.valor} value={s.valor}>{s.label}</option>
               ))}
             </select>

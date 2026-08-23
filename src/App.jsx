@@ -10,6 +10,7 @@ import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
 import TelaDocumentacao from './components/TelaDocumentacao'
+import TelaAbastecimento from './components/TelaAbastecimento'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
 const TELAS = {
@@ -20,6 +21,7 @@ const TELAS = {
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
   documentacao: { titulo: 'Despachos', Componente: TelaDocumentacao },
+  abastecimento: { titulo: 'Abastecimento', Componente: TelaAbastecimento },
 }
 
 const PAPEIS_INTERNOS = ['admin', 'funcionario', 'operador']
