@@ -46,11 +46,13 @@ export default function Layout({
 
   return (
     <div className="app-shell">
-      {/* .sidebar-fixa: enquanto nenhuma aplicação está escolhida, a sidebar
-          fica sempre aberta (mesmo sem o cursor em cima) — só volta a
-          esconder/revelar por hover (comportamento normal) depois que uma
-          aplicação é selecionada. */}
-      <aside className={`sidebar ${!appSelecionada ? 'sidebar-fixa' : ''}`}>
+      {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
+          sempre que não há nada de verdade pra navegar — nem aplicação
+          escolhida ainda, nem uma das 3 aplicações ainda "Em construção"
+          (RV NautDoc / RV e-Náutica / RV Engenharia). Só volta ao
+          comportamento dinâmico normal (esconde/revela por hover) dentro
+          do RV Marine, que é a única com telas de verdade. */}
+      <aside className={`sidebar ${appSelecionada !== 'marine' ? 'sidebar-fixa' : ''}`}>
         <img src="/rv-invictus-logo-dourado.png" alt="RV Invictus" className="sidebar-logo" />
 
         {app ? (
@@ -59,9 +61,12 @@ export default function Layout({
                 item de lista, e as outras 3 aplicações somem daqui. */}
             <p className="app-titulo">{app.prefixo} {app.nome}</p>
 
-            {/* Só RV Marine tem itens; as outras 3 aplicações ainda não têm
-                telas (App.jsx mostra "Em construção" na área de conteúdo). */}
-            {appSelecionada === 'marine' && (
+            {/* RV Marine tem os itens de verdade; as outras 3 aplicações
+                ainda não têm telas — mostram um único item fixo "Em
+                construção" no lugar da lista, só pra manter a mesma
+                composição visual (título + lista) em qualquer aplicação
+                escolhida. Não é clicável (não tem nada pra abrir ainda). */}
+            {appSelecionada === 'marine' ? (
               <nav>
                 {ITENS_MENU.map(({ chave, label }) => (
                   <button
@@ -72,6 +77,10 @@ export default function Layout({
                     {label}
                   </button>
                 ))}
+              </nav>
+            ) : (
+              <nav>
+                <div className="nav-item ativo nav-item-estatico">Em construção</div>
               </nav>
             )}
 

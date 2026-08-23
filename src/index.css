@@ -115,7 +115,7 @@ body {
 }
 .pagina-marca-dagua-texto {
   font-family: 'Cinzel', serif;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -520,6 +520,10 @@ body {
   color: #F5F5F0;
   font-size: 12.8px;
 }
+/* Item "Em construção" das 3 aplicações ainda sem tela: mesma aparência de
+   item ativo, mas não é um botão de verdade (não tem nada pra clicar) —
+   cursor normal, sem afordance de clique. */
+.nav-item-estatico { cursor: default; }
 
 /* Título da aplicação escolhida (RV Marine / RV NautDoc / RV e-Náutica /
    RV Engenharia) — rótulo fixo, não clicável, no topo da lista de itens.
