@@ -68,7 +68,9 @@ export default function FichaCadastro({ onVoltar }) {
           <p>Depois de enviado, a administração da marina confirma o cadastro e libera seu acesso.</p>
           <button className="btn-primario" onClick={onVoltar}>Voltar ao início</button>
         </div>
-        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+        <footer className="login-rv-footer">
+          <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+        </footer>
       </div>
     )
   }
@@ -118,7 +120,9 @@ export default function FichaCadastro({ onVoltar }) {
         <p style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Depois de enviado, a administração confirma e libera o acesso.</p>
         <button type="button" className="voltar" onClick={onVoltar}>← Voltar</button>
       </form>
-      <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+      <footer className="login-rv-footer">
+        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+      </footer>
     </div>
   )
 }

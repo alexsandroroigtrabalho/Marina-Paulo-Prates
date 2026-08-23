@@ -15,7 +15,16 @@
   --cor-texto: #17313E;
   --cor-texto-suave: #5B7887;
   --cor-rosa-dos-ventos: #D4AF37; /* dourado da marca RV Invictus, usado na rosa dos ventos do fundo (o título agora usa --cor-primaria) */
-  --raio: 16px;
+  /* Dourado puro (#D4AF37) só funciona sobre fundo escuro (azul-petróleo) —
+     perde legibilidade em texto sobre os fundos claros de trabalho do
+     sistema. --dourado-texto é o mesmo dourado escurecido o necessário pra
+     manter contraste legível nesses casos (rodapé de marca em tela clara,
+     rótulo do Painel de Controle) — não existe no manual, é a mesma cor
+     "racionada" pro uso operacional. */
+  --dourado-texto: #8C6B1E;
+  /* Raio institucional — mais discreto que o pill (999px) que os botões
+     usavam antes; cantos ainda macios, mas sem a "cara de app de consumo". */
+  --raio: 10px;
   --sombra: 0 6px 20px rgba(14, 68, 97, 0.08);
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
@@ -99,6 +108,20 @@ body {
   overflow: hidden;
 }
 .login-rv-logo { width: min(230px, 55vw); height: auto; margin-top: 4px; }
+
+/* Faixa de rodapé (login/cadastro): mesmo gesto do rodapé do site
+   institucional — uma linha fina que nasce transparente e ganha dourado
+   até o centro, com uma sombra saindo do preto/petróleo por trás, em vez
+   do texto de crédito flutuando solto sobre o fundo. */
+.login-rv-footer {
+  width: 100%;
+  margin-top: 18px;
+  padding-top: 16px;
+  text-align: center;
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, rgba(212,175,55,0.55), transparent) 1;
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(212,175,55,0.05));
+}
 .login-rv-rodape {
   display: block;
   margin: 0 0 4px;
@@ -117,6 +140,15 @@ body {
    paleta sem perder contraste nos campos. */
 .tela-login-rv .card-login {
   box-shadow: 0 20px 50px rgba(0,0,0,0.35), 0 0 0 1px rgba(212,175,55,0.25);
+}
+
+/* Login sem painel: mantém só o essencial (título, campos, botões, texto) —
+   sem cartão branco, sombra ou padding. FichaCadastro não usa esta classe e
+   continua com o .card-login branco de sempre. */
+.tela-login-rv .card-login.login-sem-painel {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 /* Botões da tela de login/acesso — dourado sólido (primário) e contorno
@@ -171,7 +203,7 @@ body {
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #D4AF37;
+  color: var(--dourado-texto);
   text-decoration: none;
 }
 
@@ -200,9 +232,11 @@ body {
    hover/foco pra dar a pista de que é clicável, sem mudar o visual padrão
    do rodapé. */
 .login-rv-rodape:visited,
-.pagina-cliente-rodape:visited,
 .sidebar-rodape:visited {
   color: #D4AF37;
+}
+.pagina-cliente-rodape:visited {
+  color: var(--dourado-texto);
 }
 .login-rv-rodape:hover,
 .login-rv-rodape:focus-visible,
@@ -214,49 +248,14 @@ body {
   opacity: 1;
 }
 
-/* ---------- Landing / seleção de perfil (Home) ---------- */
-.landing.tela-login-rv { justify-content: space-between; gap: 0; }
-.landing-conteudo { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 420px; }
-.landing {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 10px; height: 100vh; text-align: center; padding: 24px;
-}
-
-/* Nome do produto ("RV Marine Pro") em destaque — tipografia do manual da
-   marca (Cinzel Bold, caixa alta, tracking 9%, dourado #D4AF37), do mesmo
-   jeito que o logotipo oficial usa Cinzel pro nome "RV Invictus". O
-   ::after desenha o friso fino dourado abaixo do nome (sem sombra, contorno
-   ou efeito no logo em si — só um traço simples, dentro do que o manual
-   permite pra composição da página). */
-.landing h1 {
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: clamp(26px, 6vw, 38px);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: #D4AF37;
-  margin: 6px 0 0;
-  line-height: 1.15;
-}
-.landing h1::after {
-  content: '';
-  display: block;
-  width: 64px;
-  height: 1px;
-  margin: 14px auto 0;
-  background: linear-gradient(90deg, transparent, #D4AF37, transparent);
-}
-.landing p.subtitulo {
-  font-family: 'Montserrat', sans-serif;
-  color: rgba(245,245,240,0.72);
-  font-size: 14px;
-  letter-spacing: 0.02em;
-  margin: 14px 0 8px;
-}
-.landing .acoes { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; margin-top: 8px; }
+/* A antiga tela "Landing" (Home com escolha manual "Sou cliente" /
+   "Administração" e nome de produto em destaque) foi substituída por uma
+   única tela de login (.tela-login-rv + .card-login, logo abaixo) — as
+   classes .landing* que existiam aqui não são mais usadas por nenhum
+   componente. */
 
 .btn-primario, .btn-outline {
-  padding: 14px 20px; border-radius: 999px; font-size: 15px; font-weight: 600;
+  padding: 14px 20px; border-radius: var(--raio); font-size: 15px; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%;
 }
@@ -269,7 +268,7 @@ body {
 .card-login {
   display: flex; flex-direction: column; gap: 12px;
   background: var(--cor-card); padding: 40px; border-radius: var(--raio);
-  box-shadow: var(--sombra); width: 340px;
+  box-shadow: var(--sombra); width: 100%; max-width: 340px;
 }
 .card-login h1 { margin: 0; color: var(--cor-primaria); font-size: 22px; }
 .card-login p { color: var(--cor-texto-suave); margin: 0 0 8px; font-size: 14px; }
@@ -278,7 +277,7 @@ body {
 }
 .card-login button {
   padding: 12px; background: var(--cor-secundaria); color: #fff; border: none;
-  border-radius: 999px; cursor: pointer; font-weight: 600;
+  border-radius: var(--raio); cursor: pointer; font-weight: 600;
 }
 /* Overrides com especificidade maior para não perder o estilo utilitário
    quando os botões ficam dentro de .card-login */
@@ -292,27 +291,145 @@ body {
 }
 .erro { color: #B00020; font-size: 13px; }
 
+/* Responsivo — tela de login em celulares estreitos/baixos (não existia
+   nenhum @media no arquivo inteiro até aqui). Só ajusta respiro e o
+   tamanho da logo; mantém a mesma composição (logo, card, rodapé) em vez
+   de só encolher tudo proporcionalmente. */
+@media (max-width: 420px) {
+  .tela-central { padding: 16px; }
+  .card-login { padding: 28px 22px; }
+}
+@media (max-height: 700px) {
+  .login-rv-logo { width: min(150px, 38vw); margin-top: 0; }
+}
+
+/* ---------- Refinamento da tela de login única — tipografia conforme o
+   manual da marca (título Cinzel Bold caixa-alta; rótulos em Montserrat
+   SemiBold caixa-alta, categoria "Destaque" do manual; texto de apoio em
+   Montserrat Regular). Tudo em classes novas e exclusivas do formulário de
+   login/recuperação (Home.jsx) — não muda `.card-login h1`, `.btn-primario`
+   nem `button[type='submit']` sem classe extra, que a Ficha de Cadastro
+   também usa e continuam exatamente como estavam. */
+.card-login h1.login-titulo {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: clamp(22px, 5vw, 28px);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #D4AF37;
+  margin: 0;
+}
+.login-subtitulo {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13.5px;
+  color: rgba(245,245,240,0.75);
+  margin: -4px 0 6px;
+}
+.login-rotulo {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245,245,240,0.62);
+  margin: 6px 0 -4px;
+}
+.login-linha-rotulo { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+/* Especificidade "button.login-esqueci" (não só ".login-esqueci") de
+   propósito: precisa vencer a regra genérica ".card-login button" (que
+   preenche de azul/999px todo botão dentro do card) sem usar !important. */
+.card-login button.login-esqueci {
+  background: none; border: none; padding: 0; border-radius: 0; cursor: pointer;
+  font-family: 'Montserrat', sans-serif; font-size: 11.5px; font-weight: 600;
+  color: #D4AF37; white-space: nowrap;
+}
+.card-login button.login-esqueci:hover { text-decoration: underline; }
+
+.login-campo { position: relative; display: flex; align-items: center; }
+.login-campo > svg:first-child {
+  position: absolute; left: 14px; color: var(--cor-texto-suave); pointer-events: none;
+}
+.login-campo input {
+  width: 100%;
+  padding-left: 42px;
+  font-family: 'Montserrat', sans-serif;
+  background: rgba(245,245,240,0.05);
+  border: 1px solid rgba(212,175,55,0.32);
+  color: #F5F5F0;
+}
+.login-campo input::placeholder { color: rgba(245,245,240,0.4); }
+.login-campo input:focus { outline: none; border-color: #D4AF37; background: rgba(245,245,240,0.08); }
+.login-campo-senha input { padding-right: 42px; }
+.login-campo > svg:first-child { color: rgba(245,245,240,0.5); }
+.card-login button.login-botao-olho {
+  position: absolute; right: 8px; background: none; border: none; padding: 7px;
+  display: flex; align-items: center; color: rgba(245,245,240,0.55); cursor: pointer; border-radius: 8px;
+}
+.card-login button.login-botao-olho:hover { color: #D4AF37; background: rgba(212,175,55,0.1); }
+
+/* Botão "Entrar"/"Enviar link": mesmo preenchimento dourado herdado de
+   `.tela-login-rv .card-login button[type='submit']` — aqui só ajusta
+   formato (cantos menos arredondados que o pill padrão, mais próximos da
+   proporção do modelo de referência) e alinhamento do ícone. */
+.tela-login-rv .card-login button.login-botao-entrar {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 10px;
+}
+.tela-login-rv .btn-outline.login-botao-cadastro { border-radius: 10px; }
+
+.login-divisor {
+  display: flex; align-items: center; gap: 10px; margin: 4px 0 2px;
+  font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: rgba(245,245,240,0.55);
+}
+.login-divisor::before, .login-divisor::after { content: ''; flex: 1; height: 1px; background: rgba(212,175,55,0.3); }
+
+/* Erro e "voltar" só dentro do login sem painel (fundo escuro) — a Ficha de
+   Cadastro usa as mesmas classes ".erro"/".voltar" em cima do cartão
+   branco e continua com as cores originais, escuras sobre claro. */
+.login-sem-painel .erro { color: #FF8A80; }
+.login-sem-painel .voltar { color: rgba(245,245,240,0.6); }
+
 /* ---------- Shell interno (área administrativa) ---------- */
 .app-shell { min-height: 100vh; }
 
 /* Menu lateral de visualização dinâmica: some, deixando só uma faixa fina na
    borda; passar o mouse por cima revela o menu completo por cima do
    conteúdo, sem empurrar o Painel de Controle — maximiza o espaço de tela. */
+/* Fundo exato #0D1B2A (não var(--cor-primaria)): a sidebar carrega a logo
+   da marca, então é ponto de contato direto com a identidade — o manual
+   reserva o azul-petróleo exato pra esses pontos (login, cabeçalho de
+   marca), enquanto o #0E4461 de --cor-primaria segue sendo o azul
+   operacional do dia a dia (títulos, ícones, cards). Hairline dourada na
+   borda em vez de reforçar a sombra — a mesma preferência por linha fina
+   sobre sombra que o site institucional usa em zonas de identidade. */
 .sidebar {
   position: fixed; top: 0; left: 0; height: 100vh; width: 220px; z-index: 40;
-  background: var(--cor-primaria); color: #fff;
+  background: #0D1B2A; color: #fff;
   display: flex; flex-direction: column; padding: 20px 12px;
   transform: translateX(-208px); transition: transform .2s ease-out;
   box-shadow: 3px 0 16px rgba(0,0,0,0.25);
+  border-right: 1px solid rgba(212,175,55,0.16);
 }
 .sidebar:hover, .sidebar:focus-within { transform: translateX(0); }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   background: none; border: none; color: #BFE0EC; text-align: left;
-  padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 12px;
+  letter-spacing: 0.04em; text-transform: uppercase;
   white-space: nowrap;
 }
-.nav-item:hover, .nav-item.ativo { background: rgba(255,255,255,0.14); color: #fff; }
+.nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+/* Item ativo: mesmo traço dourado fino que marca o item ativo no menu do
+   site institucional — aqui como acento lateral (o menu é vertical, não
+   horizontal), já que empilhar dourado sólido de fundo ia competir com o
+   próprio texto por atenção. Um acento de marca por tela, não um bloco. */
+.nav-item.ativo {
+  background: rgba(212,175,55,0.1);
+  color: #D4AF37;
+  box-shadow: inset 2px 0 0 #D4AF37;
+}
 .nav-item.sair { margin-top: auto; }
 
 .conteudo { padding: 24px 32px 24px 40px; }
@@ -321,10 +438,14 @@ body {
    tela for estreita demais pra caber tudo numa linha só, quebra pra uma
    segunda linha em vez de sobrepor/cortar. */
 .topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+/* Título de página em Cinzel: um dos "poucos momentos de peso simbólico"
+   que a análise recomenda pra a fonte de exibição da marca — cada tela é
+   lida uma vez por carregamento, diferente de tabela/formulário, que são
+   lidos centenas de vezes (esses continuam em Inter/Montserrat). */
 .topo h1 {
-  font-size: 30px; font-weight: 800;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  letter-spacing: -0.2px; color: var(--cor-primaria); margin: 0;
+  font-size: 24px; font-weight: 700;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.02em; color: var(--cor-primaria); margin: 0;
 }
 .topo-direita { display: flex; align-items: center; gap: 10px; }
 .usuario { text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
@@ -365,7 +486,7 @@ body {
 }
 .form-inline button {
   padding: 10px 18px; background: var(--cor-secundaria); color: #fff; border: none;
-  border-radius: 999px; cursor: pointer; font-weight: 600;
+  border-radius: var(--raio); cursor: pointer; font-weight: 600;
 }
 .form-vertical { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
 .form-vertical label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--cor-texto-suave); }
@@ -376,7 +497,17 @@ body {
 /* ---------- Tabela (telas administrativas mais densas) ---------- */
 .tabela { width: 100%; border-collapse: collapse; background: var(--cor-card); border-radius: var(--raio); overflow: hidden; box-shadow: var(--sombra); }
 .tabela th, .tabela td { text-align: center; padding: 12px 14px; border-bottom: 1px solid #EAF2F5; font-size: 14px; }
-.tabela th { background: #F5FAFC; color: var(--cor-texto-suave); font-weight: 600; }
+/* Cabeçalho em caixa alta rastreada, Montserrat — o mesmo gesto tipográfico
+   do rótulo "E-MAIL"/"SENHA" do login e da navegação "SOBRE"/"FALE CONOSCO"
+   do site, generalizado pra cabeçalho de tabela como a análise recomenda.
+   Hairline mais forte separando do corpo faz o papel que antes era do
+   preenchimento de fundo sólido. */
+.tabela th {
+  background: var(--cor-fundo); color: var(--cor-texto-suave); font-weight: 600;
+  font-family: 'Montserrat', 'Inter', sans-serif; font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  border-bottom: 1.5px solid #D8E6EC;
+}
 /* Coluna Responsável (Fila de Rampa, Navegando, Histórico de manobras): fica
    alinhada à esquerda — nome + embarcação lê melhor assim do que centralizado. */
 .tabela th.col-responsavel, .tabela td.col-responsavel { text-align: left; }
@@ -434,7 +565,7 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-clima { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
 .painel-clima-local {
   font-family: 'Cinzel', serif; font-size: 11px; font-weight: 500;
-  letter-spacing: 0.1em; text-transform: uppercase; color: #D4AF37;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--dourado-texto);
 }
 .painel-clima-item { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--cor-texto-suave); }
 .painel-controle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px; }
@@ -455,7 +586,7 @@ button.badge:hover { filter: brightness(0.95); }
 .status-resgate-resgatado { background: #DCEEDB; color: #2F7D32; font-weight: 700; }
 .fila-abastecimento-linha { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
 .fila-abastecimento-linha button, .fila-tabela-acoes button {
-  font-size: 12px; padding: 6px 12px; border: none; border-radius: 999px;
+  font-size: 12px; padding: 6px 12px; border: none; border-radius: 8px;
   background: #4A6B78; color: #fff; cursor: pointer; font-weight: 600;
 }
 .fila-tabela-acoes { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; }
@@ -471,11 +602,11 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .modal-card input, .modal-card select { padding: 10px 12px; border: 1px solid #D8E6EC; border-radius: 10px; }
 .acoes-modal { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-.acoes-modal button:first-child { background: #EAF2F5; border: none; padding: 8px 16px; border-radius: 999px; }
-.acoes-modal button:last-child { background: var(--cor-secundaria); color: #fff; border: none; padding: 8px 16px; border-radius: 999px; }
+.acoes-modal button:first-child { background: #EAF2F5; border: none; padding: 8px 16px; border-radius: 8px; }
+.acoes-modal button:last-child { background: var(--cor-secundaria); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; }
 
 .abas { display: flex; gap: 8px; margin-bottom: 16px; }
-.abas button { padding: 8px 18px; border: none; background: var(--cor-card); border-radius: 999px; cursor: pointer; color: var(--cor-texto-suave); font-weight: 600; }
+.abas button { padding: 8px 18px; border: none; background: var(--cor-card); border-radius: 8px; cursor: pointer; color: var(--cor-texto-suave); font-weight: 600; }
 .abas button.ativo { background: var(--cor-secundaria); color: #fff; }
 
 .resumo-financeiro { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }

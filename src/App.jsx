@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
 import Home from './components/Home'
-import AreaCliente from './components/AreaCliente'
-import AdminLogin from './components/AdminLogin'
+import FichaCadastro from './components/FichaCadastro'
 import Layout from './components/Layout'
 import TelaVagas from './components/TelaVagas'
 import TelaClientes from './components/TelaClientes'
@@ -30,7 +29,12 @@ export default function App() {
   const [sessao, setSessao] = useState(null)
   const [perfil, setPerfil] = useState(null)
   const [carregando, setCarregando] = useState(true)
-  const [entrada, setEntrada] = useState('home') // home | cliente | admin
+  // Página de entrada única: 'login' (padrão) ou 'cadastro'. A antiga escolha
+  // manual "Sou cliente" / "Administração" (Home -> AreaCliente / AdminLogin,
+  // cada uma com formulário próprio) foi removida — agora só existe uma tela
+  // de login. Depois de autenticar, `perfil.role` (abaixo) decide sozinho o
+  // ambiente: equipe da marina ou cliente final, ambos já existentes.
+  const [entrada, setEntrada] = useState('login')
   const [telaAtiva, setTelaAtiva] = useState('vagas')
   // Ações do Painel de Controle (sons, histórico, combustíveis), repassadas
   // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
@@ -53,33 +57,24 @@ export default function App() {
 
   if (carregando) return <div className="tela-central">Carregando...</div>
 
-  // Não logado: Home -> escolha de perfil (cliente ou administração)
+  // Não logado: uma única tela de login. "Realizar cadastro" leva à ficha de
+  // cadastro já existente — não há criação de conta nova nesse fluxo.
   if (!sessao) {
-    if (entrada === 'cliente') return <AreaCliente onVoltar={() => setEntrada('home')} />
-    if (entrada === 'admin') return <AdminLogin onVoltar={() => setEntrada('home')} />
-    return (
-      <Home
-        // Nome do produto em destaque na tela de login — "RV Marine Pro",
-        // fixo aqui de propósito (não usa TEMA_PADRAO.nomeExibicao, que
-        // continua "Marina Paulo Prates" e segue sendo o nome operacional
-        // da marina usado no cabeçalho do Painel de Controle e em outras
-        // telas internas — a troca pedida foi só para a tela de login).
-        nomeMarina="RV Marine Pro"
-        onEscolherCliente={() => setEntrada('cliente')}
-        onEscolherAdmin={() => setEntrada('admin')}
-      />
-    )
+    if (entrada === 'cadastro') return <FichaCadastro onVoltar={() => setEntrada('login')} />
+    return <Home onCadastro={() => setEntrada('cadastro')} />
   }
 
   // Logado, aguardando perfil carregar
   if (!perfil) return <div className="tela-central">Carregando perfil...</div>
 
-  // Cliente final: painel simplificado (somente leitura dos próprios dados)
+  // Cliente final ("clientes dos nossos clientes" — os clientes da marina):
+  // painel simplificado, somente leitura dos próprios dados.
   if (!PAPEIS_INTERNOS.includes(perfil.role)) {
     return <TelaClienteDashboard perfil={perfil} />
   }
 
-  // Admin / funcionário / operador: shell interno com sidebar
+  // Admin / funcionário / operador ("nossos clientes" — a equipe da
+  // marina): shell interno com sidebar.
   const { titulo, Componente } = TELAS[telaAtiva]
 
   return (
