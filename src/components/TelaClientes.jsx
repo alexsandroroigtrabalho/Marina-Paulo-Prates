@@ -257,9 +257,23 @@ export default function TelaClientes({ marinaId }) {
 
                   <div className="linha" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
                     <span className={`status-texto ${c.cadastro_confirmado ? 'em-dia' : 'pendente'}`}>Cadastro: {c.cadastro_confirmado ? 'Realizado' : 'Pendente'}</span>
-                    <span className={`status-texto ${c.pagamento_confirmado ? 'em-dia' : 'pendente'}`}>
-                      Pagamento: {c.pagamento_confirmado ? 'Efetuado' : 'Pendente'}
-                    </span>
+                    {c.pagamento_confirmado ? (
+                      <span className="status-texto em-dia">Pagamento: Efetuado</span>
+                    ) : (
+                      // Selo "Pagamento: Pendente" virou botão — mesmo padrão do badge
+                      // clicável de resgate (TelaVagas.jsx): o próprio selo já confirma
+                      // o pagamento e libera o acesso ao ser clicado, em vez de precisar
+                      // de um botão separado só pra isso (ver alternarPagamento abaixo).
+                      <button
+                        type="button"
+                        className="status-texto pendente"
+                        style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
+                        title="Clique para confirmar o pagamento e liberar o acesso do cliente"
+                        onClick={() => alternarPagamento(c)}
+                      >
+                        Pagamento: Pendente
+                      </button>
+                    )}
                     <span className={`status-texto ${acesso.classe}`}>Acesso à Agenda: {acesso.texto}</span>
                     {/* Indicador dedicado, além do rótulo acima, pra deixar bem visível
                         que o acesso está liberado sem pagamento confirmado — some
@@ -273,9 +287,14 @@ export default function TelaClientes({ marinaId }) {
                   </div>
 
                   <div className="acoes-modal" style={{ marginTop: 10, justifyContent: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                    <button type="button" onClick={() => alternarPagamento(c)}>
-                      {c.pagamento_confirmado ? 'Marcar pagamento como pendente' : 'Confirmar pagamento'}
-                    </button>
+                    {/* "Confirmar pagamento" saiu daqui — essa ação agora é o próprio
+                        selo "Pagamento: Pendente" acima (clicável). Só sobra o botão de
+                        reverter, que só faz sentido quando o pagamento já está confirmado. */}
+                    {c.pagamento_confirmado && (
+                      <button type="button" onClick={() => alternarPagamento(c)}>
+                        Marcar pagamento como pendente
+                      </button>
+                    )}
                     <button type="button" onClick={() => alternarLiberacaoManual(c)}>
                       {c.acesso_liberado_manual ? 'Revogar liberação manual' : 'Liberar acesso sem confirmação de pagamento'}
                     </button>
