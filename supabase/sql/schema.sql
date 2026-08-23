@@ -92,6 +92,13 @@ ALTER TABLE marina.clientes ADD COLUMN acesso_suspenso BOOLEAN DEFAULT false;   
 -- (o status financeiro continua igual), só destrava a Agenda — ver policy
 -- "cliente_cria_agendamento" e statusAgendaCliente()/statusAcesso() no front.
 ALTER TABLE marina.clientes ADD COLUMN acesso_liberado_manual BOOLEAN DEFAULT false;
+-- Data/hora da última confirmação MANUAL de pagamento (chave "Pagamento
+-- efetuado" — ver components/ChavePagamento.jsx). Só é gravada quando o
+-- admin liga a chave; nunca é apagada pelo reset automático de dia 5 nem
+-- quando o admin desliga a chave manualmente, então funciona como um
+-- histórico ("confirmado em ...") mesmo depois do pagamento voltar a
+-- ficar pendente no mês seguinte — é o que a aba Financeiro exibe.
+ALTER TABLE marina.clientes ADD COLUMN pagamento_confirmado_em TIMESTAMPTZ;
 
 -- ------------------------------------------------------------
 -- 4. EMBARCAÇÕES

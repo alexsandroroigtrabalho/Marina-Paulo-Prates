@@ -1,23 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas } from '../lib/db'
+import { statusAcessoCliente } from '../lib/statusPagamento'
+import ChavePagamento from './ChavePagamento'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
 const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', endereco: '', observacoes: '' }
-
-// Rótulo do acesso à Agenda: deriva de pagamento_confirmado + acesso_suspenso
-// + acesso_liberado_manual — os mesmos 3 campos que a policy
-// "cliente_cria_agendamento" no schema.sql usa pra travar/liberar de
-// verdade, pra o rótulo nunca destoar do que o banco permite. Liberação
-// manual aparece com um texto próprio ("Liberado manualmente") pra ficar
-// claro que não foi o pagamento que destravou o acesso.
-function statusAcesso(cliente) {
-  if (cliente.acesso_suspenso) return { texto: 'Suspenso', classe: 'cancelado' }
-  if (cliente.pagamento_confirmado) return { texto: 'Liberado', classe: 'em-dia' }
-  if (cliente.acesso_liberado_manual) return { texto: 'Liberado manualmente', classe: 'em-dia' }
-  return { texto: 'Aguardando pagamento', classe: 'pendente' }
-}
 
 export default function TelaClientes({ marinaId }) {
   const [clientes, setClientes] = useState([])
@@ -104,20 +93,6 @@ export default function TelaClientes({ marinaId }) {
       setErro(err.message)
     } finally {
       setSalvando(false)
-    }
-  }
-
-  // Confirmação de pagamento é sempre um ato manual e explícito do
-  // administrador — recebe o novo estado direto da chave (não alterna às
-  // cegas), e nunca é chamada em nenhum outro lugar do app além deste
-  // clique. O reset automático de dia 5 mexe direto no banco (função
-  // marina.resetar_pagamentos_mensal via pg_cron), nunca por aqui.
-  async function definirPagamento(cliente, confirmado) {
-    try {
-      await salvarCliente({ id: cliente.id, pagamento_confirmado: confirmado })
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível atualizar o pagamento: ' + err.message)
     }
   }
 
@@ -259,7 +234,7 @@ export default function TelaClientes({ marinaId }) {
 
           <div className="lista-cards">
             {clientes.map((c, i) => {
-              const acesso = statusAcesso(c)
+              const acesso = statusAcessoCliente(c)
               return (
                 <div key={c.id} className="cliente-card">
                   <div className="cabecalho-cliente">
@@ -279,23 +254,10 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 16px', marginTop: 8 }}>
                     <span className={`status-texto ${c.cadastro_confirmado ? 'em-dia' : 'pendente'}`}>Cadastro: {c.cadastro_confirmado ? 'Realizado' : 'Pendente'}</span>
 
-                    {/* Chave de pagamento — dois estados, sempre um clique manual e
-                        explícito do administrador (ver definirPagamento acima). À
-                        esquerda/vermelho = não efetuado, à direita/verde = efetuado.
-                        Substitui o antigo selo/botão "Pagamento: Pendente". */}
-                    <label className="chave-pagamento" title={c.pagamento_confirmado ? 'Clique para marcar como não efetuado' : 'Clique para confirmar o pagamento e liberar o acesso'}>
-                      <span className="toggle toggle-pagamento">
-                        <input
-                          type="checkbox"
-                          checked={c.pagamento_confirmado}
-                          onChange={(e) => definirPagamento(c, e.target.checked)}
-                        />
-                        <span className="trilho" />
-                      </span>
-                      <span className={`chave-pagamento-rotulo ${c.pagamento_confirmado ? 'on' : 'off'}`}>
-                        {c.pagamento_confirmado ? 'Pagamento efetuado' : 'Pagamento não efetuado'}
-                      </span>
-                    </label>
+                    {/* Chave de pagamento — mesmo componente usado na aba Financeiro
+                        (ChavePagamento), pra nunca dessincronizar rótulo/cor entre as
+                        duas telas. Sempre um clique manual e explícito do administrador. */}
+                    <ChavePagamento cliente={c} onAtualizado={carregar} />
 
                     <span className={`status-texto ${acesso.classe}`}>Acesso à Agenda: {acesso.texto}</span>
                     {/* Indicador dedicado, além do rótulo acima, pra deixar bem visível
