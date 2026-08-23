@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv } from '../lib/exportarPlanilha'
+import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv } from '../lib/exportarPlanilha'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
@@ -26,10 +26,6 @@ const CATEGORIAS = [
   { chave: 'agenda', label: 'Agenda' },
   { chave: 'acessos', label: 'Acessos' },
 ]
-
-function SemConfiguracao() {
-  return <p className="dica">Nenhuma configuração específica cadastrada nesta categoria por enquanto.</p>
-}
 
 export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
@@ -257,7 +253,21 @@ export default function ConfiguracoesPainel({
             )}
           </div>
         )}
-        {categoria === 'agenda' && <SemConfiguracao />}
+        {categoria === 'agenda' && (
+          <div>
+            <strong>Exportar histórico de manobras</strong>
+            <p className="dica" style={{ margin: '4px 0 10px' }}>
+              Baixa uma planilha com o histórico de manobras (descidas e subidas já confirmadas) disponível no
+              momento, com cliente, embarcação ou jet, tipo de manobra, data e horário.
+            </p>
+            <button type="button" onClick={() => exportar(exportarHistoricoManobrasCsv, 'historico_manobras', 'histórico de manobras')} disabled={exportando === 'historico_manobras'}>
+              {exportando === 'historico_manobras' ? 'Exportando…' : 'Exportar histórico de manobras'}
+            </button>
+            {mensagemExportacao && exportando === '' && (
+              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+            )}
+          </div>
+        )}
         {categoria === 'acessos' && (
           <p className="dica">
             Somente o perfil <b>Administrador</b> pode alterar qualquer configuração desta tela — vale tanto na

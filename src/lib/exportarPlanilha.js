@@ -1,5 +1,9 @@
-import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos } from './db'
+import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos, listarAgendamentos } from './db'
 import { labelStatusManutencao } from './statusManutencao'
+
+// Mesma tradução usada nas telas (Painel de Controle e painel do cliente) —
+// ver TIPO_AGENDAMENTO_LABEL em TelaVagas.jsx/TelaClienteDashboard.jsx.
+const TIPO_MANOBRA_LABEL = { retirada: 'Descida', retorno: 'Subida' }
 
 /* ============================================================
  * Exportação de planilhas (CSV) usadas pela engrenagem de cada aba
@@ -139,4 +143,35 @@ export async function exportarDespachosCsv(marinaId) {
   ])
 
   baixarCsv(comData('despachos'), cabecalho, linhas)
+}
+
+/* ---------- Histórico de manobras (descidas/subidas já confirmadas) ----------
+ * Mesmo recorte que a tabela "Histórico de manobras" do Painel de Controle
+ * (aba Navegando): todo agendamento com status "concluido", mais recente
+ * primeiro. Sujeito à mesma limpeza automática de 48h do banco (ver
+ * marina.limpar_historico_manobras_antigo em supabase/sql/schema.sql) — a
+ * planilha exportada reflete só o que ainda está disponível no momento. */
+export async function exportarHistoricoManobrasCsv(marinaId) {
+  const [agendamentos, embarcacoes] = await Promise.all([
+    listarAgendamentos(marinaId),
+    listarEmbarcacoes(marinaId),
+  ])
+  const tipoPorEmbarcacao = Object.fromEntries(embarcacoes.map((e) => [e.id, e.tipo]))
+
+  const historico = agendamentos
+    .filter((a) => a.status === 'concluido')
+    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
+
+  const cabecalho = ['Nº', 'Cliente', 'Embarcação/Jet', 'Tipo', 'Tipo de manobra', 'Data e horário', 'Confirmado em']
+  const linhas = historico.map((a, i) => [
+    i + 1,
+    a.clientes?.nome,
+    a.embarcacoes?.nome,
+    tipoPorEmbarcacao[a.embarcacao_id] || '',
+    TIPO_MANOBRA_LABEL[a.tipo] || a.tipo,
+    formatarData(a.data_hora, true),
+    formatarData(a.concluido_em, true),
+  ])
+
+  baixarCsv(comData('historico_manobras'), cabecalho, linhas)
 }
