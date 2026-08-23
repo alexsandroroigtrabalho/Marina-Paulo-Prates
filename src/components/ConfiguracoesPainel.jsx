@@ -6,9 +6,10 @@ import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv } from
 // sonoro, apitos, combustíveis — e um bloco fixo na aba Despachos —
 // relatório automático de documentos). Organizadas por categoria, igual
 // pedido pela administração. Toda a alteração é gravada em
-// marinas.config_json (ou é um toggle de sessão, no caso do aviso sonoro) e
-// já é a mesma fonte que as outras telas leem — não existe uma cópia
-// separada do valor em nenhum outro lugar, então não tem como dessincronizar.
+// marinas.config_json — inclusive o aviso sonoro (chave `avisoSonoroAtivado`,
+// ligado por padrão) — e já é a mesma fonte que as outras telas leem; não
+// existe uma cópia separada do valor em nenhum outro lugar, então não tem
+// como dessincronizar.
 //
 // Só administradores podem alterar (perfil.role === 'admin') — funcionário/
 // operador conseguem ABRIR e VER esta tela (útil pra conferir o que está
@@ -37,7 +38,7 @@ export default function ConfiguracoesPainel({
   // Financeiro — combustíveis
   combustiveis, formCombustivel, onMudarFormCombustivel, onSalvarNovoCombustivel, onAtualizarCampoCombustivel,
   // Notificações — aviso sonoro + apitos
-  sonsAtivados, onAlternarSons, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
+  sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
   // Despacho — relatório automático de documentos
   emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
@@ -156,11 +157,12 @@ export default function ConfiguracoesPainel({
             <div>
               <strong>Aviso sonoro do Painel de Controle</strong>
               <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Apito ao chegar uma nova notificação de descida/subida na Fila de Rampa. Precisa ser ligado uma vez em
-                cada aparelho/aba (os navegadores exigem essa confirmação pra permitir áudio automático depois).
+                Apito ao chegar uma nova notificação de descida/subida na Fila de Rampa. Vem <b>ligado por padrão</b>{' '}
+                para todos os usuários. Somente o administrador pode desativar ou reativar — a alteração é salva e
+                aplicada imediatamente em todo o sistema, para todos os perfis conectados.
               </p>
-              <button type="button" onClick={onAlternarSons} disabled={!ehAdmin}>
-                {sonsAtivados ? '🔕 Desabilitar aviso sonoro' : '🔔 Habilitar aviso sonoro'}
+              <button type="button" onClick={onAlternarSons} disabled={!ehAdmin || salvandoAvisoSonoro}>
+                {salvandoAvisoSonoro ? 'Salvando…' : sonsAtivados ? '🔕 Desabilitar aviso sonoro' : '🔔 Habilitar aviso sonoro'}
               </button>
             </div>
 

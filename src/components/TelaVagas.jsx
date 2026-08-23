@@ -6,7 +6,7 @@ import {
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
-import { ativarSons, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
+import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
@@ -55,7 +55,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
-  const [sonsAtivados, setSonsAtivados] = useState(false)
+  // Aviso sonoro: vem ligado por padrão para todo mundo. É uma configuração
+  // central da marina (marinas.config_json → avisoSonoroAtivado), não mais
+  // um toggle local por sessão — só o administrador pode desligar/religar,
+  // pelo Painel de Controle → Configurações, e a troca vale na hora para
+  // todo mundo (ver carregarConfigMarina + assinatura Realtime abaixo).
+  const [sonsAtivados, setSonsAtivados] = useState(true)
+  const [salvandoAvisoSonoro, setSalvandoAvisoSonoro] = useState(false)
   const alarmeResgateRef = useRef(null)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
@@ -87,6 +93,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       }
       setConfigApitos(apitos)
       setFormApitos(apitos)
+      setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
       setFormMensalidade(cfg.valorMensalidade != null ? String(cfg.valorMensalidade) : '')
       setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
       setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
@@ -339,18 +346,33 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     if (alarmeResgateRef.current) clearInterval(alarmeResgateRef.current)
   }, [])
 
-  // Alterna o aviso sonoro entre habilitado e desabilitado. Pra habilitar,
-  // dispara um apito curtinho de confirmação — necessário porque os
-  // navegadores só deixam tocar áudio depois de alguma interação do usuário
-  // na página, então esse clique também "destrava" o som pro resto da sessão.
-  function alternarSonsPainel() {
-    if (sonsAtivados) {
-      setSonsAtivados(false)
-    } else {
-      ativarSons()
-      setSonsAtivados(true)
+  // Liga/desliga o aviso sonoro para TODO o sistema — só o administrador
+  // pode chamar isso (botão já vem desabilitado para os demais perfis em
+  // ConfiguracoesPainel.jsx, e a policy do banco recusaria a escrita mesmo
+  // que alguém tentasse contornar a tela). Grava em marinas.config_json;
+  // a assinatura Realtime já existente nessa tabela propaga a troca na hora
+  // para o painel do administrador e para as demais sessões conectadas.
+  async function alternarAvisoSonoro() {
+    if (!ehAdmin || salvandoAvisoSonoro) return
+    const novoValor = !sonsAtivados
+    setSalvandoAvisoSonoro(true)
+    try {
+      await atualizarConfigMarina(marinaId, { avisoSonoroAtivado: novoValor })
+      setSonsAtivados(novoValor)
+      if (novoValor) ativarSons()
+    } catch (err) {
+      alert('Não foi possível salvar o aviso sonoro: ' + err.message)
+    } finally {
+      setSalvandoAvisoSonoro(false)
     }
   }
+
+  // Cada navegador só libera áudio depois de alguma interação do próprio
+  // usuário na página (política padrão dos navegadores). Como o aviso
+  // sonoro agora vem ligado por padrão pra todo mundo — sem um botão manual
+  // de "Ativar sons" —, este efeito destrava o áudio silenciosamente assim
+  // que a pessoa clicar/tocar em qualquer coisa no painel, uma vez por sessão.
+  useEffect(() => { destravarAudioNaProximaInteracao() }, [])
 
   // Repassa as ações do painel (aviso sonoro, histórico, combustíveis) pro
   // botão de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
@@ -617,7 +639,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         onSalvarNovoCombustivel={salvarNovoCombustivel}
         onAtualizarCampoCombustivel={atualizarCampoCombustivel}
         sonsAtivados={sonsAtivados}
-        onAlternarSons={alternarSonsPainel}
+        onAlternarSons={alternarAvisoSonoro}
+        salvandoAvisoSonoro={salvandoAvisoSonoro}
         formApitos={formApitos}
         onMudarApitos={setFormApitos}
         onSalvarApitos={salvarConfigApitos}

@@ -124,10 +124,29 @@ function tocarApitoSintetizado({ duracao, volume = 0.28, atraso = 0 }) {
 }
 
 // Navegadores só deixam tocar áudio depois de alguma interação do usuário na
-// página — por isso o painel mostra um botão "Ativar sons" que chama isso
-// uma vez (e toca um apito curtinho de confirmação).
+// página. Usado quando o administrador liga o aviso sonoro pelo Painel de
+// Controle — toca um apito curtinho de confirmação na hora.
 export function ativarSons() {
   tocarApitoSintetizado({ duracao: 0.2, volume: 0.15 })
+}
+
+// O aviso sonoro agora vem ligado por padrão para todo mundo (configuração
+// central, controlada só pelo administrador — ver ConfiguracoesPainel.jsx).
+// Como cada navegador só libera áudio depois de alguma interação do próprio
+// usuário na página, este helper "destrava" o contexto de áudio na primeira
+// interação (clique, tecla ou toque) de cada sessão, silenciosamente — sem
+// depender de um botão manual de "Ativar sons" como antes.
+export function destravarAudioNaProximaInteracao() {
+  const destravar = () => {
+    const c = getContexto()
+    if (c.state === 'suspended') c.resume()
+    window.removeEventListener('click', destravar)
+    window.removeEventListener('keydown', destravar)
+    window.removeEventListener('touchstart', destravar)
+  }
+  window.addEventListener('click', destravar)
+  window.addEventListener('keydown', destravar)
+  window.addEventListener('touchstart', destravar)
 }
 
 // Descida: apito(s) longo(s) (~4s cada) — sinal de partida. A quantidade é

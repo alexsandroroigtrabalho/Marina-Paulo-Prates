@@ -33,6 +33,7 @@ CREATE TABLE marina.marinas (
 );
 -- Chaves de config_json usadas hoje pela tela "Configurações do sistema"
 -- (Painel de Controle → engrenagem — ver components/ConfiguracoesPainel.jsx):
+--   avisoSonoroAtivado                   (Notificações — liga/desliga o apito do Painel de Controle; padrão true)
 --   apitosDescida / apitosRetorno        (Notificações — quantidade de apitos por manobra)
 --   valorMensalidade                     (Financeiro — valor de referência da mensalidade)
 --   emailRelatorioDocumentos             (Despacho — e-mail do relatório automático)
@@ -584,13 +585,14 @@ CREATE POLICY "staff_ve_propria_marina" ON marina.marinas
   FOR SELECT TO authenticated
   USING (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid()));
 
--- Atualizar a marina (config_json — apitos, valor da mensalidade, e-mail
--- do relatório de documentos) é restrito a admin: desde que essas 3
--- configurações viraram a tela única "Configurações do sistema" no Painel
--- de Controle, só o administrador pode alterá-las (funcionário/operador
--- continuam podendo VER, via "staff_ve_propria_marina" acima). Substituiu
--- a antiga "staff_atualiza_propria_marina", que também liberava
--- funcionário/operador.
+-- Atualizar a marina (config_json — aviso sonoro, apitos, valor da
+-- mensalidade, e-mail do relatório de documentos) é restrito a admin: desde
+-- que essas configurações viraram a tela única "Configurações do sistema"
+-- no Painel de Controle, só o administrador pode alterá-las (funcionário/
+-- operador continuam podendo VER, via "staff_ve_propria_marina" acima —
+-- inclusive o estado atual do aviso sonoro, que por isso chega ligado por
+-- padrão pra eles também). Substituiu a antiga
+-- "staff_atualiza_propria_marina", que também liberava funcionário/operador.
 CREATE POLICY "admin_atualiza_propria_marina" ON marina.marinas
   FOR UPDATE TO authenticated
   USING (id = (SELECT marina_id FROM marina.perfis WHERE id = auth.uid())
