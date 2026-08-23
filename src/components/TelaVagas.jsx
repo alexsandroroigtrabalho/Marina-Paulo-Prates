@@ -276,7 +276,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // em lib/agendamentos.js (desempata por created_at quando duas
   // movimentações têm o mesmo data_hora, senão uma retirada recém-confirmada
   // podia não aparecer aqui).
-  const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos)).filter((a) => a.tipo === 'retirada')
+  //
+  // Exceção: se a equipe já marcou o resgate dessa retirada como "Resgatado"
+  // (fim do atendimento de S.O.S., ver definirStatusResgate), a embarcação sai
+  // da tela "Navegando" na hora — o resgate encerrou a navegação mesmo sem
+  // passar pelo fluxo normal de "Confirmar retorno" (o cliente resgatado
+  // nem sempre chega a pedir a subida pelo app). Só afeta essa tabela do
+  // Painel de Controle; o histórico de manobras e o painel do cliente
+  // continuam mostrando/usando essa retirada normalmente.
+  const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos))
+    .filter((a) => a.tipo === 'retirada' && a.resgate_status !== 'resgatado')
 
   // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
   // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
