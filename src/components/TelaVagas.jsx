@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarResgateAgendamento,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina,
 } from '../lib/db'
 import { ativarSons, tocarSinalDescida, tocarSinalRetorno } from '../lib/sons'
+import { buscarClimaAtual } from '../lib/clima'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -17,6 +19,13 @@ const APITOS_PADRAO = { descida: 1, retorno: 3 }
 // de mais requisições ao banco — 10s é um bom equilíbrio pro volume de uma
 // marina (bem tranquilo pro Supabase aguentar).
 const INTERVALO_ATUALIZACAO_MS = 10000
+
+// Clima muda bem mais devagar que a Fila de Rampa — 15 min é o bastante
+// pra manter a temperatura/vento atuais sem gastar chamada à toa na API
+// gratuita (Open-Meteo).
+const INTERVALO_CLIMA_MS = 15 * 60 * 1000
+
+const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve: IconCloudSnow, tempestade: IconCloudStorm }
 
 const TIPO_AGENDAMENTO_LABEL = {
   retirada: 'Descida',
@@ -41,6 +50,7 @@ export default function TelaVagas({ marinaId, onAcoes }) {
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
+  const [clima, setClima] = useState(null)
   const [sonsAtivados, setSonsAtivados] = useState(false)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
   const [modalApitosAberto, setModalApitosAberto] = useState(false)
@@ -108,6 +118,19 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     const relogio = setInterval(() => setAgora(new Date()), 1000)
     return () => { clearInterval(dados); clearInterval(relogio) }
   }, [marinaId])
+
+  // Temperatura/clima/vento de Torres-RS, atualizados sozinhos junto com o
+  // resto do painel (ver lib/clima.js). Se a chamada falhar (sem internet
+  // no momento, API fora do ar), simplesmente não mostra o widget — não
+  // trava nem atrapalha o resto do Painel de Controle.
+  useEffect(() => {
+    function atualizarClima() {
+      buscarClimaAtual().then(setClima).catch(() => setClima(null))
+    }
+    atualizarClima()
+    const intervalo = setInterval(atualizarClima, INTERVALO_CLIMA_MS)
+    return () => clearInterval(intervalo)
+  }, [])
 
   async function mudarStatusAgendamento(id, status) {
     await atualizarStatusAgendamento(id, status)
@@ -294,6 +317,8 @@ export default function TelaVagas({ marinaId, onAcoes }) {
     )
   }
 
+  const IconeClima = clima ? (ICONE_CLIMA[clima.icone] || IconCloud) : null
+
   return (
     <div>
       <img
@@ -302,9 +327,25 @@ export default function TelaVagas({ marinaId, onAcoes }) {
         className="pagina-cliente-logo"
       />
 
-      <p className="painel-controle-relogio">
-        {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
-      </p>
+      <div className="painel-controle-cabecalho">
+        <p className="painel-controle-relogio">
+          {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
+        </p>
+        {clima && (
+          <div className="painel-clima">
+            <span className="painel-clima-local">{clima.local}</span>
+            <span className="painel-clima-item">
+              <IconTemperature size={16} /> {clima.temperatura}°C
+            </span>
+            <span className="painel-clima-item">
+              <IconeClima size={16} /> {clima.descricao}
+            </span>
+            <span className="painel-clima-item">
+              <IconWind size={16} /> {clima.velocidadeVento} km/h
+            </span>
+          </div>
+        )}
+      </div>
 
       <h2 style={{ margin: '0 0 16px' }}>Fila de Rampa</h2>
 
