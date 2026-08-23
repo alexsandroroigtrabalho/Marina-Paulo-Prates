@@ -35,6 +35,29 @@ body {
   background-attachment: fixed;
 }
 
+/* Marca d'água da logo na página Despachos: versão monocromática preta
+   (a variação que o manual da marca reserva pra "fundos claros, documentos
+   em preto e branco" — exatamente o caso aqui), centralizada e em tamanho
+   ampliado. Opacidade dentro da faixa que o manual define pro padrão
+   gráfico auxiliar de fundo (10-25%) — sutil o bastante pra nunca atrapalhar
+   a leitura do conteúdo por cima, que é a mesma regra do manual ("nunca
+   sobre texto corrido"). O ::before fica atrás de tudo (z-index -1 dentro
+   da própria pilha de empilhamento do elemento, criada pelo position +
+   z-index abaixo), então não precisa mexer em mais nada no resto da tela. */
+.pagina-marca-dagua-despachos { position: relative; z-index: 0; }
+.pagina-marca-dagua-despachos::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url('/rv-invictus-logo-preto.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(640px, 70%) auto;
+  opacity: 0.14;
+}
+
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }
 
 /* Tela de login: logo RV Invictus centralizada no topo, card no meio,

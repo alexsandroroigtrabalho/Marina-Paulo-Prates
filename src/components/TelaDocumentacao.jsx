@@ -85,7 +85,7 @@ export default function TelaDocumentacao({ marinaId }) {
   }
 
   return (
-    <div>
+    <div className="pagina-marca-dagua-despachos">
       <div className="abas">
         {/* "Documentos", "Laudos técnicos" e "Despachos (Capitania)" — as 3
             desativadas temporariamente a pedido da administração: continuam
