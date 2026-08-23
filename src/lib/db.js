@@ -344,6 +344,35 @@ export async function atualizarStatusResgate(id, status) {
   if (error) throw error
 }
 
+// Confirma diretamente, pelo Painel de Controle → Navegando, que uma
+// embarcação subiu/atracou de volta — sem depender de o cliente solicitar o
+// retorno pelo app (fluxo normal da Fila de Rampa, "Confirmar retorno").
+// Cria um novo agendamento tipo "retorno" já concluído, com a data/hora de
+// agora: é isso que remove a embarcação da lista Navegando na hora (ela só
+// mostra quem teve como última movimentação concluída uma retirada — ver
+// `naAgua` em TelaVagas.jsx) e, ao mesmo tempo, fica registrado como
+// "Subida" no Histórico de manobras e no Diário de Bordo do cliente, com
+// data/hora — sem precisar de nenhuma tabela nova. Antes disso não existia
+// nenhum jeito de tirar uma embarcação da lista Navegando sem um pedido de
+// retorno vindo do próprio cliente (nem mesmo depois de "Resgatado").
+export async function confirmarSubidaEmbarcacao(agendamentoRetirada) {
+  const a = agendamentoRetirada
+  const { data, error } = await db
+    .from('agendamentos')
+    .insert({
+      marina_id: a.marina_id,
+      cliente_id: a.cliente_id,
+      embarcacao_id: a.embarcacao_id,
+      tipo: 'retorno',
+      data_hora: new Date().toISOString(),
+      status: 'concluido',
+      observacoes: 'Subida confirmada diretamente pelo administrador no Painel de Controle (Navegando).',
+    })
+    .select()
+  if (error) throw error
+  return data[0]
+}
+
 /* ---------- Documentação (TIE, seguro, habilitação, vistoria...) ---------- */
 export async function listarDocumentos(marinaId) {
   const { data, error } = await db
