@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   IconAnchor, IconLogout, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
   IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock, IconId,
+  IconHistory,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
@@ -17,6 +18,12 @@ import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import { lerConfigRampa, horariosDisponiveis, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
+import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
+
+// Solicitação concluída some do Diário de Bordo ativo e passa a viver só no
+// Histórico de Solicitações (engrenagem → Histórico), por até 5 dias — ver
+// diarioAtivo/historicoSolicitacoes mais abaixo.
+const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
 // acesso), no mesmo espírito do QR de abastecimento — sem valor fixo (quem
@@ -150,13 +157,12 @@ function classeStatusDiario(status) {
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
-// configurações da conta ("Pessoas autorizadas" e "Meus dados"). Mesmo
-// padrão visual do menu de ações do Painel de Controle da equipe (classes
-// .menu-acoes* já existentes). "Minhas cobranças" saiu daqui (removida a
-// pedido) — "Meus dados" entrou no lugar: mostra o próprio cadastro do
-// cliente, sempre sincronizado com o que a administração lança no banco
-// (tabela clientes), sem nenhum campo editável aqui.
-function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDados }) {
+// configurações da conta ("Pessoas autorizadas", "Meus dados" e "Histórico
+// de solicitações"). Mesmo padrão visual do menu de ações do Painel de
+// Controle da equipe (classes .menu-acoes* já existentes). "Minhas
+// cobranças" saiu daqui (removida a pedido) — "Meus dados" entrou no
+// lugar, editável, sempre sincronizado com o banco (tabela clientes).
+function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDados, onAbrirHistorico }) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef(null)
 
@@ -187,6 +193,9 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDa
           <button type="button" onClick={() => executar(onAbrirMeusDados)}>
             <IconId size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Meus dados
           </button>
+          <button type="button" onClick={() => executar(onAbrirHistorico)}>
+            <IconHistory size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Histórico de solicitações
+          </button>
         </div>
       )}
     </div>
@@ -207,6 +216,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const [modalDadosAberto, setModalDadosAberto] = useState(false)
   const [formDados, setFormDados] = useState(null)
   const [salvandoDados, setSalvandoDados] = useState(false)
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
@@ -634,6 +644,18 @@ export default function TelaClienteDashboard({ perfil }) {
       : []),
   ].sort((a, b) => new Date(b.quando) - new Date(a.quando))
 
+  // Uma vez concluída/paga/aprovada (mesma classeStatusDiario 'em-dia' que
+  // já colore o badge de verde), a solicitação sai do Diário de Bordo ativo
+  // — só continua visível, por até 5 dias, no Histórico de Solicitações da
+  // engrenagem (abaixo). Depois desses 5 dias, some dali também (a
+  // exportação em CSV reflete o mesmo recorte, nunca mais que isso). Nada
+  // é apagado do banco — só para de aparecer/ser exportável nesta tela.
+  const diarioAtivo = diarioDeBordo.filter((item) => item.statusClasse !== 'em-dia')
+  const agora = Date.now()
+  const historicoSolicitacoes = diarioDeBordo.filter((item) =>
+    item.statusClasse === 'em-dia' && agora - new Date(item.quando).getTime() <= HISTORICO_JANELA_MS
+  )
+
   function abrirModalAbastecimento() {
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '' })
     setModalAbastecimentoAberto(true)
@@ -706,6 +728,7 @@ export default function TelaClienteDashboard({ perfil }) {
               autorizadosCount={autorizados.filter((a) => a.ativo).length}
               onAbrirAutorizados={abrirModalAutorizados}
               onAbrirMeusDados={abrirModalDados}
+              onAbrirHistorico={() => setModalHistoricoAberto(true)}
             />
           )}
         </div>
@@ -769,8 +792,8 @@ export default function TelaClienteDashboard({ perfil }) {
 
           <h3 style={{ textAlign: 'center' }}>Diário de Bordo</h3>
           <div className="lista-cards diario-lista">
-            {diarioDeBordo.length === 0 && <p className="dica">Nenhum registro ainda.</p>}
-            {diarioDeBordo.map((item) => {
+            {diarioAtivo.length === 0 && <p className="dica">Nenhum registro ainda.</p>}
+            {diarioAtivo.map((item) => {
               const Icone = item.icone
               return (
                 <div key={item.id} className="cliente-card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -1155,6 +1178,46 @@ export default function TelaClienteDashboard({ perfil }) {
               <button type="submit" disabled={salvandoDados}>{salvandoDados ? 'Salvando...' : 'Salvar'}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Histórico de Solicitações: solicitações que já saíram do Diário de
+          Bordo ativo (concluídas/pagas/aprovadas — ver diarioAtivo/
+          historicoSolicitacoes acima), disponíveis aqui por até 5 dias.
+          Passado esse prazo elas somem tanto da lista quanto da exportação
+          (o filtro de 5 dias já está em historicoSolicitacoes, então tanto
+          esta lista quanto exportarHistoricoSolicitacoesCsv refletem
+          exatamente o mesmo recorte) — nada é apagado do banco, só para de
+          aparecer/ser exportável nesta tela. */}
+      {modalHistoricoAberto && (
+        <div className="modal-fundo" onClick={() => setModalHistoricoAberto(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Histórico de solicitações</h3>
+            <p className="dica">Solicitações já concluídas, disponíveis aqui por 5 dias.</p>
+            <div className="lista-cards">
+              {historicoSolicitacoes.length === 0 && <p className="dica">Nenhum registro no histórico ainda.</p>}
+              {historicoSolicitacoes.map((item) => {
+                const Icone = item.icone
+                return (
+                  <div key={item.id} className="cliente-card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <Icone size={20} style={{ color: 'var(--cor-secundaria)', flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="linha"><b>{item.titulo}</b></div>
+                      {item.detalhe && <div className="linha">{item.detalhe}</div>}
+                      <span className={`status-texto ${item.statusClasse}`}>{item.statusLabel}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalHistoricoAberto(false)}>Fechar</button>
+              <button type="button" disabled={historicoSolicitacoes.length === 0}
+                onClick={() => exportarHistoricoSolicitacoesCsv(historicoSolicitacoes)}>
+                Exportar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
