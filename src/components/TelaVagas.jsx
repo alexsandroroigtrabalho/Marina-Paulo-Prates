@@ -606,6 +606,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         aberto={modalConfiguracoesAberto}
         onFechar={() => setModalConfiguracoesAberto(false)}
         ehAdmin={ehAdmin}
+        marinaId={marinaId}
         formMensalidade={formMensalidade}
         onMudarMensalidade={setFormMensalidade}
         onSalvarMensalidade={salvarValorMensalidade}

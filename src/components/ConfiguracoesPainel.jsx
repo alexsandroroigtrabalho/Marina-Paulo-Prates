@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv } from '../lib/exportarPlanilha'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
@@ -30,7 +31,7 @@ function SemConfiguracao() {
 }
 
 export default function ConfiguracoesPainel({
-  aberto, onFechar, ehAdmin,
+  aberto, onFechar, ehAdmin, marinaId,
   // Financeiro — mensalidade
   formMensalidade, onMudarMensalidade, onSalvarMensalidade, salvandoMensalidade,
   // Financeiro — combustíveis
@@ -42,6 +43,27 @@ export default function ConfiguracoesPainel({
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
 }) {
   const [categoria, setCategoria] = useState('financeiro')
+  const [exportando, setExportando] = useState('')
+  const [mensagemExportacao, setMensagemExportacao] = useState('')
+
+  function mudarCategoria(c) {
+    setCategoria(c)
+    setMensagemExportacao('')
+  }
+
+  async function exportar(fn, chave, rotulo) {
+    setExportando(chave)
+    setMensagemExportacao('')
+    try {
+      await fn(marinaId)
+      setMensagemExportacao(`Planilha de ${rotulo} baixada com sucesso.`)
+    } catch (err) {
+      alert('Não foi possível exportar a planilha: ' + err.message)
+    } finally {
+      setExportando('')
+    }
+  }
+
   if (!aberto) return null
 
   return (
@@ -57,7 +79,7 @@ export default function ConfiguracoesPainel({
 
         <div className="abas" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
           {CATEGORIAS.map((c) => (
-            <button key={c.chave} type="button" className={categoria === c.chave ? 'ativo' : ''} onClick={() => setCategoria(c.chave)}>
+            <button key={c.chave} type="button" className={categoria === c.chave ? 'ativo' : ''} onClick={() => mudarCategoria(c.chave)}>
               {c.label}
             </button>
           ))}
@@ -167,31 +189,72 @@ export default function ConfiguracoesPainel({
         )}
 
         {categoria === 'despacho' && (
-          <div>
-            <strong>Relatório automático de documentos vencidos</strong>
-            <p className="dica" style={{ margin: '4px 0 14px' }}>
-              Todo dia o sistema confere quem está com TIE, seguro, habilitação do condutor ou vistoria vencidos (ou
-              vencendo em até 1 mês) e envia uma planilha para o e-mail cadastrado abaixo.
-            </p>
-            <form className="form-inline" onSubmit={onSalvarEmailRelatorio} style={{ marginBottom: 8 }}>
-              <input
-                type="email" required placeholder="e-mail@exemplo.com" style={{ minWidth: 240 }} disabled={!ehAdmin}
-                value={emailRelatorio} onChange={(e) => onMudarEmailRelatorio(e.target.value)}
-              />
-              <button type="submit" disabled={!ehAdmin || salvandoEmailRelatorio}>{salvandoEmailRelatorio ? 'Salvando…' : 'Salvar e-mail'}</button>
-              <button type="button" onClick={onEnviarRelatorioAgora} disabled={!ehAdmin || enviandoRelatorio || !emailRelatorio}>
-                {enviandoRelatorio ? 'Enviando…' : 'Enviar relatório agora'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <strong>Relatório automático de documentos vencidos</strong>
+              <p className="dica" style={{ margin: '4px 0 14px' }}>
+                Todo dia o sistema confere quem está com TIE, seguro, habilitação do condutor ou vistoria vencidos (ou
+                vencendo em até 1 mês) e envia uma planilha para o e-mail cadastrado abaixo.
+              </p>
+              <form className="form-inline" onSubmit={onSalvarEmailRelatorio} style={{ marginBottom: 8 }}>
+                <input
+                  type="email" required placeholder="e-mail@exemplo.com" style={{ minWidth: 240 }} disabled={!ehAdmin}
+                  value={emailRelatorio} onChange={(e) => onMudarEmailRelatorio(e.target.value)}
+                />
+                <button type="submit" disabled={!ehAdmin || salvandoEmailRelatorio}>{salvandoEmailRelatorio ? 'Salvando…' : 'Salvar e-mail'}</button>
+                <button type="button" onClick={onEnviarRelatorioAgora} disabled={!ehAdmin || enviandoRelatorio || !emailRelatorio}>
+                  {enviandoRelatorio ? 'Enviando…' : 'Enviar relatório agora'}
+                </button>
+              </form>
+              <p className="dica" style={{ margin: 0 }}>
+                {ultimoEnvioRelatorio ? `Último envio: ${new Date(ultimoEnvioRelatorio).toLocaleString('pt-BR')}` : 'Ainda não foi enviado nenhum relatório para este e-mail.'}
+              </p>
+              {mensagemRelatorio && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemRelatorio}</p>}
+            </div>
+
+            <div>
+              <strong>Exportar planilha de despacho</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Baixa uma planilha com todos os dados de despacho, completos e atualizados.
+              </p>
+              <button type="button" onClick={() => exportar(exportarDespachosCsv, 'despacho', 'despacho')} disabled={exportando === 'despacho'}>
+                {exportando === 'despacho' ? 'Exportando…' : 'Exportar planilha de despacho'}
               </button>
-            </form>
-            <p className="dica" style={{ margin: 0 }}>
-              {ultimoEnvioRelatorio ? `Último envio: ${new Date(ultimoEnvioRelatorio).toLocaleString('pt-BR')}` : 'Ainda não foi enviado nenhum relatório para este e-mail.'}
-            </p>
-            {mensagemRelatorio && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemRelatorio}</p>}
+              {mensagemExportacao && exportando === '' && (
+                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+              )}
+            </div>
           </div>
         )}
 
-        {categoria === 'clientes' && <SemConfiguracao />}
-        {categoria === 'manutencao' && <SemConfiguracao />}
+        {categoria === 'clientes' && (
+          <div>
+            <strong>Exportar planilha de clientes</strong>
+            <p className="dica" style={{ margin: '4px 0 10px' }}>
+              Baixa uma planilha com todos os dados de clientes cadastrados, completos e atualizados.
+            </p>
+            <button type="button" onClick={() => exportar(exportarClientesCsv, 'clientes', 'clientes')} disabled={exportando === 'clientes'}>
+              {exportando === 'clientes' ? 'Exportando…' : 'Exportar planilha de clientes'}
+            </button>
+            {mensagemExportacao && exportando === '' && (
+              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+            )}
+          </div>
+        )}
+        {categoria === 'manutencao' && (
+          <div>
+            <strong>Exportar planilha de manutenção</strong>
+            <p className="dica" style={{ margin: '4px 0 10px' }}>
+              Baixa uma planilha com todos os dados de manutenção, completos e atualizados.
+            </p>
+            <button type="button" onClick={() => exportar(exportarManutencaoCsv, 'manutencao', 'manutenção')} disabled={exportando === 'manutencao'}>
+              {exportando === 'manutencao' ? 'Exportando…' : 'Exportar planilha de manutenção'}
+            </button>
+            {mensagemExportacao && exportando === '' && (
+              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+            )}
+          </div>
+        )}
         {categoria === 'agenda' && <SemConfiguracao />}
         {categoria === 'acessos' && (
           <p className="dica">
