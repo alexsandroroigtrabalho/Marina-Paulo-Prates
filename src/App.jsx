@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
+import { APLICACOES } from './lib/apps'
 import Home from './components/Home'
 import FichaCadastro from './components/FichaCadastro'
 import RedefinirSenha from './components/RedefinirSenha'
 import Layout from './components/Layout'
+import PaginaMarcaDagua from './components/PaginaMarcaDagua'
 import TelaVagas from './components/TelaVagas'
 import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
-import TelaDocumentacao from './components/TelaDocumentacao'
 import TelaAbastecimento from './components/TelaAbastecimento'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
+// Telas de RV Marine — a única das 4 aplicações RV Invictus (ver
+// lib/apps.js) já desenvolvida. "Despachos" saiu daqui (não foi apagado, só
+// desligado do menu — ver TelaDocumentacao.jsx): vai virar a base do RV
+// NautDoc quando essa aplicação for desenvolvida.
 const TELAS = {
   // O título mostrado no topo da tela é o nome da marina (não "Painel de
   // Controle" — esse nome já aparece no item do menu lateral).
@@ -20,7 +25,6 @@ const TELAS = {
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
-  documentacao: { titulo: 'Despachos', Componente: TelaDocumentacao },
   abastecimento: { titulo: 'Abastecimento', Componente: TelaAbastecimento },
 }
 
@@ -42,6 +46,12 @@ export default function App() {
   // de login. Depois de autenticar, `perfil.role` (abaixo) decide sozinho o
   // ambiente: equipe da marina ou cliente final, ambos já existentes.
   const [entrada, setEntrada] = useState('login')
+  // Qual das 4 aplicações RV Invictus (lib/apps.js) está escolhida no menu
+  // lateral — null é o estado inicial "nenhuma escolhida ainda" (sidebar
+  // mostra o seletor das 4; a área de conteúdo mostra só a marca d'água,
+  // ver PaginaMarcaDagua.jsx). `telaAtiva` abaixo só é relevante quando
+  // appSelecionada === 'marine'.
+  const [appSelecionada, setAppSelecionada] = useState(null)
   const [telaAtiva, setTelaAtiva] = useState('vagas')
   // Ações do Painel de Controle (sons, histórico, combustíveis), repassadas
   // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
@@ -91,10 +101,36 @@ export default function App() {
 
   // Admin / funcionário / operador ("nossos clientes" — a equipe da
   // marina): shell interno com sidebar.
+
+  // Nenhuma das 4 aplicações escolhida ainda: sidebar mostra o seletor,
+  // conteúdo mostra só a marca d'água convidando a escolher uma.
+  if (!appSelecionada) {
+    return (
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo="RV Invictus">
+        <PaginaMarcaDagua />
+      </Layout>
+    )
+  }
+
+  // RV NautDoc / RV e-Náutica / RV Engenharia: ainda não têm telas próprias
+  // — mostram só o título escolhido na sidebar e "Em construção" com a
+  // marca d'água na área de conteúdo, até serem desenvolvidas.
+  if (appSelecionada !== 'marine') {
+    const app = APLICACOES.find((a) => a.chave === appSelecionada)
+    const nomeApp = app ? `${app.prefixo} ${app.nome}` : ''
+    return (
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo={nomeApp}>
+        <PaginaMarcaDagua texto="Em construção" />
+      </Layout>
+    )
+  }
+
+  // RV Marine: shell interno já existente, com os itens de sempre.
   const { titulo, Componente } = TELAS[telaAtiva]
 
   return (
     <Layout
+      appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada}
       telaAtiva={telaAtiva} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
       acoesPainel={telaAtiva === 'vagas' ? acoesVagas : null}
     >

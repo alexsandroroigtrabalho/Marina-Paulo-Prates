@@ -34,14 +34,6 @@ body {
   margin: 0;
   background-color: var(--cor-fundo);
   color: var(--cor-texto);
-  /* Fundo estilo carta náutica antiga: só a rosa dos ventos (em tom sépia,
-     com os 4 pontos cardeais), fixa no canto inferior direito — sem a grade
-     de coordenadas/sondagens, a pedido do cliente. */
-  background-image: url('/fundo-rosa-dos-ventos.svg');
-  background-repeat: no-repeat;
-  background-position: bottom -40px right -40px;
-  background-size: 340px 340px;
-  background-attachment: fixed;
 }
 
 /* Marca d'água da logo na página Despachos: versão monocromática preta
@@ -82,6 +74,47 @@ body {
   opacity: 0.14;
 }
 
+/* Versão genérica da marca d'água acima, com a logo VERTICAL (brasão +
+   "RV INVICTUS" empilhados, arquivo oficial da identidade visual) em vez da
+   horizontal — usada por PaginaMarcaDagua.jsx: estado ocioso do menu lateral
+   (nenhuma das 4 aplicações escolhida ainda) e as 3 aplicações ainda sem
+   tela própria (RV NautDoc / RV e-Náutica / RV Engenharia). Não reaproveita
+   .pagina-marca-dagua-despachos de propósito — aquela classe/tela continua
+   intacta, pronta para virar a base do RV NautDoc mais adiante. */
+.pagina-marca-dagua {
+  position: relative;
+  z-index: 0;
+  min-height: calc(100vh - 160px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 36px;
+}
+.pagina-marca-dagua::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  pointer-events: none;
+  width: min(320px, 55%);
+  height: min(440px, 68vh);
+  background-image: url('/rv-invictus-vertical-preto.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.14;
+}
+.pagina-marca-dagua-texto {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+  margin: 0;
+}
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }
 
 /* Tela de login/acesso (Home, AdminLogin, AreaCliente, FichaCadastro — as
@@ -242,10 +275,16 @@ body {
    versão dourada da logo, combinação "fundo escuro + dourado" preferencial
    no manual da marca. ".sair" já tem margin-top:auto, então o rodapé fica
    logo abaixo, sempre no rodapé da sidebar — nunca sobre o conteúdo. */
-.sidebar-logo { display: block; width: 100%; max-width: 140px; height: auto; margin: 4px auto 22px; }
+.sidebar-logo { display: block; width: 100%; max-width: 168px; height: auto; margin: 4px auto 22px; }
 .sidebar-rodape {
   display: block;
-  margin: 14px 0 0;
+  /* Sem margin-top: auto aqui — quem empurra pra baixo é sempre o elemento
+     logo acima dela (.nav-apps na tela de seleção, .nav-voltar dentro de
+     uma aplicação), nunca os dois ao mesmo tempo. Colocar auto nos dois
+     divide o espaço livre entre eles e faz o de cima "flutuar" no meio da
+     sidebar em vez de ficar colado no rodapé — só um dos dois pode
+     carregar o auto por vez. */
+  margin: 10px 0 0;
   text-align: center;
   font-family: 'Cinzel', serif;
   font-size: 9px;
@@ -443,25 +482,122 @@ body {
   border-right: 1px solid rgba(212,175,55,0.16);
 }
 .sidebar:hover, .sidebar:focus-within { transform: translateX(0); }
+/* Enquanto nenhuma das 4 aplicações está escolhida (App.jsx,
+   appSelecionada === null), a sidebar fica sempre aberta — o cliente
+   acabou de logar e o seletor de aplicações precisa estar visível de
+   cara, sem precisar passar o mouse em cima pra descobrir que ele existe.
+   Assim que uma aplicação é escolhida essa classe some e a sidebar volta
+   ao comportamento dinâmico normal (esconde/revela por hover). Duas
+   classes de especificidade (0,2,0) pra empatar com `.sidebar:hover` — o
+   que decide é a ordem no arquivo, por isso essa regra vem depois. */
+.sidebar.sidebar-fixa { transform: translateX(0); }
+
+/* Itens dentro de uma aplicação (hoje só RV Marine) e o seletor das 4
+   aplicações usam o MESMO gesto de seleção: cinza por padrão, branco-gelo
+   no hover/ativo, com a palavra ganhando um pouco mais de corpo (fonte
+   maior) nesse momento — nada de preenchimento, barra lateral ou
+   sublinhado. O item "ativo" (tela atual dentro de RV Marine) recebe essa
+   mesma aparência de forma permanente, não só no hover, pra continuar
+   dando a noção de "você está aqui" mesmo com o mouse longe dele. */
 .nav-item {
   display: flex; align-items: center; gap: 10px;
-  background: none; border: none; color: #BFE0EC; text-align: left;
+  background: none; border: none; color: rgba(245,245,240,0.5); text-align: left;
   padding: 10px 12px; border-radius: 8px; cursor: pointer;
   font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 12px;
   letter-spacing: 0.04em; text-transform: uppercase;
   white-space: nowrap;
+  transition: color 0.15s ease, font-size 0.15s ease;
 }
-.nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
-/* Item ativo: mesmo traço dourado fino que marca o item ativo no menu do
-   site institucional — aqui como acento lateral (o menu é vertical, não
-   horizontal), já que empilhar dourado sólido de fundo ia competir com o
-   próprio texto por atenção. Um acento de marca por tela, não um bloco. */
+.nav-item:hover,
 .nav-item.ativo {
-  background: rgba(212,175,55,0.1);
-  color: #D4AF37;
-  box-shadow: inset 2px 0 0 #D4AF37;
+  color: #F5F5F0;
+  font-size: 12.8px;
 }
-.nav-item.sair { margin-top: auto; }
+
+/* Título da aplicação escolhida (RV Marine / RV NautDoc / RV e-Náutica /
+   RV Engenharia) — rótulo fixo, não clicável, no topo da lista de itens.
+   Mesma "categoria Destaque" do manual (Cinzel, caixa alta, dourado) já
+   usada no rodapé de marca; aqui um pouco maior, por ser um título de
+   verdade, com hairline dourada separando dos itens abaixo. */
+.app-titulo {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 13.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #D4AF37;
+  margin: 4px 4px 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(212,175,55,0.22);
+}
+
+/* Seletor das 4 aplicações RV Invictus — mesmo gesto tipográfico do resto
+   do menu (Montserrat caixa-alta rastreada), mas SEM o preenchimento/barra
+   lateral do .nav-item: cinza por padrão, branco-gelo no hover — sem
+   sublinhado. "RV" (.nav-app-item-prefixo) fica sempre do mesmo tamanho; o
+   nome da aplicação (.nav-app-item-nome) já nasce um pouco maior que o
+   "RV", e cresce mais ainda no hover — é essa mudança de escala, no lugar
+   do traço dourado, que sinaliza a seleção. Cinza aqui é o próprio
+   branco-gelo da marca em opacidade reduzida (mesmo truque já usado em
+   .login-rotulo etc.), não um cinza neutro solto da paleta. Itens
+   centralizados (text-align/justify-content: center) dentro da sidebar. */
+/* margin-bottom: auto empurra o rodapé (.sidebar-rodape, logo depois no
+   HTML) pro fim da sidebar, sem que a própria lista de aplicações se mova
+   — mesmo mecanismo do .nav-voltar quando uma aplicação já está escolhida
+   (ver comentário em .sidebar-rodape acima). */
+.nav-apps { display: flex; flex-direction: column; align-items: center; margin-bottom: auto; }
+.nav-app-item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(245,245,240,0.5);
+  padding: 12px 4px;
+  margin: 0 4px;
+  transition: color 0.15s ease;
+}
+.nav-app-item-prefixo { font-size: 12px; }
+.nav-app-item-nome { font-size: 13.5px; display: inline-block; transition: font-size 0.15s ease; }
+.nav-app-item:hover { color: #F5F5F0; }
+.nav-app-item:hover .nav-app-item-nome { font-size: 15px; }
+
+/* Seta "Aplicações" — volta do submenu de uma aplicação pro seletor das 4.
+   Sempre no rodapé da sidebar (margin-top: auto), logo acima de "Sair",
+   qualquer que seja a quantidade de itens acima dela. Deliberadamente
+   discreta ("bem minimalista"): sem fundo, ícone pequeno, só muda de cor
+   (pra dourado) e desliza levemente no hover — não é um botão de ação
+   igual aos outros itens do menu. */
+.nav-voltar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  margin-top: auto;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(245,245,240,0.45);
+  transition: color 0.15s ease;
+}
+.nav-voltar:hover { color: #D4AF37; }
+.nav-voltar svg { flex-shrink: 0; transition: transform 0.15s ease; }
+.nav-voltar:hover svg { transform: translateX(-3px); }
 
 .conteudo { padding: 24px 32px 24px 40px; }
 /* Título numa ponta, usuário + engrenagem na outra — cada um do tamanho do
@@ -480,6 +616,21 @@ body {
 }
 .topo-direita { display: flex; align-items: center; gap: 10px; }
 .usuario { text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
+
+/* "Sair" saiu do menu lateral e agora mora aqui, no canto superior direito
+   da página — sempre visível, em qualquer aplicação/tela, já que não
+   depende mais de estar dentro de RV Marine. Mesmo tratamento visual dos
+   outros controles do cabeçalho (.menu-acoes-botao): sem preenchimento até
+   o hover, então ganha o mesmo azul operacional dos ícones do cabeçalho. */
+.botao-sair {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  padding: 7px 10px; border-radius: 8px;
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 12px;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--cor-texto-suave); white-space: nowrap;
+}
+.botao-sair:hover { background: rgba(14, 68, 97, 0.08); color: var(--cor-primaria); }
 
 /* Menu de engrenagem (ações do Painel de Controle), do lado do usuário. */
 .menu-acoes { position: relative; }
