@@ -9,6 +9,7 @@ import {
 import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
+import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
@@ -289,13 +290,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   }
 
   // Embarcações "na água agora": a última movimentação concluída de cada
-  // embarcação foi uma retirada (sem retorno concluído depois dela).
-  const ultimaPorEmbarcacao = {}
-  agendamentos.filter((a) => a.status === 'concluido' && a.embarcacao_id).forEach((a) => {
-    const atual = ultimaPorEmbarcacao[a.embarcacao_id]
-    if (!atual || new Date(a.data_hora) > new Date(atual.data_hora)) ultimaPorEmbarcacao[a.embarcacao_id] = a
-  })
-  const naAgua = Object.values(ultimaPorEmbarcacao).filter((a) => a.tipo === 'retirada')
+  // embarcação foi uma retirada (sem retorno concluído depois dela). Lógica
+  // compartilhada com o painel do cliente — ver ultimaMovimentacaoPorEmbarcacao
+  // em lib/agendamentos.js (desempata por created_at quando duas
+  // movimentações têm o mesmo data_hora, senão uma retirada recém-confirmada
+  // podia não aparecer aqui).
+  const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos)).filter((a) => a.tipo === 'retirada')
 
   // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
   // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e

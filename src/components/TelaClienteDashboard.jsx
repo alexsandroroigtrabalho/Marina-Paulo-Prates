@@ -13,6 +13,7 @@ import {
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
+import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import { TEMA_PADRAO } from '../lib/tema'
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
@@ -445,12 +446,7 @@ export default function TelaClienteDashboard({ perfil }) {
   // de Controle da marina (a manobra concluída mais recente de cada
   // embarcação): se a última foi uma retirada, o barco ainda está na água.
   // É essa linha que o botão S.O.S. atualiza com resgate_status = 'solicitado'.
-  const ultimaPorEmbarcacaoCliente = {}
-  agendamentos.filter((a) => a.status === 'concluido' && a.embarcacao_id).forEach((a) => {
-    const atual = ultimaPorEmbarcacaoCliente[a.embarcacao_id]
-    if (!atual || new Date(a.data_hora) > new Date(atual.data_hora)) ultimaPorEmbarcacaoCliente[a.embarcacao_id] = a
-  })
-  const agendamentoNavegando = Object.values(ultimaPorEmbarcacaoCliente).find((a) => a.tipo === 'retirada') || null
+  const agendamentoNavegando = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos)).find((a) => a.tipo === 'retirada') || null
 
   async function solicitarResgate() {
     if (!agendamentoNavegando || enviandoResgate) return
