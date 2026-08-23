@@ -9,6 +9,7 @@ import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
+  salvarCliente,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
@@ -204,6 +205,8 @@ export default function TelaClienteDashboard({ perfil }) {
   const [autorizados, setAutorizados] = useState([])
   const [modalAutorizadosAberto, setModalAutorizadosAberto] = useState(false)
   const [modalDadosAberto, setModalDadosAberto] = useState(false)
+  const [formDados, setFormDados] = useState(null)
+  const [salvandoDados, setSalvandoDados] = useState(false)
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
@@ -395,6 +398,42 @@ export default function TelaClienteDashboard({ perfil }) {
   function abrirModalAutorizados() {
     setFormAutorizado({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
     setModalAutorizadosAberto(true)
+  }
+
+  // "Meus dados" agora é editável (era só leitura) — o cliente pode
+  // corrigir o próprio cadastro. Pré-preenche o form com o que já está no
+  // banco (cliente, sempre atualizado via carregar()); campos
+  // administrativos/financeiros (pagamento, acesso, marina_id etc.) não
+  // entram aqui — nem dá pra mudá-los por essa tela: RLS + trigger
+  // "protege_campos_admin_clientes" no banco barram/ignoram qualquer
+  // tentativa (ver migration_cliente_edita_proprios_dados.sql).
+  function abrirModalDados() {
+    setFormDados({
+      nome: cliente.nome || '',
+      cpf_cnpj: cliente.cpf_cnpj || '',
+      documento_identidade: cliente.documento_identidade || '',
+      email: cliente.email || '',
+      telefone: cliente.telefone || '',
+      endereco: cliente.endereco || '',
+      numero_casa: cliente.numero_casa || '',
+      complemento: cliente.complemento || '',
+    })
+    setModalDadosAberto(true)
+  }
+
+  async function enviarMeusDados(e) {
+    e.preventDefault()
+    if (!cliente) return
+    setSalvandoDados(true)
+    try {
+      await salvarCliente({ id: cliente.id, ...formDados })
+      setModalDadosAberto(false)
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSalvandoDados(false)
+    }
   }
 
   async function enviarNovoAutorizado(e) {
@@ -666,7 +705,7 @@ export default function TelaClienteDashboard({ perfil }) {
             <MenuConfigCliente
               autorizadosCount={autorizados.filter((a) => a.ativo).length}
               onAbrirAutorizados={abrirModalAutorizados}
-              onAbrirMeusDados={() => setModalDadosAberto(true)}
+              onAbrirMeusDados={abrirModalDados}
             />
           )}
         </div>
@@ -1079,36 +1118,43 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {/* "Meus dados": só leitura, de propósito — o cadastro é lançado e
-          corrigido pela administração (mesmas telas/campos de
-          FichaCadastro.jsx e TelaClientes.jsx), e `cliente` aqui já vem
-          direto da tabela clientes (ver carregar() acima), com a mesma
-          assinatura Realtime de "UPDATE" nessa tabela — então qualquer
-          alteração que a administração lançar no banco aparece aqui sozinha,
-          sem precisar de F5 nem de nenhum botão "salvar" nesta tela. */}
-      {modalDadosAberto && cliente && (
+      {/* "Meus dados": editável, a pedido explícito — o cliente corrige o
+          próprio cadastro por aqui (mesmos campos de FichaCadastro.jsx). O
+          salvamento passa por salvarCliente() (lib/db.js, faz um UPDATE
+          parcial só com os campos deste form), e o banco tem uma policy de
+          UPDATE nova + um trigger ("protege_campos_admin_clientes", ver
+          migration_cliente_edita_proprios_dados.sql) que garante que o
+          cliente só altera os próprios campos cadastrais — campos
+          administrativos/financeiros (pagamento, acesso, status,
+          marina_id...) nunca mudam por essa tela, mesmo tentando. */}
+      {modalDadosAberto && cliente && formDados && (
         <div className="modal-fundo" onClick={() => setModalDadosAberto(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarMeusDados}>
             <h3>Meus dados</h3>
-            <p className="dica">Cadastro lançado pela administração da marina. Para corrigir algo, fale com a administração.</p>
-            <div className="lista-cards">
-              <div className="cliente-card">
-                <div className="linha"><b>Nome:</b> {cliente.nome || '(não informado)'}</div>
-                <div className="linha"><b>CPF:</b> {cliente.cpf_cnpj || '(não informado)'}</div>
-                <div className="linha"><b>Documento de identidade:</b> {cliente.documento_identidade || '(não informado)'}</div>
-                <div className="linha"><b>E-mail:</b> {cliente.email || '(não informado)'}</div>
-                <div className="linha"><b>Telefone:</b> {cliente.telefone || '(não informado)'}</div>
-                <div className="linha">
-                  <b>Endereço:</b> {cliente.endereco
-                    ? `${cliente.endereco}, ${cliente.numero_casa || 's/n'}${cliente.complemento ? ` · ${cliente.complemento}` : ''}`
-                    : '(não informado)'}
-                </div>
-              </div>
+            <p className="dica">Esses dados também aparecem para a administração da marina.</p>
+            <input placeholder="Nome completo" required value={formDados.nome}
+              onChange={(e) => setFormDados({ ...formDados, nome: e.target.value })} />
+            <input placeholder="CPF" value={formDados.cpf_cnpj}
+              onChange={(e) => setFormDados({ ...formDados, cpf_cnpj: e.target.value })} />
+            <input placeholder="Documento de identidade (RG)" value={formDados.documento_identidade}
+              onChange={(e) => setFormDados({ ...formDados, documento_identidade: e.target.value })} />
+            <input type="email" placeholder="E-mail" value={formDados.email}
+              onChange={(e) => setFormDados({ ...formDados, email: e.target.value })} />
+            <input placeholder="Telefone" value={formDados.telefone}
+              onChange={(e) => setFormDados({ ...formDados, telefone: e.target.value })} />
+            <input placeholder="Endereço (rua, bairro)" value={formDados.endereco}
+              onChange={(e) => setFormDados({ ...formDados, endereco: e.target.value })} />
+            <div className="cadastro-linha-endereco">
+              <input placeholder="Número" value={formDados.numero_casa}
+                onChange={(e) => setFormDados({ ...formDados, numero_casa: e.target.value })} />
+              <input placeholder="Complemento" value={formDados.complemento}
+                onChange={(e) => setFormDados({ ...formDados, complemento: e.target.value })} />
             </div>
             <div className="acoes-modal">
-              <button type="button" onClick={() => setModalDadosAberto(false)}>Fechar</button>
+              <button type="button" onClick={() => setModalDadosAberto(false)}>Cancelar</button>
+              <button type="submit" disabled={salvandoDados}>{salvandoDados ? 'Salvando...' : 'Salvar'}</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
