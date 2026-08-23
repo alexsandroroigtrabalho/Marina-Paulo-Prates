@@ -1,22 +1,25 @@
-import { salvarCliente } from '../lib/db'
+import { salvarCliente, confirmarPagamentoMensalidade } from '../lib/db'
 
-// Chave de pagamento reutilizável — mesmo componente usado na tela Clientes
-// e na aba Financeiro, pra garantir que as duas nunca dessincronizem o
-// rótulo, a cor ou o comportamento. À esquerda/vermelho = "Pagamento não
+// Chave de pagamento reutilizável. À esquerda/vermelho = "Pagamento não
 // efetuado", à direita/verde = "Pagamento efetuado". A confirmação é
 // SEMPRE um clique manual e explícito do administrador — nunca é chamada
 // automaticamente por nenhum outro fluxo do app (o reset de dia 5 mexe
 // direto no banco, via marina.resetar_pagamentos_mensal/pg_cron, nunca por
 // aqui). Ao ligar a chave, grava também pagamento_confirmado_em (data/hora
-// da confirmação); ao desligar, não mexe nesse campo — ele funciona como
-// histórico da última confirmação, mesmo depois do pagamento voltar a
-// ficar pendente (reset automático ou revogação manual).
-export default function ChavePagamento({ cliente, onAtualizado, className = '' }) {
+// da confirmação) e — via confirmarPagamentoMensalidade — lança
+// automaticamente a mensalidade recebida na "Arrecadação detalhada" (aba
+// Financeiro), sem duplicar se já houver uma cobrança paga no mês. Ao
+// desligar, não mexe em nada disso: nem no histórico de confirmação, nem
+// numa cobrança já paga (dinheiro recebido continua contando como
+// arrecadação; desligar só bloqueia o acesso do período seguinte).
+export default function ChavePagamento({ cliente, marinaId, valorMensalidade, onAtualizado, className = '' }) {
   async function definir(confirmado) {
     try {
-      const campos = { id: cliente.id, pagamento_confirmado: confirmado }
-      if (confirmado) campos.pagamento_confirmado_em = new Date().toISOString()
-      await salvarCliente(campos)
+      if (confirmado) {
+        await confirmarPagamentoMensalidade({ cliente, marinaId, valorMensalidade })
+      } else {
+        await salvarCliente({ id: cliente.id, pagamento_confirmado: false })
+      }
       await onAtualizado?.()
     } catch (err) {
       alert('Não foi possível atualizar o pagamento: ' + err.message)

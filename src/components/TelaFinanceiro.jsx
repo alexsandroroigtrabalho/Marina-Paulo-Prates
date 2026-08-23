@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarClientes, listarCobrancas, listarCobrancasDetalhado, listarPedidosAbastecimento } from '../lib/db'
-import { statusAcessoCliente } from '../lib/statusPagamento'
-import ChavePagamento from './ChavePagamento'
+import { listarCobrancasDetalhado, listarPedidosAbastecimento } from '../lib/db'
 
-// Junta os dois únicos lugares do sistema onde dinheiro efetivamente "entra"
-// (cobranças pagas — mensalidade/serviço/multa — e pedidos de abastecimento
-// pagos/entregues) numa única lista de pagamentos individuais, pra tela
-// "Arrecadação detalhada". Embarcação/jet vem, quando existe: direto no
-// pedido de abastecimento, ou indiretamente na cobrança via a reserva ou a
-// ordem de serviço que a originou — os dois únicos jeitos de uma cobrança
-// carregar uma embarcação hoje.
+// A "Arrecadação detalhada" é alimentada automaticamente por só duas
+// fontes, de propósito (nada de serviço/multa avulsos aqui — só o que o
+// pedido do administrador definiu como arrecadação da marina):
+//  - Mensalidades dos clientes: cobrança tipo "mensalidade", status "pago" —
+//    lançada sozinha pela chave de pagamento (ver confirmarPagamentoMensalidade
+//    em lib/db.js) quando o administrador confirma o pagamento de um cliente.
+//  - Consumo de combustível: pedidos de abastecimento pagos/entregues.
+// Embarcação/jet vem, quando existe: direto no pedido de abastecimento, ou
+// indiretamente na cobrança via a reserva/ordem de serviço que a originou.
 function montarLinhasArrecadacao(cobrancasDetalhado, pedidosAbastecimento) {
   const deCobrancas = cobrancasDetalhado
-    .filter((c) => c.status === 'pago')
+    .filter((c) => c.status === 'pago' && c.tipo === 'mensalidade')
     .map((c) => ({
       id: `cob-${c.id}`,
       dataHora: c.pago_em,
@@ -67,14 +67,14 @@ function exportarCsv(linhas) {
   URL.revokeObjectURL(url)
 }
 
-// Só resta "Arrecadação detalhada" — "Cobranças", "Notas fiscais" e
-// "Previsão de Caixa" saíram a pedido. Sem mais abas pra escolher, o
-// conteúdo fica direto na página (sem tabs, sem modal).
+// A aba Financeiro contém só a "Arrecadação detalhada" — a situação de
+// pagamento por cliente (chave "Pagamento efetuado"/"não efetuado") mora
+// exclusivamente na tela Clientes, sem réplica aqui, pra não ter duas
+// telas mostrando (e podendo dessincronizar) a mesma informação de acesso.
+// "Cobranças", "Notas fiscais" e "Previsão de Caixa" saíram a pedido antes
+// disso. Sem mais nada pra escolher, o conteúdo fica direto na página (sem
+// tabs, sem modal).
 export default function TelaFinanceiro({ marinaId }) {
-  const [cobrancas, setCobrancas] = useState([])
-  const [clientes, setClientes] = useState([])
-  const [filtroClientePagamento, setFiltroClientePagamento] = useState('')
-
   const [carregandoArrecadacao, setCarregandoArrecadacao] = useState(false)
   const [cobrancasDetalhado, setCobrancasDetalhado] = useState([])
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
@@ -84,32 +84,24 @@ export default function TelaFinanceiro({ marinaId }) {
   const [filtroFormaPagamento, setFiltroFormaPagamento] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
 
-  function carregarClientes() {
+  function carregarArrecadacao() {
     if (!marinaId) return
-    listarClientes(marinaId).then(setClientes)
-  }
-
-  useEffect(() => {
-    if (!marinaId) return
-    listarCobrancas(marinaId).then(setCobrancas)
-    carregarClientes()
     setCarregandoArrecadacao(true)
     Promise.all([listarCobrancasDetalhado(marinaId), listarPedidosAbastecimento(marinaId)])
       .then(([cob, ab]) => { setCobrancasDetalhado(cob); setPedidosAbastecimento(ab) })
       .finally(() => setCarregandoArrecadacao(false))
-  }, [marinaId])
+  }
+  useEffect(() => { carregarArrecadacao() }, [marinaId])
 
-  // Atualização em tempo real: a chave de pagamento pode ser mexida por
-  // outro administrador em outra aba/tela (Clientes ou aqui mesmo em outra
-  // sessão), ou pelo reset automático de dia 5 (marina.resetar_pagamentos_mensal
-  // via pg_cron) — sem isto, a lista de status de pagamento só atualizaria
-  // depois de um F5 manual. Mesmo padrão já usado em TelaClientes.jsx e
-  // TelaClienteDashboard.jsx.
+  // Atualização em tempo real: uma mensalidade confirmada na tela Clientes
+  // (ou um abastecimento pago/entregue em outra tela/sessão) aparece aqui
+  // na hora, sem F5 — mesmo padrão já usado nas demais telas do sistema.
   useEffect(() => {
     if (!marinaId) return
     const canal = supabase
-      .channel(`financeiro-${marinaId}-clientes`)
-      .on('postgres_changes', { event: '*', schema: 'marina', table: 'clientes', filter: `marina_id=eq.${marinaId}` }, () => carregarClientes())
+      .channel(`financeiro-${marinaId}-arrecadacao`)
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'cobrancas', filter: `marina_id=eq.${marinaId}` }, () => carregarArrecadacao())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `marina_id=eq.${marinaId}` }, () => carregarArrecadacao())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [marinaId])
@@ -117,20 +109,6 @@ export default function TelaFinanceiro({ marinaId }) {
   function limparFiltrosArrecadacao() {
     setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroCliente(''); setFiltroFormaPagamento(''); setFiltroStatus('')
   }
-
-  const totalPendente = cobrancas.filter((c) => c.status !== 'pago').reduce((s, c) => s + Number(c.valor), 0)
-  const totalRecebido = cobrancas.filter((c) => c.status === 'pago').reduce((s, c) => s + Number(c.valor), 0)
-
-  // Situação de pagamento por cliente (chave "Pagamento efetuado"/"não
-  // efetuado") — mesma regra de acesso usada na tela Clientes e no painel
-  // do próprio cliente (statusAcessoCliente, lib/statusPagamento.js), pra
-  // nunca mostrar aqui um status diferente do que está em vigor de verdade.
-  const clientesLiberados = clientes.filter((c) => statusAcessoCliente(c).classe === 'em-dia')
-  const clientesBloqueados = clientes.filter((c) => statusAcessoCliente(c).classe !== 'em-dia')
-  const clientesPagamentoFiltrados =
-    filtroClientePagamento === 'liberados' ? clientesLiberados :
-    filtroClientePagamento === 'bloqueados' ? clientesBloqueados :
-    clientes
 
   const linhasArrecadacao = montarLinhasArrecadacao(cobrancasDetalhado, pedidosAbastecimento)
   const clientesArrecadacao = [...new Set(linhasArrecadacao.map((l) => l.cliente).filter(Boolean))].sort()
@@ -149,64 +127,11 @@ export default function TelaFinanceiro({ marinaId }) {
 
   return (
     <div>
-      <div className="resumo-financeiro">
-        <div className="stat-card"><span>Pendente</span><strong>R$ {totalPendente.toFixed(2)}</strong></div>
-        <div className="stat-card"><span>Recebido</span><strong>R$ {totalRecebido.toFixed(2)}</strong></div>
-        <div className="stat-card"><span>Clientes com acesso liberado</span><strong>{clientesLiberados.length}</strong></div>
-        <div className="stat-card alerta"><span>Clientes com acesso bloqueado</span><strong>{clientesBloqueados.length}</strong></div>
-      </div>
-
-      <h3 style={{ marginBottom: 4 }}>Situação de pagamento dos clientes</h3>
+      <h3 style={{ marginTop: 0 }}>Arrecadação detalhada</h3>
       <p className="dica" style={{ marginTop: -4 }}>
-        Reflete a mesma chave "Pagamento efetuado"/"Pagamento não efetuado" da tela Clientes — mexer aqui também
-        atualiza lá, no painel do cliente e nas permissões de acesso à Agenda, na hora. Todo dia 5, o pagamento de
-        todos os clientes volta automaticamente para "não efetuado" (ver aviso abaixo da tabela).
-      </p>
-      <div className="form-inline" style={{ marginBottom: 12 }}>
-        <select value={filtroClientePagamento} onChange={(e) => setFiltroClientePagamento(e.target.value)}>
-          <option value="">Todos os clientes ({clientes.length})</option>
-          <option value="liberados">Só acesso liberado ({clientesLiberados.length})</option>
-          <option value="bloqueados">Só acesso bloqueado ({clientesBloqueados.length})</option>
-        </select>
-      </div>
-      <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-        <table className="tabela">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Pagamento</th>
-              <th>Confirmado em</th>
-              <th>Acesso à Agenda</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientesPagamentoFiltrados.length === 0 && (
-              <tr><td colSpan={4}>Nenhum cliente encontrado.</td></tr>
-            )}
-            {clientesPagamentoFiltrados.map((c) => {
-              const acesso = statusAcessoCliente(c)
-              return (
-                <tr key={c.id}>
-                  <td>{c.nome}</td>
-                  <td><ChavePagamento cliente={c} onAtualizado={carregarClientes} /></td>
-                  <td>{c.pagamento_confirmado_em ? new Date(c.pagamento_confirmado_em).toLocaleString('pt-BR') : '—'}</td>
-                  <td><span className={`status-texto ${acesso.classe}`}>{acesso.texto}</span></td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="dica" style={{ marginTop: 0, marginBottom: 24 }}>
-        Todo dia 5 do mês, o pagamento de todos os clientes volta automaticamente para "Pagamento não efetuado" e o
-        acesso à Agenda (e às demais áreas que dependem de pagamento) é bloqueado de novo — inclusive de quem tinha
-        liberação manual. Só volta quando o administrador confirmar o pagamento de cada cliente aqui ou na tela
-        Clientes.
-      </p>
-
-      <h3>Arrecadação detalhada</h3>
-      <p className="dica" style={{ marginTop: -4 }}>
-        Cada pagamento recebido pela marina (mensalidades, serviços, multas e abastecimento), individualmente.
+        Cada valor recebido pela marina, individualmente: mensalidades de clientes confirmadas na tela Clientes e
+        consumo de combustível pago/entregue. A situação de pagamento por cliente (liberado/bloqueado) fica na tela
+        Clientes — aqui só entra o que já foi efetivamente recebido.
       </p>
 
       <div className="form-inline" style={{ marginBottom: 4 }}>

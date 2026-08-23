@@ -271,10 +271,10 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 16px', marginTop: 8 }}>
                     <span className={`status-texto ${c.cadastro_confirmado ? 'em-dia' : 'pendente'}`}>Cadastro: {c.cadastro_confirmado ? 'Realizado' : 'Pendente'}</span>
 
-                    {/* Chave de pagamento — mesmo componente usado na aba Financeiro
-                        (ChavePagamento), pra nunca dessincronizar rótulo/cor entre as
-                        duas telas. Sempre um clique manual e explícito do administrador. */}
-                    <ChavePagamento cliente={c} onAtualizado={carregar} />
+                    {/* Chave de pagamento — sempre um clique manual e explícito do
+                        administrador. Confirmar aqui também lança a mensalidade
+                        recebida na "Arrecadação detalhada" (aba Financeiro). */}
+                    <ChavePagamento cliente={c} marinaId={marinaId} valorMensalidade={valorMensalidadeConfig} onAtualizado={carregar} />
 
                     <span className={`status-texto ${acesso.classe}`}>Acesso à Agenda: {acesso.texto}</span>
                     {/* Indicador dedicado, além do rótulo acima, pra deixar bem visível

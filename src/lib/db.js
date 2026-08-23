@@ -225,6 +225,52 @@ export async function marcarCobrancaPaga(cobrancaId) {
   if (error) throw error
 }
 
+// Confirma o pagamento da mensalidade de um cliente (chamado pela chave de
+// pagamento — sempre um clique manual e explícito do administrador). Além de
+// gravar a confirmação no cadastro do cliente, cria automaticamente uma
+// cobrança de mensalidade "paga" — é isso que alimenta a planilha
+// "Arrecadação detalhada" da aba Financeiro com o valor recebido, sem
+// precisar de nenhum lançamento manual separado.
+//
+// Evita duplicar: se já existe uma cobrança de mensalidade paga para este
+// cliente no mês corrente (ex: administrador desligou e religou a chave no
+// mesmo mês), não cria outra — a arrecadação não pode contar o mesmo
+// recebimento duas vezes. Desligar a chave nunca apaga uma cobrança já
+// paga: dinheiro já recebido continua contando como arrecadação; desligar
+// só bloqueia o acesso do período seguinte, até nova confirmação.
+export async function confirmarPagamentoMensalidade({ cliente, marinaId, valorMensalidade }) {
+  const agora = new Date()
+  const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString().slice(0, 10)
+
+  if (Number(valorMensalidade) > 0) {
+    const { data: existentes, error: erroConsulta } = await db
+      .from('cobrancas')
+      .select('id')
+      .eq('cliente_id', cliente.id)
+      .eq('marina_id', marinaId)
+      .eq('tipo', 'mensalidade')
+      .eq('status', 'pago')
+      .gte('vencimento', inicioMes)
+      .limit(1)
+    if (erroConsulta) throw erroConsulta
+
+    if (!existentes.length) {
+      await criarCobranca({
+        marina_id: marinaId,
+        cliente_id: cliente.id,
+        descricao: `Mensalidade — ${agora.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })} — ${cliente.nome}`,
+        tipo: 'mensalidade',
+        valor: Number(valorMensalidade),
+        vencimento: agora.toISOString().slice(0, 10),
+        status: 'pago',
+        pago_em: agora.toISOString(),
+      })
+    }
+  }
+
+  return salvarCliente({ id: cliente.id, pagamento_confirmado: true, pagamento_confirmado_em: agora.toISOString() })
+}
+
 /* ---------- Manutenção / Ordens de Serviço ---------- */
 export async function listarOrdensServico(marinaId) {
   const { data, error } = await db
