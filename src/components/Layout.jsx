@@ -18,6 +18,12 @@ const ITENS_MENU = [
 // PAPEIS_INTERNOS em App.jsx).
 const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Operador' }
 
+// Nessas telas o cargo some inteiro do cabeçalho (nem "Admin" aparece) — a
+// pedido da administração. Financeiro já ficava assim antes; agora
+// Manutenção, Despachos e Abastecimento entraram na mesma lista. Painel de
+// Controle e Clientes continuam mostrando o cargo normalmente.
+const TELAS_SEM_CARGO = ['financeiro', 'manutencao', 'documentacao', 'abastecimento']
+
 // Botão de engrenagem no cabeçalho, do lado do nome do usuário — abre direto
 // a tela única "Configurações do sistema" (Painel de Controle). Antes era um
 // menu dropdown com os itens soltos (aviso sonoro, histórico, combustíveis,
@@ -60,10 +66,7 @@ export default function Layout({ children, telaAtiva, setTelaAtiva, perfil, titu
         <header className="topo">
           <h1>{titulo}</h1>
           <div className="topo-direita">
-            {/* Na aba Financeiro o nome do usuário logado fica de fora do
-                cabeçalho, a pedido — nas demais abas continua aparecendo
-                normalmente. */}
-            {telaAtiva !== 'financeiro' && (
+            {!TELAS_SEM_CARGO.includes(telaAtiva) && (
               <span className="usuario">{LABEL_CARGO[perfil?.role] || 'Usuário'}</span>
             )}
             <MenuAcoesPainel acoes={acoesPainel} />
