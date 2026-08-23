@@ -116,17 +116,20 @@ export default function Layout({
       </aside>
       <main className="conteudo">
         <header className="topo">
-          {/* Cabeçalho institucional único da área interna: logo horizontal
-              RV Invictus + nome da tela/marina do lado esquerdo, Admin +
-              engrenagem + Sair do lado direito — tudo num único cabeçalho
-              (antes o Painel de Controle tinha uma segunda logo própria,
-              solta acima do conteúdo, ver TelaVagas.jsx). Versão preta da
-              logo (mesma já usada antes só dentro do Painel de Controle):
-              o fundo aqui é claro, a combinação que o manual reserva pra
-              logo dourada é só sobre fundo escuro (sidebar/login). */}
-          <div className="topo-identidade">
+          {/* Cabeçalho institucional único da área interna, em 3 colunas
+              (título | logo | ações) — a logo fica sempre centralizada no
+              meio da página, em QUALQUER aba (inclusive na tela de seleção
+              de aplicações, onde não há título nenhum do lado esquerdo:
+              a coluna simplesmente fica vazia, sem tirar a logo do centro,
+              já que as colunas de fora têm a mesma largura — ver
+              grid-template-columns 1fr auto 1fr abaixo). Versão preta da
+              logo: o fundo aqui é claro, a combinação que o manual reserva
+              pra logo dourada é só sobre fundo escuro (sidebar/login). */}
+          <div className="topo-titulo-area">
+            {titulo && <h1>{titulo}</h1>}
+          </div>
+          <div className="topo-logo-area">
             <img src="/rv-invictus-logo.png" alt="RV Invictus" className="topo-logo" />
-            <h1>{titulo}</h1>
           </div>
           <div className="topo-direita">
             {appSelecionada === 'marine' && !TELAS_SEM_CARGO.includes(telaAtiva) && (

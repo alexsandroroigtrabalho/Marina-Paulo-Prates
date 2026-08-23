@@ -698,22 +698,53 @@ body {
    próprio texto, nunca encolhem (então o nome da marina nunca corta). Se a
    tela for estreita demais pra caber tudo numa linha só, quebra pra uma
    segunda linha em vez de sobrepor/cortar. */
-.topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
-/* Logo + título juntos do lado esquerdo do cabeçalho institucional — maior
-   que a versão antiga (que vivia solta dentro do Painel de Controle, bem
-   pequena), até o tamanho máximo que ainda cabe equilibrado ao lado do
-   título sem dominar o cabeçalho. Hairline fina separando logo e título
-   (em vez de mais uma sombra/cartão) — mesmo princípio de "linha em vez de
-   sombra" já usado na sidebar. */
-.topo-identidade { display: flex; align-items: center; gap: 16px; }
-.topo-logo { width: 168px; height: auto; flex-shrink: 0; }
-.topo-identidade h1 {
-  padding-left: 16px;
-  border-left: 1px solid rgba(13,27,42,0.14);
+/* Cabeçalho institucional em 3 colunas simétricas (1fr auto 1fr): a logo
+   (coluna do meio, largura própria) fica sempre exatamente no centro da
+   página, em QUALQUER aba — inclusive quando a coluna do título está vazia
+   (tela de seleção de aplicações), porque as duas colunas de fora têm
+   sempre a mesma largura entre si, então o centro nunca se desloca pro
+   título ou pras ações. Título à esquerda, Admin/engrenagem/Sair à
+   direita, cada um alinhado à própria borda (justify-self). */
+.topo {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-areas: "titulo logo direita";
+  align-items: center;
+  gap: 12px 20px;
+  margin-bottom: 28px;
 }
+/* Sem justify-self em título/ações: precisam ESTICAR (stretch, o padrão)
+   pra ocupar a coluna 1fr inteira — só assim min-width:0 + overflow:hidden
+   (abaixo) têm uma largura de verdade pra truncar contra. Com justify-self
+   start/end o item encolhe pro tamanho do próprio conteúdo (shrink-to-fit)
+   e passa a vazar por cima da coluna vizinha em vez de truncar. */
+.topo-titulo-area { grid-area: titulo; min-width: 0; }
+.topo-logo-area { grid-area: logo; justify-self: center; }
+.topo-direita { grid-area: direita; min-width: 0; }
+/* Bem maior que antes (era 168px, espremida ao lado do título) — agora é o
+   elemento central do cabeçalho, com espaço de sobra pra crescer sem
+   disputar com título/ações, no tamanho em que "Consultoria e Gestão de
+   Processos" (a legenda já embutida na imagem da logo) fica legível. */
+.topo-logo { width: 260px; height: auto; }
+/* Nomes de marina longos não podem empurrar/sobrepor Admin+engrenagem+Sair
+   à direita — trunca com reticências em vez de quebrar linha ou vazar por
+   cima das ações (min-width:0 na coluna, acima, é o que permite a coluna
+   encolher abaixo da largura do texto pra isso funcionar). */
+.topo-titulo-area h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Mobile: 3 colunas lado a lado não cabem mais com a logo grande — título
+   e ações passam a dividir uma linha compacta no topo, com a logo
+   centralizada numa segunda linha, ocupando a largura toda (mesmo
+   princípio "recomposto", não só encolhido, das outras telas do sistema). */
 @media (max-width: 720px) {
-  .topo-logo { width: 120px; }
-  .topo-identidade h1 { font-size: 19px; padding-left: 12px; }
+  .topo {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "titulo direita" "logo logo";
+    gap: 10px;
+  }
+  .topo-logo-area { justify-self: center; margin-top: 2px; }
+  .topo-logo { width: 190px; }
+  .topo-titulo-area h1 { font-size: 19px; }
 }
 /* Título de página em Cinzel: um dos "poucos momentos de peso simbólico"
    que a análise recomenda pra a fonte de exibição da marca — cada tela é
@@ -724,7 +755,7 @@ body {
   font-family: 'Cinzel', serif;
   letter-spacing: 0.02em; color: var(--cor-primaria); margin: 0;
 }
-.topo-direita { display: flex; align-items: center; gap: 10px; }
+.topo-direita { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
 .usuario { text-align: right; font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
 
 /* "Sair" saiu do menu lateral e agora mora aqui, no canto superior direito

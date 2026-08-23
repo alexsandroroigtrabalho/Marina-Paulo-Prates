@@ -116,10 +116,12 @@ export default function App() {
   // marina): shell interno com sidebar.
 
   // Nenhuma das 4 aplicações escolhida ainda: sidebar mostra o seletor,
-  // conteúdo mostra só a marca d'água convidando a escolher uma.
+  // conteúdo mostra só a marca d'água convidando a escolher uma. Sem
+  // título nenhum no cabeçalho aqui (antes era "RV Invictus", redundante
+  // com a própria logo já centralizada no cabeçalho) — só a logo.
   if (!appSelecionada) {
     return (
-      <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo="RV Invictus">
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo="">
         <PaginaMarcaDagua />
       </Layout>
     )
