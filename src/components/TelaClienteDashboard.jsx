@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAnchor, IconLogout, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
-  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock,
+  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock, IconId,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
@@ -38,12 +38,12 @@ function statusAgendaCliente(cliente) {
     return { texto: 'Acesso suspenso pela administração da marina.', classe: 'cancelado', liberado: false }
   }
   if (cliente.pagamento_confirmado) {
-    return { texto: 'Pagamento confirmado — Agenda liberada.', classe: 'em-dia', liberado: true }
+    return { texto: 'Pagamento confirmado. Agenda liberada.', classe: 'em-dia', liberado: true }
   }
   if (cliente.acesso_liberado_manual) {
     return { texto: 'Acesso liberado manualmente pela administração da marina.', classe: 'em-dia', liberado: true }
   }
-  return { texto: 'Aguardando pagamento — a Agenda é liberada automaticamente assim que a marina confirma.', classe: 'pendente', liberado: false }
+  return { texto: 'Aguardando pagamento. A Agenda é liberada automaticamente assim que a marina confirma.', classe: 'pendente', liberado: false }
 }
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
@@ -130,12 +130,12 @@ const TIPO_AGENDAMENTO_LABEL = { retirada: 'Descida', retorno: 'Subida' }
 // no botão de ação e no Diário de Bordo.
 const DETALHE_STATUS_RESGATE = {
   solicitado: 'Resgate solicitado à equipe da marina',
-  recebido: 'Equipe confirmou o recebimento do pedido — a caminho',
+  recebido: 'Equipe confirmou o recebimento do pedido, a caminho',
   resgatado: 'Atendimento concluído pela equipe',
 }
 const MENSAGEM_BOTAO_RESGATE = {
-  solicitado: 'Resgate solicitado — aguarde a equipe',
-  recebido: 'Pedido recebido — equipe a caminho',
+  solicitado: 'Resgate solicitado, aguarde a equipe',
+  recebido: 'Pedido recebido, equipe a caminho',
 }
 
 // Agrupa os status de todas as origens (agendamentos, abastecimento,
@@ -149,10 +149,13 @@ function classeStatusDiario(status) {
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
-// configurações da conta (hoje só "Pessoas autorizadas", que antes era um
-// botão fixo no meio do painel). Mesmo padrão visual do menu de ações do
-// Painel de Controle da equipe (classes .menu-acoes* já existentes).
-function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, cobrancasPendentes, onAbrirCobrancas }) {
+// configurações da conta ("Pessoas autorizadas" e "Meus dados"). Mesmo
+// padrão visual do menu de ações do Painel de Controle da equipe (classes
+// .menu-acoes* já existentes). "Minhas cobranças" saiu daqui (removida a
+// pedido) — "Meus dados" entrou no lugar: mostra o próprio cadastro do
+// cliente, sempre sincronizado com o que a administração lança no banco
+// (tabela clientes), sem nenhum campo editável aqui.
+function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDados }) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef(null)
 
@@ -180,9 +183,8 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, cobrancasPend
           <button type="button" onClick={() => executar(onAbrirAutorizados)}>
             <IconUsers size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Pessoas autorizadas ({autorizadosCount})
           </button>
-          <button type="button" onClick={() => executar(onAbrirCobrancas)}>
-            <IconReceipt2 size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-            Minhas cobranças{cobrancasPendentes > 0 ? ` (${cobrancasPendentes} pendente${cobrancasPendentes > 1 ? 's' : ''})` : ''}
+          <button type="button" onClick={() => executar(onAbrirMeusDados)}>
+            <IconId size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Meus dados
           </button>
         </div>
       )}
@@ -192,7 +194,6 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, cobrancasPend
 
 export default function TelaClienteDashboard({ perfil }) {
   const [cliente, setCliente] = useState(null)
-  const [cobrancas, setCobrancas] = useState([])
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [agendamentos, setAgendamentos] = useState([])
   const [laudos, setLaudos] = useState([])
@@ -202,7 +203,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const [abastecimentos, setAbastecimentos] = useState([])
   const [autorizados, setAutorizados] = useState([])
   const [modalAutorizadosAberto, setModalAutorizadosAberto] = useState(false)
-  const [modalCobrancasAberto, setModalCobrancasAberto] = useState(false)
+  const [modalDadosAberto, setModalDadosAberto] = useState(false)
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
   const [modalTipo, setModalTipo] = useState(null) // 'retirada' | 'retorno' | null
@@ -254,9 +255,6 @@ export default function TelaClienteDashboard({ perfil }) {
       setCliente(cli)
       setErroCarregamento(null)
       if (!cli) return
-      const { data: cob, error: erroCob } = await db.from('cobrancas').select('*').eq('cliente_id', cli.id)
-      if (erroCob) throw erroCob
-      setCobrancas(cob || [])
       const { data: emb, error: erroEmb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
       if (erroEmb) throw erroEmb
       setEmbarcacoes(emb || [])
@@ -301,11 +299,12 @@ export default function TelaClienteDashboard({ perfil }) {
 
   // Atualização automática em tempo real: sempre que a administração mudar
   // o status de um agendamento, ordem de serviço, despacho, laudo, pedido de
-  // abastecimento, cobrança, ou liberar/suspender o acesso do próprio
-  // cliente, o Supabase Realtime avisa este canal na hora — sem precisar de
-  // F5. carregar() já busca tudo de novo (cliente, agendamentos, laudos,
-  // despachos, ordens de serviço, abastecimentos, cobranças), então o
-  // Painel, a Agenda e o Diário de Bordo ficam sincronizados juntos, sempre
+  // abastecimento, os próprios dados cadastrais do cliente (ver "Meus
+  // dados"), ou liberar/suspender o acesso, o Supabase Realtime avisa este
+  // canal na hora — sem precisar de F5. carregar() já busca tudo de novo
+  // (cliente, agendamentos, laudos, despachos, ordens de serviço,
+  // abastecimentos), então o Painel, a Agenda, o Diário de Bordo e "Meus
+  // dados" ficam sincronizados juntos, sempre
   // com os mesmos rótulos/cores já usados em cada status (STATUS_LABEL,
   // labelStatusManutencao, labelStatusResgate, classeStatusDiario) — nada
   // disso muda aqui, só passa a atualizar sozinho. O polling a cada 30s
@@ -322,7 +321,6 @@ export default function TelaClienteDashboard({ perfil }) {
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'despachos', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'laudos', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
-      .on('postgres_changes', { event: '*', schema: 'marina', table: 'cobrancas', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'clientes', filter: `id=eq.${idCliente}` }, () => carregar())
       // Agenda da rampa alterada pela administração (horário, intervalo,
       // manutenções, mensagens) — reflete aqui na hora, sem F5.
@@ -344,7 +342,7 @@ export default function TelaClienteDashboard({ perfil }) {
     // suspensão) — isto aqui só evita abrir o formulário à toa.
     const statusAgenda = statusAgendaCliente(cliente)
     if (!statusAgenda?.liberado) {
-      alert(statusAgenda?.texto || 'Aguardando pagamento — fale com a administração da marina.')
+      alert(statusAgenda?.texto || 'Aguardando pagamento. Fale com a administração da marina.')
       return
     }
     // Mesma ideia pra Agenda da rampa: o botão já fica desabilitado
@@ -353,7 +351,7 @@ export default function TelaClienteDashboard({ perfil }) {
     // padrão genérico (RAMPA_PADRAO) em vez do que a marina configurou de
     // verdade — ver configRampaCarregada.
     if (!configRampaCarregada) {
-      alert('Carregando os horários da rampa — tente novamente em instantes.')
+      alert('Carregando os horários da rampa. Tente novamente em instantes.')
       return
     }
     setFormAgendamento({ embarcacao_id: embarcacoes[0]?.id || '', data: '', hora: '', observacoes: '', autorizado_id: '', previsao_retorno: '' })
@@ -470,7 +468,7 @@ export default function TelaClienteDashboard({ perfil }) {
         embarcacao_id: formServico.embarcacao_id || null,
         tipo: servicoAtivo.key,
         observacoes: formServico.observacoes
-          ? `${servicoAtivo.titulo} — ${formServico.observacoes}`
+          ? `${servicoAtivo.titulo} · ${formServico.observacoes}`
           : servicoAtivo.titulo,
       })
       setModalServicosAberto(false)
@@ -534,7 +532,7 @@ export default function TelaClienteDashboard({ perfil }) {
     ...agendamentos.map((a) => ({
       id: `ag-${a.id}`,
       icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
-      titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}`,
+      titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}`,
       detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       statusLabel: STATUS_LABEL[a.status] || a.status,
       statusClasse: classeStatusDiario(a.status),
@@ -543,8 +541,8 @@ export default function TelaClienteDashboard({ perfil }) {
     ...abastecimentos.map((p) => ({
       id: `ab-${p.id}`,
       icone: IconGasStation,
-      titulo: `Abastecimento — ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` — ${p.embarcacoes.nome}` : ''}`,
-      detalhe: `${Number(p.quantidade_litros).toFixed(2)} L — R$ ${Number(p.valor_total).toFixed(2)}`,
+      titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
+      detalhe: `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
       statusLabel: STATUS_LABEL[p.status] || p.status,
       statusClasse: classeStatusDiario(p.status),
       quando: p.created_at,
@@ -552,7 +550,7 @@ export default function TelaClienteDashboard({ perfil }) {
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,
       icone: IconTools,
-      titulo: `Manutenção — ${TIPOS_MANUTENCAO.find((t) => t.key === os.tipo_servico)?.label || os.tipo_servico}${os.embarcacoes?.nome ? ` — ${os.embarcacoes.nome}` : ''}`,
+      titulo: `Manutenção · ${TIPOS_MANUTENCAO.find((t) => t.key === os.tipo_servico)?.label || os.tipo_servico}${os.embarcacoes?.nome ? ` · ${os.embarcacoes.nome}` : ''}`,
       detalhe: os.descricao || '',
       // Rótulo vem da mesma fonte usada na tela Manutenção da equipe e na
       // planilha exportada (lib/statusManutencao), pra manter o texto do
@@ -564,7 +562,7 @@ export default function TelaClienteDashboard({ perfil }) {
     ...despachos.map((d) => ({
       id: `de-${d.id}`,
       icone: IconFileCertificate,
-      titulo: `Regularização — ${d.tipo?.replace(/_/g, ' ') || ''}${d.embarcacoes?.nome ? ` — ${d.embarcacoes.nome}` : ''}`,
+      titulo: `Regularização · ${d.tipo?.replace(/_/g, ' ') || ''}${d.embarcacoes?.nome ? ` · ${d.embarcacoes.nome}` : ''}`,
       detalhe: `${d.orgao || ''}${d.numero_protocolo ? ` · Protocolo ${d.numero_protocolo}` : ''}`,
       statusLabel: STATUS_LABEL[d.status] || d.status,
       statusClasse: classeStatusDiario(d.status),
@@ -573,7 +571,7 @@ export default function TelaClienteDashboard({ perfil }) {
     ...laudos.map((l) => ({
       id: `la-${l.id}`,
       icone: IconFileCertificate,
-      titulo: `Laudo técnico — ${l.tipo}${l.embarcacoes?.nome ? ` — ${l.embarcacoes.nome}` : ''}`,
+      titulo: `Laudo técnico · ${l.tipo}${l.embarcacoes?.nome ? ` · ${l.embarcacoes.nome}` : ''}`,
       detalhe: l.finalidade || '',
       statusLabel: STATUS_LABEL[l.status] || l.status,
       statusClasse: classeStatusDiario(l.status),
@@ -588,7 +586,7 @@ export default function TelaClienteDashboard({ perfil }) {
       ? [{
           id: `sos-${agendamentoNavegando.id}`,
           icone: IconLifebuoy,
-          titulo: `S.O.S. — ${agendamentoNavegando.embarcacoes?.nome || 'embarcação'}`,
+          titulo: `S.O.S. · ${agendamentoNavegando.embarcacoes?.nome || 'embarcação'}`,
           detalhe: DETALHE_STATUS_RESGATE[agendamentoNavegando.resgate_status] || '',
           statusLabel: labelStatusResgate(agendamentoNavegando.resgate_status),
           statusClasse: agendamentoNavegando.resgate_status === 'resgatado' ? 'em-dia' : 'sos',
@@ -653,7 +651,7 @@ export default function TelaClienteDashboard({ perfil }) {
     <div style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <img
         src="/rv-invictus-logo.png"
-        alt="RV Invictus — Consultoria e Gestão de Processos"
+        alt="RV Invictus · Consultoria e Gestão de Processos"
         className="pagina-cliente-logo"
       />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -668,8 +666,7 @@ export default function TelaClienteDashboard({ perfil }) {
             <MenuConfigCliente
               autorizadosCount={autorizados.filter((a) => a.ativo).length}
               onAbrirAutorizados={abrirModalAutorizados}
-              cobrancasPendentes={cobrancas.filter((c) => c.status !== 'pago').length}
-              onAbrirCobrancas={() => setModalCobrancasAberto(true)}
+              onAbrirMeusDados={() => setModalDadosAberto(true)}
             />
           )}
         </div>
@@ -719,10 +716,10 @@ export default function TelaClienteDashboard({ perfil }) {
             >
               <IconLifebuoy size={20} />
               {!agendamentoNavegando
-                ? 'S.O.S. — nenhuma embarcação no mar'
+                ? 'S.O.S. · nenhuma embarcação no mar'
                 : enviandoResgate
                   ? 'Enviando...'
-                  : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. — Solicitar resgate'}
+                  : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. · Solicitar resgate'}
             </button>
 
             <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
@@ -962,7 +959,7 @@ export default function TelaClienteDashboard({ perfil }) {
             <select required value={formAbastecimento.combustivel_id}
               onChange={(e) => setFormAbastecimento({ ...formAbastecimento, combustivel_id: e.target.value })}>
               <option value="">Selecione o combustível</option>
-              {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} — R$ {Number(c.preco_litro).toFixed(2)}/L</option>)}
+              {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} · R$ {Number(c.preco_litro).toFixed(2)}/L</option>)}
             </select>
             <input type="number" min="1" step="0.5" required placeholder="Quantidade (litros)"
               value={formAbastecimento.quantidade_litros}
@@ -984,7 +981,7 @@ export default function TelaClienteDashboard({ perfil }) {
         <div className="modal-fundo" onClick={() => setPedidoGerado(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
             <h3>Escaneie para pagar</h3>
-            <p className="dica">{pedidoGerado.combustivelNome} — {Number(pedidoGerado.quantidade_litros).toFixed(2)} L</p>
+            <p className="dica">{pedidoGerado.combustivelNome} · {Number(pedidoGerado.quantidade_litros).toFixed(2)} L</p>
             <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
               <QRCodeSVG value={pedidoGerado.qr_code} size={200} />
             </div>
@@ -992,7 +989,7 @@ export default function TelaClienteDashboard({ perfil }) {
               R$ {Number(pedidoGerado.valor_total).toFixed(2)}
             </p>
             <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
-              QR de demonstração — o pagamento real via Pix ainda não está conectado. Seu pedido já foi registrado para a marina.
+              QR de demonstração. O pagamento real via Pix ainda não está conectado. Seu pedido já foi registrado para a marina.
             </p>
             <button className="btn-primario" style={{ width: '100%' }} onClick={() => setPedidoGerado(null)}>Fechar</button>
           </div>
@@ -1013,7 +1010,7 @@ export default function TelaClienteDashboard({ perfil }) {
                     <QRCodeSVG value={QR_PAGAMENTO_DEMO} size={200} />
                   </div>
                   <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
-                    QR de demonstração — o pagamento real via Pix ainda não está conectado.
+                    QR de demonstração. O pagamento real via Pix ainda não está conectado.
                   </p>
                   {TEMA_PADRAO.linkPagamento ? (
                     <p>
@@ -1023,10 +1020,10 @@ export default function TelaClienteDashboard({ perfil }) {
                       </a>
                     </p>
                   ) : (
-                    <p className="dica">Link de pagamento ainda não configurado pela marina — fale com a administração.</p>
+                    <p className="dica">Link de pagamento ainda não configurado pela marina. Fale com a administração.</p>
                   )}
                   <p className="dica">
-                    Depois de pagar, a administração confirma o recebimento e sua Agenda (Descida/Subida) é liberada automaticamente — não é preciso fazer mais nada aqui.
+                    Depois de pagar, a administração confirma o recebimento e sua Agenda (Descida/Subida) é liberada automaticamente, não é preciso fazer mais nada aqui.
                   </p>
                 </>
               )}
@@ -1048,7 +1045,7 @@ export default function TelaClienteDashboard({ perfil }) {
               {autorizados.map((a) => (
                 <div key={a.id} className="cliente-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div>
-                    <div className="linha"><b>{a.nome}</b> — {a.parentesco}</div>
+                    <div className="linha"><b>{a.nome}</b> · {a.parentesco}</div>
                     <div className="linha">{a.documento || 'sem documento'}{a.telefone ? ` · ${a.telefone}` : ''}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1082,24 +1079,34 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {modalCobrancasAberto && (
-        <div className="modal-fundo" onClick={() => setModalCobrancasAberto(false)}>
+      {/* "Meus dados": só leitura, de propósito — o cadastro é lançado e
+          corrigido pela administração (mesmas telas/campos de
+          FichaCadastro.jsx e TelaClientes.jsx), e `cliente` aqui já vem
+          direto da tabela clientes (ver carregar() acima), com a mesma
+          assinatura Realtime de "UPDATE" nessa tabela — então qualquer
+          alteração que a administração lançar no banco aparece aqui sozinha,
+          sem precisar de F5 nem de nenhum botão "salvar" nesta tela. */}
+      {modalDadosAberto && cliente && (
+        <div className="modal-fundo" onClick={() => setModalDadosAberto(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>Minhas cobranças</h3>
+            <h3>Meus dados</h3>
+            <p className="dica">Cadastro lançado pela administração da marina. Para corrigir algo, fale com a administração.</p>
             <div className="lista-cards">
-              {cobrancas.length === 0 && <p className="dica">Nenhuma cobrança ainda.</p>}
-              {cobrancas.map((c) => (
-                <div key={c.id} className="cliente-card">
-                  <div className="linha"><b>{c.descricao}</b></div>
-                  <div className="linha">Vencimento: {c.vencimento} — R$ {Number(c.valor).toFixed(2)}</div>
-                  <span className={`status-texto ${c.status === 'pago' ? 'em-dia' : 'pendente'}`}>
-                    {c.status === 'pago' ? 'Pagamento em dia' : 'Pagamento pendente'}
-                  </span>
+              <div className="cliente-card">
+                <div className="linha"><b>Nome:</b> {cliente.nome || '(não informado)'}</div>
+                <div className="linha"><b>CPF:</b> {cliente.cpf_cnpj || '(não informado)'}</div>
+                <div className="linha"><b>Documento de identidade:</b> {cliente.documento_identidade || '(não informado)'}</div>
+                <div className="linha"><b>E-mail:</b> {cliente.email || '(não informado)'}</div>
+                <div className="linha"><b>Telefone:</b> {cliente.telefone || '(não informado)'}</div>
+                <div className="linha">
+                  <b>Endereço:</b> {cliente.endereco
+                    ? `${cliente.endereco}, ${cliente.numero_casa || 's/n'}${cliente.complemento ? ` · ${cliente.complemento}` : ''}`
+                    : '(não informado)'}
                 </div>
-              ))}
+              </div>
             </div>
             <div className="acoes-modal">
-              <button type="button" onClick={() => setModalCobrancasAberto(false)}>Fechar</button>
+              <button type="button" onClick={() => setModalDadosAberto(false)}>Fechar</button>
             </div>
           </div>
         </div>

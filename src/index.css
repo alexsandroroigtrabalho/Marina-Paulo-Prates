@@ -283,9 +283,11 @@ body {
 }
 
 /* Mesmo crédito de marca, para telas de conteúdo (não centralizadas em
-   coluna única, ex.: portal do cliente) — logo pequena acima do cabeçalho
-   e crédito centralizado ao final da página. */
-.pagina-cliente-logo { display: block; width: min(150px, 45vw); height: auto; margin: 0 auto 18px; }
+   coluna única, ex.: portal do cliente) — logo acima do cabeçalho e crédito
+   centralizado ao final da página. Mesmo padrão de tamanho/breakpoint da
+   logo do Painel de Controle (.topo-logo/.topo-logo abaixo, 260px desktop /
+   190px mobile) — a pedido explícito, pra ficar igual nas duas telas. */
+.pagina-cliente-logo { display: block; width: 260px; height: auto; margin: 0 auto 18px; }
 .pagina-cliente-rodape {
   display: block;
   margin: 28px 0 4px;
@@ -754,6 +756,7 @@ body {
   .topo-logo-area { justify-self: center; margin-top: 2px; }
   .topo-logo { width: 190px; }
   .topo-titulo-area h1 { font-size: 19px; }
+  .pagina-cliente-logo { width: 190px; }
 }
 /* Título de página em Cinzel: um dos "poucos momentos de peso simbólico"
    que a análise recomenda pra a fonte de exibição da marca — cada tela é
