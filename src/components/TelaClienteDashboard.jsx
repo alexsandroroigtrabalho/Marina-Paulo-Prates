@@ -1238,7 +1238,7 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RV Invictus.com.br</a>
+      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
     </div>
   )
 }
