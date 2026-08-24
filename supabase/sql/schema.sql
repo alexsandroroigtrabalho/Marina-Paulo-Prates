@@ -427,7 +427,11 @@ CREATE TABLE marina.pedidos_abastecimento (
   quantidade_litros      NUMERIC(10,2) NOT NULL,
   preco_litro_no_pedido  NUMERIC(10,2) NOT NULL, -- snapshot do preço no momento do pedido
   valor_total            NUMERIC(10,2) NOT NULL,
-  status                 TEXT DEFAULT 'solicitado', -- solicitado | confirmado | aguardando_pagamento | pago | entregue | cancelado
+  status                 TEXT DEFAULT 'solicitado', -- solicitado | confirmado | aguardando_pagamento | pago | entregue | cancelado | indisponivel
+  -- Fluxo simplificado (ver TelaAbastecimento.jsx): o operador só escolhe
+  -- entre 'aguardando_pagamento' / 'pago' / 'cancelado' / 'indisponivel'.
+  -- 'solicitado' / 'confirmado' / 'entregue' são valores legados (pedidos de
+  -- antes dessa mudança), ainda tratados na UI só pra não quebrar histórico.
   forma_pagamento        TEXT DEFAULT 'pix',
   payment_id             TEXT,
   qr_code                TEXT, -- payload "pix copia e cola" (real ou demo)
@@ -692,6 +696,15 @@ CREATE POLICY "cliente_cria_pedido_abastecimento" ON marina.pedidos_abasteciment
 CREATE POLICY "cliente_ve_proprios_pedidos_abastecimento" ON marina.pedidos_abastecimento
   FOR SELECT TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+
+-- Pedidos de abastecimento: cliente cancela o próprio pedido direto pelo
+-- Diário de Bordo (ver migration_cliente_cancela_pedido_abastecimento.sql),
+-- só enquanto ainda estiver "Aguardando pagamento" ou "Indisponível" — uma
+-- vez "Pagamento efetuado" o pedido já foi concluído.
+CREATE POLICY "cliente_cancela_proprio_pedido_abastecimento" ON marina.pedidos_abastecimento
+  FOR UPDATE TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status IN ('aguardando_pagamento', 'indisponivel'))
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'cancelado');
 
 -- Autorizados: staff da marina tem acesso completo (para conferir na portaria/rampa)
 CREATE POLICY "admin_marina_autorizados" ON marina.autorizados

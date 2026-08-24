@@ -888,6 +888,10 @@ button.badge:hover { filter: brightness(0.95); }
 /* ---------- Abastecimento ---------- */
 .status-aguardando_pagamento, .status-confirmado { background: #FCE6DA; color: var(--cor-alerta); }
 .status-entregue { background: var(--cor-primaria-tint); color: var(--cor-secundaria); }
+/* "Indisponível" — combustível fora de estoque/indisponível no momento do
+   pedido (ver STATUS_FILA_OPCOES-like seletor em TelaAbastecimento.jsx) —
+   mesmo tom de alerta já usado pra documento vencido/exigência pendente. */
+.status-indisponivel { background: #FCE0D6; color: #B0472A; }
 
 /* ---------- Painel de Controle (visão TV da marina) ---------- */
 /* Relógio com mais peso/tamanho — é lido de longe (painel pensado pra ficar

@@ -9,7 +9,7 @@ import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
-  solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
+  solicitarAbastecimento, atualizarStatusAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
   salvarCliente, listarHorariosOcupados,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
@@ -199,6 +199,26 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
     return { statusLabel: 'Recolhido', statusClasse: classeStatusDiario(a.status) }
   }
   return { statusLabel: STATUS_LABEL[a.status] || a.status, statusClasse: classeStatusDiario(a.status) }
+}
+
+// Rótulo/cor de um pedido de abastecimento no Diário de Bordo — mesmo
+// espírito de statusAgendamentoDiario acima: a maioria dos status já cai
+// certo em STATUS_LABEL/classeStatusDiario, só os dois valores novos do
+// fluxo simplificado (ver <select> em TelaAbastecimento.jsx) precisam de
+// tratamento especial:
+//   - 'aguardando_pagamento': a marina já confirmou o pedido, só falta o
+//     cliente pagar — mostra os dois estados juntos ("Confirmado —
+//     Aguardando pagamento"), como pedido pelo administrador.
+//   - 'indisponivel': a marina não tem esse combustível disponível agora —
+//     mesmo tom visual ("cancelado", cinza) de uma solicitação que não vai
+//     seguir adiante, com o texto certo.
+// 'pago'/'entregue' nunca chegam aqui: uma vez que o pagamento é
+// confirmado, o pedido já sai do Diário de Bordo (ver filtro em
+// diarioDeBordo abaixo), do mesmo jeito que já sai da tela do administrador.
+function statusAbastecimentoDiario(p) {
+  if (p.status === 'aguardando_pagamento') return { statusLabel: 'Confirmado — Aguardando pagamento', statusClasse: 'pendente' }
+  if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
+  return { statusLabel: STATUS_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
@@ -544,6 +564,25 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
+  // Cancelar um pedido de abastecimento direto pelo Diário de Bordo — só
+  // aparece enquanto o pedido ainda está "Aguardando pagamento" ou
+  // "Indisponível" (ver abastecimentoParaCancelar em diarioDeBordo abaixo);
+  // uma vez "Pagamento efetuado" o pedido já não aparece mais aqui (filtrado
+  // antes de entrar no Diário de Bordo). Mesmo padrão de confirmação de
+  // cancelarAgendamentoCliente acima. atualizarStatusAbastecimento é a
+  // mesma função usada pelo Painel de Controle (TelaAbastecimento.jsx) — o
+  // status 'cancelado' propaga pra lá via Realtime (ver assinatura de
+  // pedidos_abastecimento logo abaixo, no useEffect de carregamento).
+  async function cancelarAbastecimentoCliente(p) {
+    if (!confirm(`Cancelar o pedido de abastecimento de ${p.combustiveis?.nome || 'combustível'}${p.embarcacoes?.nome ? ` (${p.embarcacoes.nome})` : ''}?`)) return
+    try {
+      await atualizarStatusAbastecimento(p.id, 'cancelado')
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível cancelar: ' + err.message)
+    }
+  }
+
   function abrirModalAutorizados() {
     setFormAutorizado({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
     setModalAutorizadosAberto(true)
@@ -736,14 +775,20 @@ export default function TelaClienteDashboard({ perfil }) {
       // Painel de Controle, não mais um botão aqui. Ver cancelarAgendamentoCliente.
       agendamentoParaCancelar: (a.status === 'solicitado' || a.status === 'confirmado') ? a : null,
     })),
-    ...abastecimentos.map((p) => ({
+    // 'pago'/'entregue' (entregue é valor legado) somem do Diário de Bordo
+    // assim que a marina confirma o pagamento — mesmo momento em que o
+    // pedido some da própria tela do administrador (ver pedidosVisiveis em
+    // TelaAbastecimento.jsx), já que o serviço está concluído dos dois lados.
+    ...abastecimentos.filter((p) => p.status !== 'pago' && p.status !== 'entregue').map((p) => ({
       id: `ab-${p.id}`,
       icone: IconGasStation,
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
       detalhe: `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
-      statusLabel: STATUS_LABEL[p.status] || p.status,
-      statusClasse: classeStatusDiario(p.status),
+      ...statusAbastecimentoDiario(p),
       quando: p.created_at,
+      // Só dá pra cancelar enquanto o pedido ainda está "Aguardando
+      // pagamento" ou "Indisponível" — ver cancelarAbastecimentoCliente.
+      abastecimentoParaCancelar: (p.status === 'aguardando_pagamento' || p.status === 'indisponivel') ? p : null,
     })),
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,
@@ -973,6 +1018,12 @@ export default function TelaClienteDashboard({ perfil }) {
                   {item.agendamentoParaCancelar && (
                     <button type="button" className="cancelar" style={{ flexShrink: 0 }}
                       onClick={() => cancelarAgendamentoCliente(item.agendamentoParaCancelar)}>
+                      Cancelar
+                    </button>
+                  )}
+                  {item.abastecimentoParaCancelar && (
+                    <button type="button" className="cancelar" style={{ flexShrink: 0 }}
+                      onClick={() => cancelarAbastecimentoCliente(item.abastecimentoParaCancelar)}>
                       Cancelar
                     </button>
                   )}
