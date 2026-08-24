@@ -240,6 +240,10 @@ export default function TelaClienteDashboard({ perfil }) {
   // ficam desabilitados até virar true, pra nunca oferecer um horário com
   // base no padrão genérico em vez da configuração real (ver abrirModal).
   const [configRampaCarregada, setConfigRampaCarregada] = useState(false)
+  // Linha crua de marina.marinas (config_json) — hoje só usada pra ler
+  // diarioBordoLimpoEm (ver diarioAtivo abaixo); configRampa continua sendo
+  // derivado à parte por lerConfigRampa, não duplica leitura nenhuma.
+  const [marina, setMarina] = useState(null)
   const [modalServicosAberto, setModalServicosAberto] = useState(false)
   // Dentro do modal "Serviços": qual dos 3 tipos o cliente escolheu (null =
   // ainda no seletor inicial), e, se for "regularizacao", qual categoria da
@@ -300,6 +304,7 @@ export default function TelaClienteDashboard({ perfil }) {
       setAutorizados(autorizadosCarregados)
       setConfigRampa(lerConfigRampa(marinaCarregada))
       setConfigRampaCarregada(true)
+      setMarina(marinaCarregada)
     } catch (err) {
       // Não derruba a tela — mantém o que já estava carregado e avisa, pra
       // dar pra tentar de novo (ex: recarregando a página) em vez de ficar
@@ -650,7 +655,19 @@ export default function TelaClienteDashboard({ perfil }) {
   // engrenagem (abaixo). Depois desses 5 dias, some dali também (a
   // exportação em CSV reflete o mesmo recorte, nunca mais que isso). Nada
   // é apagado do banco — só para de aparecer/ser exportável nesta tela.
-  const diarioAtivo = diarioDeBordo.filter((item) => item.statusClasse !== 'em-dia')
+  //
+  // diarioBordoLimpoEm (marina.marinas.config_json): carimbo opcional de uma
+  // limpeza geral da tela, gravado direto no banco (não tem UI própria hoje
+  // — é uma ação pontual da administração). Qualquer item, mesmo em aberto,
+  // com "quando" igual ou anterior a esse carimbo some do Diário de Bordo
+  // ativo — só isso, mesmo espírito do filtro acima: nada é apagado do
+  // banco, o item só some da tela. Uma solicitação nova, criada depois do
+  // carimbo, aparece normalmente. Chega em tempo real (Realtime já assina
+  // marina.marinas mais abaixo), sem precisar de F5.
+  const limpoEm = marina?.config_json?.diarioBordoLimpoEm ? new Date(marina.config_json.diarioBordoLimpoEm) : null
+  const diarioAtivo = diarioDeBordo.filter((item) =>
+    item.statusClasse !== 'em-dia' && (!limpoEm || new Date(item.quando) > limpoEm)
+  )
   const agora = Date.now()
   const historicoSolicitacoes = diarioDeBordo.filter((item) =>
     item.statusClasse === 'em-dia' && agora - new Date(item.quando).getTime() <= HISTORICO_JANELA_MS

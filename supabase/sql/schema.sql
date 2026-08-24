@@ -44,6 +44,12 @@ CREATE TABLE marina.marinas (
 --   rampaMensagemIndisponibilidade        (Agenda — uma das 3 opções fixas de src/lib/agendaRampa.js: "Rampa em
 --                                          manutenção" | "Aguarde" | "Rampa fechada (feriado)"; mostrada ao cliente
 --                                          sempre que a rampa estiver indisponível pra data escolhida)
+--   diarioBordoLimpoEm                   (Diário de Bordo do painel do cliente — carimbo ISO de uma limpeza geral
+--                                          da tela, feita direto no banco; qualquer item, mesmo em aberto, datado
+--                                          antes desse carimbo some do Diário de Bordo ativo de TODOS os clientes
+--                                          da marina — ver diarioAtivo em TelaClienteDashboard.jsx. Só a tela, nada
+--                                          é apagado do banco; uma solicitação nova criada depois do carimbo volta
+--                                          a aparecer normalmente. Sem UI própria hoje — gravado manualmente.)
 -- Só admin pode gravar aqui (policy "admin_atualiza_propria_marina" abaixo).
 -- rampaIntervaloMinutos também é lido direto pelo Postgres — ver a policy
 -- "cliente_cria_agendamento" (marina.agendamentos, mais abaixo), que recusa
