@@ -16,14 +16,15 @@ import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, STATUS_ABASTECIMENTO_CANCELAVEIS } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_CANCELAVEIS } from '../lib/statusAbastecimento'
 import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 
-// Solicitação concluída some do Diário de Bordo ativo e passa a viver só no
-// Histórico de Solicitações (engrenagem → Histórico), por até 5 dias — ver
-// diarioAtivo/historicoSolicitacoes mais abaixo.
+// Janela de visibilidade do Histórico de Solicitações (engrenagem →
+// Histórico) — registra TODA solicitação do cliente (pendente, cancelada ou
+// concluída), não só por 5 dias depois de sair do Diário de Bordo ativo —
+// ver diarioAtivo/historicoSolicitacoes mais abaixo.
 const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
@@ -810,11 +811,12 @@ export default function TelaClienteDashboard({ perfil }) {
       // Painel de Controle, não mais um botão aqui. Ver cancelarAgendamentoCliente.
       agendamentoParaCancelar: (a.status === 'solicitado' || a.status === 'confirmado') ? a : null,
     })),
-    // 'pago'/'entregue' (entregue é valor legado) somem do Diário de Bordo
-    // assim que a marina confirma o pagamento — mesmo momento em que o
-    // pedido some da própria tela do administrador (ver pedidosVisiveis em
-    // TelaAbastecimento.jsx), já que o serviço está concluído dos dois lados.
-    ...abastecimentos.filter((p) => !abastecimentoConcluido(p.status)).map((p) => ({
+    // TODO pedido entra aqui, mesmo já 'pago'/'entregue' (entregue é valor
+    // legado) — é o que garante que "Pagamento efetuado" continue visível no
+    // Histórico de Solicitações da engrenagem depois de sumir do Diário de
+    // Bordo ativo e da própria tela do administrador (ver diarioAtivo/
+    // historicoSolicitacoes abaixo e pedidosVisiveis em TelaAbastecimento.jsx).
+    ...abastecimentos.map((p) => ({
       id: `ab-${p.id}`,
       icone: IconGasStation,
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
@@ -879,26 +881,38 @@ export default function TelaClienteDashboard({ perfil }) {
 
   // Uma vez concluída/paga/aprovada (mesma classeStatusDiario 'em-dia' que
   // já colore o badge de verde), a solicitação sai do Diário de Bordo ativo
-  // — só continua visível, por até 5 dias, no Histórico de Solicitações da
-  // engrenagem (abaixo). Depois desses 5 dias, some dali também (a
-  // exportação em CSV reflete o mesmo recorte, nunca mais que isso). Nada
-  // é apagado do banco — só para de aparecer/ser exportável nesta tela.
+  // — continua visível, sem limite de tempo aqui, no Histórico de
+  // Solicitações da engrenagem (abaixo), junto com TODA solicitação já
+  // feita (pendente, cancelada ou concluída) — ver historicoSolicitacoes.
+  // Nada é apagado do banco — só sai desta lista aqui.
   //
   // diarioBordoLimpoEm (marina.marinas.config_json): carimbo opcional de uma
   // limpeza geral da tela, gravado direto no banco (não tem UI própria hoje
   // — é uma ação pontual da administração). Qualquer item, mesmo em aberto,
   // com "quando" igual ou anterior a esse carimbo some do Diário de Bordo
   // ativo — só isso, mesmo espírito do filtro acima: nada é apagado do
-  // banco, o item só some da tela. Uma solicitação nova, criada depois do
-  // carimbo, aparece normalmente. Chega em tempo real (Realtime já assina
-  // marina.marinas mais abaixo), sem precisar de F5.
+  // banco, o item só some da tela (o Histórico de Solicitações abaixo não é
+  // afetado por essa limpeza — continua mostrando tudo normalmente). Uma
+  // solicitação nova, criada depois do carimbo, aparece normalmente. Chega
+  // em tempo real (Realtime já assina marina.marinas mais abaixo), sem
+  // precisar de F5.
   const limpoEm = marina?.config_json?.diarioBordoLimpoEm ? new Date(marina.config_json.diarioBordoLimpoEm) : null
   const diarioAtivo = diarioDeBordo.filter((item) =>
     item.statusClasse !== 'em-dia' && (!limpoEm || new Date(item.quando) > limpoEm)
   )
   const agora = Date.now()
+  // Histórico de Solicitações: registro de TODA solicitação já feita pelo
+  // cliente — descida/subida, combustível, S.O.S., manutenção, regularização,
+  // laudos, cancelamentos e afins — não só as concluídas com sucesso, ao
+  // contrário de antes (o filtro por statusClasse === 'em-dia' foi removido
+  // de propósito). Cada uma aparece com o status ATUAL (Aguardando
+  // pagamento/Indisponível/Pagamento efetuado/Cancelado/etc — mesmos dados
+  // já usados no Diário de Bordo ativo acima), atualizado em tempo real
+  // junto com o resto da tela. Só a janela de 5 dias (HISTORICO_JANELA_MS)
+  // continua limitando o que aparece aqui e no CSV exportado — item mais
+  // antigo que isso só some desta lista, nunca do banco.
   const historicoSolicitacoes = diarioDeBordo.filter((item) =>
-    item.statusClasse === 'em-dia' && agora - new Date(item.quando).getTime() <= HISTORICO_JANELA_MS
+    agora - new Date(item.quando).getTime() <= HISTORICO_JANELA_MS
   )
 
   // Pedidos de abastecimento já registrados mas ainda não pagos — o QR/link
@@ -1486,9 +1500,10 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {/* Histórico de Solicitações: solicitações que já saíram do Diário de
-          Bordo ativo (concluídas/pagas/aprovadas — ver diarioAtivo/
-          historicoSolicitacoes acima), disponíveis aqui por até 5 dias.
+      {/* Histórico de Solicitações: TODA solicitação já feita pelo cliente
+          (descida/subida, combustível, S.O.S., manutenção, regularização,
+          laudos, cancelamentos e afins — ver historicoSolicitacoes acima),
+          com o status atual de cada uma, disponíveis aqui por até 5 dias.
           Passado esse prazo elas somem tanto da lista quanto da exportação
           (o filtro de 5 dias já está em historicoSolicitacoes, então tanto
           esta lista quanto exportarHistoricoSolicitacoesCsv refletem
@@ -1498,7 +1513,7 @@ export default function TelaClienteDashboard({ perfil }) {
         <div className="modal-fundo" onClick={() => setModalHistoricoAberto(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Histórico de solicitações</h3>
-            <p className="dica">Solicitações já concluídas, disponíveis aqui por 5 dias.</p>
+            <p className="dica">Todas as suas solicitações dos últimos 5 dias, com o status atual de cada uma.</p>
             <div className="lista-cards historico-lista">
               {historicoSolicitacoes.length === 0 && <p className="dica">Nenhum registro no histórico ainda.</p>}
               {historicoSolicitacoes.map((item) => {

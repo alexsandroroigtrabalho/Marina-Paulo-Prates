@@ -235,11 +235,13 @@ export async function exportarArrecadacaoCsv(marinaId) {
  * Diferente das exportações acima (que buscam tudo de novo no banco), esta
  * recebe os itens já prontos de TelaClienteDashboard.jsx: o mesmo recorte
  * "Histórico de Solicitações" da engrenagem (Configurações → Histórico de
- * solicitações) — solicitações já concluídas/pagas/aprovadas (saíram do
- * Diário de Bordo ativo) e ainda dentro da janela de 5 dias que essa tela
- * usa (ver diarioDeBordo/historicoSolicitacoes lá). Não é síncrona com o
- * banco de propósito: é uma cópia em CSV exatamente do que o cliente está
- * vendo na tela naquele momento, nada mais. */
+ * solicitações) — TODA solicitação já feita pelo cliente (descida/subida,
+ * combustível, S.O.S., manutenção, regularização, laudos, cancelamentos e
+ * afins), pendente, cancelada ou concluída, com o status atual de cada
+ * uma, ainda dentro da janela de 5 dias que essa tela usa (ver
+ * diarioDeBordo/historicoSolicitacoes lá). Não é síncrona com o banco de
+ * propósito: é uma cópia em CSV exatamente do que o cliente está vendo na
+ * tela naquele momento, nada mais. */
 export function exportarHistoricoSolicitacoesCsv(itens) {
   const cabecalho = ['Nº', 'Solicitação', 'Detalhe', 'Status', 'Data']
   const linhas = itens.map((item, i) => [
