@@ -1194,7 +1194,7 @@ export default function TelaClienteDashboard({ perfil }) {
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Histórico de solicitações</h3>
             <p className="dica">Solicitações já concluídas, disponíveis aqui por 5 dias.</p>
-            <div className="lista-cards">
+            <div className="lista-cards historico-lista">
               {historicoSolicitacoes.length === 0 && <p className="dica">Nenhum registro no histórico ainda.</p>}
               {historicoSolicitacoes.map((item) => {
                 const Icone = item.icone

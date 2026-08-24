@@ -987,6 +987,14 @@ button.badge:hover { filter: brightness(0.95); }
 
 /* ---------- Cartões de cliente estilo "Planilha de cadastros" ---------- */
 .lista-cards { display: flex; flex-direction: column; gap: 14px; }
+/* Histórico de solicitações (painel do cliente → Configurações): barra de
+   rolagem própria mostrando ~3 cards por vez (altura real de um
+   .cliente-card nessa lista varia com o conteúdo, ~130-150px, medida via
+   screenshot — valor calibrado pra caber 3 cards inteiros + os 2 gaps de
+   14px entre eles antes de cortar no 4º) — o botão "Exportar" fica no
+   .acoes-modal logo abaixo, fora dessa área rolável, e continua sempre
+   visível sem precisar rolar até o fim da lista. */
+.historico-lista { max-height: 440px; overflow-y: auto; padding-right: 4px; }
 .cliente-card {
   background: var(--cor-card); border-radius: var(--raio); box-shadow: var(--sombra);
   padding: 20px 22px; display: flex; flex-direction: column; gap: 9px;
