@@ -565,6 +565,16 @@ CREATE POLICY "cliente_cria_agendamento" ON marina.agendamentos
     ) = 0
   );
 
+-- marina.horarios_ocupados(marina_id, data) e o trigger
+-- verifica_horario_livre_trigger (ver supabase/sql/migration_horarios_ocupados_agenda.sql):
+-- fecham a última lacuna da Agenda da rampa — nada impedia, até aqui, dois
+-- clientes escolherem o mesmíssimo horário (não existe UNIQUE em
+-- data_hora). A função devolve só os horários já ocupados de um dia (sem
+-- expor de quem são, pra não vazar agendamento de outro cliente — chamada
+-- pela tela do cliente toda vez que a data muda, ver lib/db.js →
+-- listarHorariosOcupados), e o trigger barra no banco qualquer INSERT/UPDATE
+-- que tentasse gravar um horário já ocupado, mesmo contornando a tela.
+
 CREATE POLICY "cliente_ve_proprios_agendamentos" ON marina.agendamentos
   FOR SELECT TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));

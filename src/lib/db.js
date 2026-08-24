@@ -332,6 +332,20 @@ export async function solicitarAgendamento(agendamento) {
   return data[0]
 }
 
+// Horários já ocupados (de QUALQUER cliente) numa data — usado pra tirar da
+// lista de horariosDisponiveis (lib/agendaRampa.js) os horários que já têm
+// um agendamento ativo, sem expor de quem é cada um (RPC
+// marina.horarios_ocupados só devolve o carimbo data_hora, nunca
+// cliente/embarcação — ver supabase/sql/migration_horarios_ocupados_agenda.sql).
+// Chamada toda vez que o cliente troca a data no formulário de
+// Descida/Subida, pra manter os horários disponíveis sempre sincronizados
+// com o que já foi agendado.
+export async function listarHorariosOcupados(marinaId, dataYMD) {
+  const { data, error } = await db.rpc('horarios_ocupados', { p_marina_id: marinaId, p_data: dataYMD })
+  if (error) throw error
+  return (data || []).map((linha) => linha.data_hora)
+}
+
 // Ao confirmar (status='concluido'), grava também `concluido_em` — o
 // instante real da confirmação, nunca editável pelo cliente. É esse campo
 // (não o `data_hora`, que o cliente escolhe livremente ao pedir a

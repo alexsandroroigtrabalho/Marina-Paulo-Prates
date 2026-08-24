@@ -38,19 +38,32 @@ export function lerConfigRampa(marina) {
   }
 }
 
+// Converte um `data_hora` (timestamptz do banco, ISO) pro mesmo formato
+// "HH:mm" em horário LOCAL do navegador que horariosDisponiveis usa — pra
+// comparar certinho com os horários já ocupados vindos do banco (ver
+// listarHorariosOcupados em lib/db.js).
+export function paraHoraLocal(dataHoraISO) {
+  const d = new Date(dataHoraISO)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 // Gera os horários (strings "HH:mm") disponíveis pra uma data, respeitando:
 // horário de funcionamento da rampa, o intervalo fixo entre solicitações
-// (padrão 15min, configurável) e as manutenções programadas. Se a data for
-// hoje, também tira os horários que já passaram. É esta função que faz o
-// cliente nunca conseguir selecionar um horário indisponível — a lista de
-// opções do seletor vem direto daqui, então não tem como escolher fora dela.
-export function horariosDisponiveis(configRampa, dataYMD) {
+// (padrão 15min, configurável), as manutenções programadas e os
+// agendamentos já existentes nessa data (horariosOcupados — ver
+// listarHorariosOcupados em lib/db.js, buscado toda vez que a data muda no
+// formulário). Se a data for hoje, também tira os horários que já passaram.
+// É esta função que faz o cliente nunca conseguir selecionar um horário
+// indisponível — a lista de opções do seletor vem direto daqui, então não
+// tem como escolher fora dela.
+export function horariosDisponiveis(configRampa, dataYMD, horariosOcupados = []) {
   if (!dataYMD) return []
   const [hIni, mIni] = configRampa.abertura.split(':').map(Number)
   const [hFim, mFim] = configRampa.fechamento.split(':').map(Number)
   const inicioMin = hIni * 60 + mIni
   const fimMin = hFim * 60 + mFim
   const passo = Math.max(5, Number(configRampa.intervaloMinutos) || 15)
+  const ocupados = new Set(horariosOcupados)
 
   const agora = new Date()
   const ehHoje = dataYMD === `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`
@@ -60,6 +73,7 @@ export function horariosDisponiveis(configRampa, dataYMD) {
   for (let min = inicioMin; min < fimMin; min += passo) {
     if (ehHoje && min <= agoraMin) continue
     const horaTexto = `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+    if (ocupados.has(horaTexto)) continue
     const candidato = new Date(`${dataYMD}T${horaTexto}`)
     const emManutencao = configRampa.manutencoes.some((per) => {
       if (!per.inicio || !per.fim) return false

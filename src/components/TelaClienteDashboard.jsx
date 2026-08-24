@@ -10,13 +10,13 @@ import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
-  salvarCliente,
+  salvarCliente, listarHorariosOcupados,
 } from '../lib/db'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { lerConfigRampa, horariosDisponiveis, RAMPA_PADRAO } from '../lib/agendaRampa'
+import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 
@@ -244,6 +244,13 @@ export default function TelaClienteDashboard({ perfil }) {
   // diarioBordoLimpoEm (ver diarioAtivo abaixo); configRampa continua sendo
   // derivado à parte por lerConfigRampa, não duplica leitura nenhuma.
   const [marina, setMarina] = useState(null)
+  // Horários (strings "HH:mm") já ocupados por outro agendamento na data
+  // escolhida no formulário de Descida/Subida — buscados de novo (ver
+  // useEffect logo abaixo do formAgendamento) toda vez que a data muda, pra
+  // manter horariosDisponiveis() sempre sincronizado com o que já foi
+  // agendado, sem depender de recarregar a página inteira.
+  const [horariosOcupados, setHorariosOcupados] = useState([])
+  const [carregandoHorarios, setCarregandoHorarios] = useState(false)
   const [modalServicosAberto, setModalServicosAberto] = useState(false)
   // Dentro do modal "Serviços": qual dos 3 tipos o cliente escolheu (null =
   // ainda no seletor inicial), e, se for "regularizacao", qual categoria da
@@ -353,6 +360,36 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }, [cliente?.id])
 
+  // Busca de novo os horários já ocupados toda vez que a data escolhida no
+  // formulário de Descida/Subida muda — é isso que faz o seletor de horário
+  // (abaixo) atualizar imediatamente com a data, nunca oferecendo um
+  // horário que outro cliente já tomou. Só roda com o modal aberto e uma
+  // data preenchida; ao trocar de data, `hora` já é limpo no onChange do
+  // campo de data, então nunca fica um horário antigo selecionado por
+  // engano enquanto a lista nova ainda está chegando.
+  useEffect(() => {
+    if (!modalTipo || !formAgendamento.data || !cliente) {
+      setHorariosOcupados([])
+      return
+    }
+    let cancelado = false
+    setCarregandoHorarios(true)
+    listarHorariosOcupados(cliente.marina_id, formAgendamento.data)
+      .then((ocupados) => {
+        if (!cancelado) setHorariosOcupados(ocupados.map(paraHoraLocal))
+      })
+      .catch(() => {
+        // Falha ao buscar (rede, etc.) — mantém a lista vazia, pra não
+        // travar o formulário; a checagem final no envio (enviarAgendamento)
+        // e a trava no próprio banco continuam de pé como última barreira.
+        if (!cancelado) setHorariosOcupados([])
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoHorarios(false)
+      })
+    return () => { cancelado = true }
+  }, [modalTipo, formAgendamento.data, cliente])
+
   function abrirModal(tipo) {
     // Guarda de segurança: os botões já ficam desabilitados quando o acesso
     // não está liberado, mas a checagem que realmente vale é a policy do
@@ -380,11 +417,24 @@ export default function TelaClienteDashboard({ perfil }) {
     e.preventDefault()
     if (!cliente) return
     // Segurança extra além do seletor já só oferecer horários válidos: se
-    // por algum motivo o horário escolhido deixou de estar disponível
-    // entre abrir o formulário e enviar (ex: administração cadastrou uma
-    // manutenção nesse meio-tempo), barra aqui também.
-    if (!horariosDisponiveis(configRampa, formAgendamento.data).includes(formAgendamento.hora)) {
+    // por algum motivo o horário escolhido deixou de estar disponível entre
+    // abrir o formulário e enviar (ex: administração cadastrou uma
+    // manutenção nesse meio-tempo, ou outro cliente acabou de pegar esse
+    // mesmo horário), busca os ocupados uma última vez, na hora, e barra
+    // aqui também — além da trava que já existe no próprio banco
+    // (marina.verifica_horario_livre, ver migration_horarios_ocupados_agenda.sql)
+    // pra quando nem isso for suficiente (corrida entre dois envios quase
+    // simultâneos).
+    let ocupadosNaHora = horariosOcupados
+    try {
+      ocupadosNaHora = (await listarHorariosOcupados(cliente.marina_id, formAgendamento.data)).map(paraHoraLocal)
+    } catch {
+      // Sem conexão pra reconferir — segue com o que já estava carregado;
+      // a trava do banco continua de pé como última barreira.
+    }
+    if (!horariosDisponiveis(configRampa, formAgendamento.data, ocupadosNaHora).includes(formAgendamento.hora)) {
       alert(`Esse horário não está mais disponível. ${configRampa.mensagemIndisponibilidade}`)
+      setHorariosOcupados(ocupadosNaHora)
       return
     }
     setEnviandoAgendamento(true)
@@ -840,37 +890,42 @@ export default function TelaClienteDashboard({ perfil }) {
             ) : (
               <p className="dica">Você ainda não tem embarcações cadastradas.</p>
             )}
-            {/* Data + horário: o horário agora é digitado livremente (campo
-                editável), dentro do horário de funcionamento da rampa
-                (min/max/step abaixo, configurados pelo administrador em
-                Painel de Controle → Configurações → Agenda). O envio
-                (enviarAgendamento) continua checando o horário digitado
-                contra horariosDisponiveis antes de mandar pro banco — pega
-                tanto fora do expediente quanto dentro de uma manutenção
-                programada, com o mesmo aviso amigável de antes. */}
+            {/* Data + horário: o horário é sempre escolhido dentre os que a
+                Agenda da rampa libera pra essa data — horário de
+                funcionamento, intervalo fixo entre solicitações, períodos de
+                manutenção E os horários que outro cliente já ocupou (ver
+                horariosOcupados, buscado de novo — useEffect logo acima —
+                toda vez que a data muda aqui). Não tem como escolher fora
+                dessa lista, nem um horário que já passou, nem um já tomado.
+                Configurado pelo administrador em Painel de Controle →
+                Configurações → Agenda. */}
             <input type="date" required
               min={new Date().toISOString().slice(0, 10)}
               value={formAgendamento.data}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, data: e.target.value, hora: '' })} />
-            <input type="time" required
-              disabled={!formAgendamento.data}
-              min={configRampa.abertura}
-              max={configRampa.fechamento}
-              step={configRampa.intervaloMinutos * 60}
-              value={formAgendamento.hora}
-              onChange={(e) => setFormAgendamento({ ...formAgendamento, hora: e.target.value })} />
-            {formAgendamento.data && (
-              <p className="dica" style={{ margin: '-4px 0 0' }}>
-                Horário de funcionamento da rampa: {configRampa.abertura}–{configRampa.fechamento} (intervalos de {configRampa.intervaloMinutos} min).
-              </p>
-            )}
-            {/* Mensagem de indisponibilidade: uma só, escolhida pelo
-                administrador entre as 3 opções fixas (Configurações →
-                Agenda) — aparece sempre que a rampa estiver indisponível
-                pra data escolhida (fora do horário de funcionamento, dentro
-                de manutenção, etc.), nunca fixa na tela. */}
-            {formAgendamento.data && horariosDisponiveis(configRampa, formAgendamento.data).length === 0 && (
+            <select required value={formAgendamento.hora}
+              disabled={!formAgendamento.data || carregandoHorarios}
+              onChange={(e) => setFormAgendamento({ ...formAgendamento, hora: e.target.value })}>
+              <option value="">
+                {!formAgendamento.data ? 'Escolha a data primeiro' : carregandoHorarios ? 'Carregando horários...' : 'Selecione o horário'}
+              </option>
+              {horariosDisponiveis(configRampa, formAgendamento.data, horariosOcupados).map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+            {/* Duas mensagens possíveis quando não sobra nenhum horário pra
+                essa data — pra não confundir "rampa fechada/em manutenção"
+                (mensagem fixa que o administrador escolhe, Configurações →
+                Agenda) com "todos os horários já foram reservados por
+                outros clientes" (situação diferente, resolvida só
+                escolhendo outro dia — nunca fixa na tela). */}
+            {formAgendamento.data && !carregandoHorarios && horariosDisponiveis(configRampa, formAgendamento.data).length === 0 && (
               <p className="dica" style={{ color: 'var(--cor-alerta)', margin: '-4px 0 0' }}>{configRampa.mensagemIndisponibilidade}</p>
+            )}
+            {formAgendamento.data && !carregandoHorarios
+              && horariosDisponiveis(configRampa, formAgendamento.data).length > 0
+              && horariosDisponiveis(configRampa, formAgendamento.data, horariosOcupados).length === 0 && (
+              <p className="dica" style={{ color: 'var(--cor-alerta)', margin: '-4px 0 0' }}>Todos os horários dessa data já foram reservados. Escolha outro dia ou outra data.</p>
             )}
             {modalTipo === 'retirada' && (
               <>
