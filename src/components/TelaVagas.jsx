@@ -10,7 +10,7 @@ import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarS
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_OPCOES, abastecimentoConcluido } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido } from '../lib/statusAbastecimento'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
@@ -312,19 +312,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       await carregar()
     } catch (err) {
       alert('Não foi possível marcar o abastecimento como entregue: ' + err.message)
-    }
-  }
-
-  // Campo Status da seção "Combustível" abaixo — mesma função usada pela
-  // aba Abastecimento (TelaAbastecimento.jsx) e pelo cancelamento do
-  // cliente no Diário de Bordo, então uma mudança feita por aqui já chega
-  // sincronizada nos outros dois lugares (ver canal Realtime acima).
-  async function mudarStatusAbastecimento(id, status) {
-    try {
-      await atualizarStatusAbastecimento(id, status)
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível atualizar o pedido de abastecimento: ' + err.message)
     }
   }
 
@@ -814,11 +801,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         </tbody>
       </table>
 
-      {/* Espelha a aba Abastecimento (TelaAbastecimento.jsx): mesmas colunas,
-          mesmo status e o mesmo seletor de ação — fonte única em
-          lib/statusAbastecimento.js. Qualquer mudança feita aqui, na aba
-          Abastecimento ou pelo cliente (cancelamento no Diário de Bordo)
-          aparece nos três lugares imediatamente (ver canal Realtime acima). */}
+      {/* Espelha a aba Abastecimento (TelaAbastecimento.jsx): mesmas colunas
+          e o mesmo status, só pra consulta — sem seletor, botão ou qualquer
+          controle de alteração aqui (a mudança de status é feita só pela
+          aba Abastecimento). Fonte única do rótulo/critério em
+          lib/statusAbastecimento.js. Qualquer mudança feita na aba
+          Abastecimento (ou pelo cliente, cancelando no Diário de Bordo)
+          aparece aqui imediatamente (ver canal Realtime acima). */}
       <h2>Combustível</h2>
       <table className="tabela" style={{ marginBottom: 32 }}>
         <thead>
@@ -829,11 +818,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th>Combustível</th>
             <th>Qtd (L)</th>
             <th>Status</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
-          {pedidosCombustivel.length === 0 && <tr><td colSpan={7}>Nenhum pedido de abastecimento no momento.</td></tr>}
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>Nenhum pedido de abastecimento no momento.</td></tr>}
           {pedidosCombustivel.map((p) => (
             <tr key={p.id}>
               <td>{p.clientes?.nome}</td>
@@ -842,18 +830,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               <td>{p.combustiveis?.nome}</td>
               <td>{Number(p.quantidade_litros).toFixed(2)}</td>
               <td><span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span></td>
-              <td>
-                {p.status !== 'cancelado' && (
-                  <select value={p.status} onChange={(e) => mudarStatusAbastecimento(p.id, e.target.value)}>
-                    {!STATUS_ABASTECIMENTO_OPCOES.some((o) => o.valor === p.status) && (
-                      <option value={p.status} disabled>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</option>
-                    )}
-                    {STATUS_ABASTECIMENTO_OPCOES.map((o) => (
-                      <option key={o.valor} value={o.valor}>{o.label}</option>
-                    ))}
-                  </select>
-                )}
-              </td>
             </tr>
           ))}
         </tbody>

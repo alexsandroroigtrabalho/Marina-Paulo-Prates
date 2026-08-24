@@ -127,9 +127,11 @@ export default function TelaAbastecimento({ marinaId }) {
                         da lista (ver pedidosVisiveis acima); "Cancelar" e
                         "Indisponível" avisam o cliente pelo Diário de Bordo dele
                         (ver statusAbastecimentoDiario em TelaClienteDashboard.jsx).
-                        Mesmas opções da seção "Combustível" do Painel de
-                        Controle (ver TelaVagas.jsx) — fonte única em
-                        lib/statusAbastecimento.js, pra nunca ficarem
+                        Este é o único lugar do sistema onde o status muda —
+                        a seção "Combustível" do Painel de Controle (ver
+                        TelaVagas.jsx) só exibe o mesmo valor, sem controle
+                        nenhum de alteração ali. Fonte única do rótulo/opções
+                        em lib/statusAbastecimento.js, pra nunca ficarem
                         dessincronizadas. */}
                     {p.status !== 'cancelado' && (
                       <select value={p.status} onChange={(e) => atualizarStatusAbastecimento(p.id, e.target.value).then(carregar).catch((err) => alert('Não foi possível atualizar o pedido: ' + err.message))}>
