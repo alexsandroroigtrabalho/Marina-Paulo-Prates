@@ -840,23 +840,30 @@ export default function TelaClienteDashboard({ perfil }) {
             ) : (
               <p className="dica">Você ainda não tem embarcações cadastradas.</p>
             )}
-            {/* Data + horário: o horário não é mais digitado livremente — só
-                dá pra escolher entre os que a Agenda da rampa libera pra
-                essa data (horário de funcionamento, intervalo fixo entre
-                solicitações e fora dos períodos de manutenção — ver
-                lib/agendaRampa.js). Configurado pelo administrador em
-                Painel de Controle → Configurações → Agenda. */}
+            {/* Data + horário: o horário agora é digitado livremente (campo
+                editável), dentro do horário de funcionamento da rampa
+                (min/max/step abaixo, configurados pelo administrador em
+                Painel de Controle → Configurações → Agenda). O envio
+                (enviarAgendamento) continua checando o horário digitado
+                contra horariosDisponiveis antes de mandar pro banco — pega
+                tanto fora do expediente quanto dentro de uma manutenção
+                programada, com o mesmo aviso amigável de antes. */}
             <input type="date" required
               min={new Date().toISOString().slice(0, 10)}
               value={formAgendamento.data}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, data: e.target.value, hora: '' })} />
-            <select required value={formAgendamento.hora} disabled={!formAgendamento.data}
-              onChange={(e) => setFormAgendamento({ ...formAgendamento, hora: e.target.value })}>
-              <option value="">{formAgendamento.data ? 'Selecione o horário' : 'Escolha a data primeiro'}</option>
-              {horariosDisponiveis(configRampa, formAgendamento.data).map((h) => (
-                <option key={h} value={h}>{h}</option>
-              ))}
-            </select>
+            <input type="time" required
+              disabled={!formAgendamento.data}
+              min={configRampa.abertura}
+              max={configRampa.fechamento}
+              step={configRampa.intervaloMinutos * 60}
+              value={formAgendamento.hora}
+              onChange={(e) => setFormAgendamento({ ...formAgendamento, hora: e.target.value })} />
+            {formAgendamento.data && (
+              <p className="dica" style={{ margin: '-4px 0 0' }}>
+                Horário de funcionamento da rampa: {configRampa.abertura}–{configRampa.fechamento} (intervalos de {configRampa.intervaloMinutos} min).
+              </p>
+            )}
             {/* Mensagem de indisponibilidade: uma só, escolhida pelo
                 administrador entre as 3 opções fixas (Configurações →
                 Agenda) — aparece sempre que a rampa estiver indisponível
@@ -873,13 +880,6 @@ export default function TelaClienteDashboard({ perfil }) {
                   onChange={(e) => setFormAgendamento({ ...formAgendamento, previsao_retorno: e.target.value })} />
               </>
             )}
-            <select value={formAgendamento.autorizado_id}
-              onChange={(e) => setFormAgendamento({ ...formAgendamento, autorizado_id: e.target.value })}>
-              <option value="">Quem vai buscar/entregar: eu mesmo</option>
-              {autorizados.filter((a) => a.ativo).map((a) => (
-                <option key={a.id} value={a.id}>{a.nome} ({a.parentesco})</option>
-              ))}
-            </select>
             <input placeholder="Observações (opcional)"
               value={formAgendamento.observacoes}
               onChange={(e) => setFormAgendamento({ ...formAgendamento, observacoes: e.target.value })} />
