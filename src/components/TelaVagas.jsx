@@ -36,12 +36,46 @@ const TIPO_AGENDAMENTO_LABEL = {
   retorno: 'Subida',
 }
 
-// Cada notificação da Fila de Rampa só existe em 3 estados — sem etapas
-// intermediárias de "confirmado"/"em andamento": o operador dá um clique só
-// quando a embarcação de fato desce ou sobe, e o status muda na hora.
+// Uma notificação da Fila de Rampa continua "aguardando" (some da lista só
+// quando concluída) em qualquer status que não seja 'concluido' — inclui o
+// novo "Recebido" (status='confirmado', ver STATUS_FILA_OPCOES/campo Status
+// abaixo), que fica no meio do caminho entre "Solicitado" e o status final
+// (Navegando/Recolhido) sem sair da Fila de Rampa.
 function statusLinha(a) {
   if (a.status === 'concluido') return a.tipo === 'retirada' ? 'navegando' : null
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
+}
+
+// Campo Status da Fila de Rampa: um <select> só, com os 3 estados possíveis
+// pra cada tipo de solicitação — o operador escolhe direto aqui, sem botão
+// "Confirmar" separado. "Solicitado" reaproveita o status que já vem do
+// pedido do cliente; "Recebido" usa o status 'confirmado' (já existia no
+// banco, nunca usado até aqui); o status final reaproveita 'concluido' — na
+// descida vira "Navegando" (a notificação sai da Fila de Rampa e passa a
+// aparecer na tabela "Navegando" logo abaixo, como já acontecia); na subida
+// vira "Recolhido" (a notificação simplesmente some da Fila de Rampa, mesmo
+// comportamento de sempre quando um retorno é confirmado).
+const STATUS_FILA_OPCOES = {
+  retirada: [
+    { valor: 'solicitado', label: 'Solicitado' },
+    { valor: 'confirmado', label: 'Recebido' },
+    { valor: 'concluido', label: 'Navegando' },
+  ],
+  retorno: [
+    { valor: 'solicitado', label: 'Solicitado' },
+    { valor: 'confirmado', label: 'Recebido' },
+    { valor: 'concluido', label: 'Recolhido' },
+  ],
+}
+
+// Cor do campo Status: tom terroso (mesmo de sempre) pra "Solicitado",
+// amarelo (mesmo tom já usado em Manutenção "Em andamento") pra "Recebido",
+// e o mesmo verde de ".status-navegando" (tabela Navegando) pro status
+// final — ver .select-status-fila no index.css.
+function classeStatusFila(status) {
+  if (status === 'confirmado') return 'recebido'
+  if (status === 'concluido') return 'navegando'
+  return 'solicitado'
 }
 
 export default function TelaVagas({ marinaId, perfil, onAcoes }) {
@@ -418,7 +452,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
 
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
   function linhaNotificacao(a) {
-    const status = statusLinha(a)
     const doc = statusDocumentacao(a.embarcacao_id)
     const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
     return (
@@ -438,13 +471,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           ))}
         </td>
         <td>
+          <select
+            className={`badge select-status-fila status-${classeStatusFila(a.status)}`}
+            value={a.status}
+            title="Status da solicitação"
+            onChange={(e) => mudarStatusAgendamento(a.id, e.target.value)}
+          >
+            {STATUS_FILA_OPCOES[a.tipo].map((o) => (
+              <option key={o.valor} value={o.valor}>{o.label}</option>
+            ))}
+          </select>
+        </td>
+        <td>
           <div className="fila-tabela-acoes">
-            {status === 'aguardando_descida' && (
-              <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar saída</button>
-            )}
-            {status === 'aguardando_retorno' && (
-              <button onClick={() => mudarStatusAgendamento(a.id, 'concluido')}>Confirmar retorno</button>
-            )}
             <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
           </div>
         </td>
@@ -576,11 +615,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th>Horário</th>
             <th>Documentação</th>
             <th>Abastecimento</th>
+            <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {linhasFila.length === 0 && <tr><td colSpan={6}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
+          {linhasFila.length === 0 && <tr><td colSpan={7}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>

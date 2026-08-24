@@ -949,6 +949,18 @@ button.badge:hover { filter: brightness(0.95); }
 .status-aguardando_descida, .status-aguardando_retorno { background: #F1E3D6; color: #8B5A2B; }
 .status-navegando { background: #E4EBDD; color: #55702F; font-weight: 700; }
 .status-excedeu_retorno { background: #F1E3D6; color: #8B5A2B; font-weight: 700; }
+/* Campo Status da Fila de Rampa (Solicitado/Recebido/Navegando ou
+   Recolhido) — mesmo selo (.badge) do resto do sistema, só que como
+   <select> de verdade (o operador troca o status direto ali, sem um botão
+   "Confirmar" separado — ver classeStatusFila em TelaVagas.jsx). "Recebido"
+   usa o mesmo amarelo já usado em Manutenção "Em andamento"
+   (.status-manut-em_andamento) pra não inventar tom novo; o status final
+   reaproveita a cor terrosa de "aguardando" (Recolhido) ou o verde de
+   ".status-navegando" logo acima (Navegando) — mesmas cores que a linha já
+   ganha ao sair pra tabela "Navegando" quando é uma descida. */
+.select-status-fila { border: none; cursor: pointer; font-family: inherit; }
+.select-status-fila.status-solicitado { background: #F1E3D6; color: #8B5A2B; }
+.select-status-fila.status-recebido { background: #FFF3C4; color: #8A6D00; }
 .status-resgate-solicitado, .status-resgate-recebido { background: #7A3B33; color: #fff; font-weight: 800; }
 .status-resgate-resgatado { background: #DCEEDB; color: #2F7D32; font-weight: 700; }
 .fila-abastecimento-linha { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }

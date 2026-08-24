@@ -156,6 +156,42 @@ function classeStatusDiario(status) {
   return 'pendente'
 }
 
+// Rótulo/cor de um agendamento (retirada/retorno) no Diário de Bordo —
+// à parte de classeStatusDiario acima (que continua servindo abastecimento/
+// manutenção/despachos/laudos exatamente como antes), porque a Fila de
+// Rampa agora tem um passo a mais (Solicitado → Recebido → status final) e
+// os dois tipos terminam de um jeito diferente:
+//   - Descida "Navegando" (status='concluido'): fica visível no Diário de
+//     Bordo enquanto o barco ainda está na água — só some junto com a
+//     subida correspondente, quando ela chegar em "Recolhido" (ver
+//     ultimaPorEmbarcacao, mesma lógica de "quem está na água agora" já
+//     usada no Painel de Controle e no indicador de S.O.S. desta tela —
+//     lib/agendamentos.js).
+//   - Subida "Recolhido" (status='concluido'): some do Diário de Bordo na
+//     hora — mesmo comportamento de "concluído sai da tela" de sempre.
+//   - "Recebido" (status='confirmado', tanto descida quanto subida): agora
+//     fica visível como "Solicitação confirmada" — antes 'confirmado' fazia
+//     parte da lista "em-dia" de classeStatusDiario (por isso não usamos
+//     ela aqui), pensada pra outros status (ex: abastecimento) que não têm
+//     esse passo intermediário.
+function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
+  if (a.status === 'confirmado') {
+    return { statusLabel: 'Solicitação confirmada', statusClasse: 'pendente' }
+  }
+  if (a.status === 'concluido' && a.tipo === 'retirada') {
+    const aindaNaAgua = ultimaPorEmbarcacao[a.embarcacao_id]?.id === a.id
+    return { statusLabel: 'Navegando', statusClasse: aindaNaAgua ? 'pendente' : 'em-dia' }
+  }
+  if (a.status === 'concluido' && a.tipo === 'retorno') {
+    // Some do Diário de Bordo ativo na hora (classeStatusDiario('concluido')
+    // = 'em-dia', mesma regra de sempre) — o rótulo "Recolhido" só chega a
+    // aparecer no Histórico de Solicitações da engrenagem (onde o item
+    // continua visível/exportável por até 5 dias, nunca apagado do banco).
+    return { statusLabel: 'Recolhido', statusClasse: classeStatusDiario(a.status) }
+  }
+  return { statusLabel: STATUS_LABEL[a.status] || a.status, statusClasse: classeStatusDiario(a.status) }
+}
+
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
 // configurações da conta ("Pessoas autorizadas", "Meus dados" e "Histórico
 // de solicitações"). Mesmo padrão visual do menu de ações do Painel de
@@ -632,14 +668,19 @@ export default function TelaClienteDashboard({ perfil }) {
   // tempo, mais recente primeiro. Cada origem tem seu próprio campo de
   // data — não existe uma coluna "created_at" em comum entre todas as
   // tabelas, por isso cada map já resolve pro melhor campo disponível.
+  // "Quem está na água agora" — mesma lógica de ultimaMovimentacaoPorEmbarcacao
+  // já usada em agendamentoNavegando (S.O.S.) acima, aqui pra decidir se uma
+  // Descida "Navegando" (status='concluido') deve continuar visível no
+  // Diário de Bordo ou se já pode sumir (a subida correspondente já chegou
+  // em "Recolhido") — ver statusAgendamentoDiario.
+  const ultimaPorEmbarcacao = ultimaMovimentacaoPorEmbarcacao(agendamentos)
   const diarioDeBordo = [
     ...agendamentos.map((a) => ({
       id: `ag-${a.id}`,
       icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
       titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}`,
       detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
-      statusLabel: STATUS_LABEL[a.status] || a.status,
-      statusClasse: classeStatusDiario(a.status),
+      ...statusAgendamentoDiario(a, ultimaPorEmbarcacao),
       quando: a.data_hora,
     })),
     ...abastecimentos.map((p) => ({
