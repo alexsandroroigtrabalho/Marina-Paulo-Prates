@@ -4,20 +4,7 @@ import {
   listarCombustiveis, salvarCombustivel,
   listarPedidosAbastecimento, atualizarStatusAbastecimento,
 } from '../lib/db'
-
-// Fluxo simplificado: o operador só escolhe entre 4 status (ver <select>
-// abaixo) — "Solicitado"/"Confirmado"/"Entregue" são valores legados (pedidos
-// antigos, de antes desta mudança) que continuam com rótulo aqui só pra não
-// mostrar o código cru se algum pedido velho ainda estiver com um desses.
-const STATUS_LABEL = {
-  solicitado: 'Solicitado',
-  confirmado: 'Confirmado',
-  aguardando_pagamento: 'Aguardando pagamento',
-  pago: 'Pago',
-  entregue: 'Entregue',
-  cancelado: 'Cancelado',
-  indisponivel: 'Indisponível',
-}
+import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, abastecimentoConcluido } from '../lib/statusAbastecimento'
 
 export default function TelaAbastecimento({ marinaId }) {
   const [aba, setAba] = useState('pedidos') // pedidos | combustiveis
@@ -120,16 +107,17 @@ export default function TelaAbastecimento({ marinaId }) {
           não aparece mais aqui). "Entregue" é um valor legado (pedidos de
           antes desta mudança) e some do mesmo jeito, pelo mesmo motivo. */}
       {aba === 'pedidos' && (() => {
-        const pedidosVisiveis = pedidos.filter((p) => p.status !== 'pago' && p.status !== 'entregue')
+        const pedidosVisiveis = pedidos.filter((p) => !abastecimentoConcluido(p.status))
         return (
           <table className="tabela">
-            <thead><tr><th>Cliente</th><th>Embarcação</th><th>Combustível</th><th>Qtd (L)</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Cliente</th><th>Embarcação</th><th>Data/Horário</th><th>Combustível</th><th>Qtd (L)</th><th>Valor</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {pedidosVisiveis.length === 0 && <tr><td colSpan={7}>Nenhum pedido de abastecimento no momento.</td></tr>}
+              {pedidosVisiveis.length === 0 && <tr><td colSpan={8}>Nenhum pedido de abastecimento no momento.</td></tr>}
               {pedidosVisiveis.map((p) => (
                 <tr key={p.id}>
                   <td>{p.clientes?.nome}</td>
                   <td>{p.embarcacoes?.nome || '-'}</td>
+                  <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
                   <td>{p.combustiveis?.nome}</td>
                   <td>{Number(p.quantidade_litros).toFixed(2)}</td>
                   <td>R$ {Number(p.valor_total).toFixed(2)}</td>
@@ -138,13 +126,23 @@ export default function TelaAbastecimento({ marinaId }) {
                     {/* Só estas 4 opções — "Pagamento efetuado" conclui e some
                         da lista (ver pedidosVisiveis acima); "Cancelar" e
                         "Indisponível" avisam o cliente pelo Diário de Bordo dele
-                        (ver statusAbastecimentoDiario em TelaClienteDashboard.jsx). */}
+                        (ver statusAbastecimentoDiario em TelaClienteDashboard.jsx).
+                        Mesmas opções da seção "Combustível" do Painel de
+                        Controle (ver TelaVagas.jsx) — fonte única em
+                        lib/statusAbastecimento.js, pra nunca ficarem
+                        dessincronizadas. */}
                     {p.status !== 'cancelado' && (
                       <select value={p.status} onChange={(e) => atualizarStatusAbastecimento(p.id, e.target.value).then(carregar).catch((err) => alert('Não foi possível atualizar o pedido: ' + err.message))}>
-                        <option value="aguardando_pagamento">Aguardando pagamento</option>
-                        <option value="pago">Pagamento efetuado</option>
-                        <option value="cancelado">Cancelar</option>
-                        <option value="indisponivel">Indisponível</option>
+                        {/* Pedido recém-chegado ainda em 'solicitado' (ou algum
+                            valor legado, ex.: 'confirmado') — mostra a situação
+                            atual certa até o operador escolher uma das 4 ações
+                            reais abaixo; não reaparece depois que ele agir. */}
+                        {!STATUS_ABASTECIMENTO_OPCOES.some((o) => o.valor === p.status) && (
+                          <option value={p.status} disabled>{STATUS_LABEL[p.status] || p.status}</option>
+                        )}
+                        {STATUS_ABASTECIMENTO_OPCOES.map((o) => (
+                          <option key={o.valor} value={o.valor}>{o.label}</option>
+                        ))}
                       </select>
                     )}
                   </td>

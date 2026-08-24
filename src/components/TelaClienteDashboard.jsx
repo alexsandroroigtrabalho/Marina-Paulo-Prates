@@ -16,6 +16,7 @@ import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
+import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, STATUS_ABASTECIMENTO_CANCELAVEIS } from '../lib/statusAbastecimento'
 import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
@@ -218,7 +219,7 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
 function statusAbastecimentoDiario(p) {
   if (p.status === 'aguardando_pagamento') return { statusLabel: 'Confirmado — Aguardando pagamento', statusClasse: 'pendente' }
   if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
-  return { statusLabel: STATUS_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
+  return { statusLabel: STATUS_ABASTECIMENTO_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
@@ -779,7 +780,7 @@ export default function TelaClienteDashboard({ perfil }) {
     // assim que a marina confirma o pagamento — mesmo momento em que o
     // pedido some da própria tela do administrador (ver pedidosVisiveis em
     // TelaAbastecimento.jsx), já que o serviço está concluído dos dois lados.
-    ...abastecimentos.filter((p) => p.status !== 'pago' && p.status !== 'entregue').map((p) => ({
+    ...abastecimentos.filter((p) => !abastecimentoConcluido(p.status)).map((p) => ({
       id: `ab-${p.id}`,
       icone: IconGasStation,
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
@@ -788,7 +789,7 @@ export default function TelaClienteDashboard({ perfil }) {
       quando: p.created_at,
       // Só dá pra cancelar enquanto o pedido ainda está "Aguardando
       // pagamento" ou "Indisponível" — ver cancelarAbastecimentoCliente.
-      abastecimentoParaCancelar: (p.status === 'aguardando_pagamento' || p.status === 'indisponivel') ? p : null,
+      abastecimentoParaCancelar: STATUS_ABASTECIMENTO_CANCELAVEIS.includes(p.status) ? p : null,
     })),
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,

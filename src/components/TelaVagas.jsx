@@ -10,6 +10,7 @@ import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarS
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
+import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_OPCOES, abastecimentoConcluido } from '../lib/statusAbastecimento'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
@@ -252,17 +253,22 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
 
   useEffect(() => { carregar() }, [marinaId])
 
-  // Atualização em tempo real da Fila de Rampa/Navegando: além do polling de
-  // 10s (pensado pra smart TV sem ninguém mexendo), qualquer mudança em
-  // agendamentos — inclusive uma subida confirmada direto por outro
-  // administrador logado em outra sessão — aparece aqui na hora, sem
-  // esperar o próximo ciclo do polling. Mesmo padrão já usado nas demais
-  // telas do sistema.
+  // Atualização em tempo real da Fila de Rampa/Navegando/Combustível: além
+  // do polling de 10s (pensado pra smart TV sem ninguém mexendo), qualquer
+  // mudança em agendamentos — inclusive uma subida confirmada direto por
+  // outro administrador logado em outra sessão — aparece aqui na hora, sem
+  // esperar o próximo ciclo do polling. pedidos_abastecimento entrou no
+  // mesmo canal junto com a seção "Combustível" abaixo: uma mudança de
+  // status feita na aba Abastecimento (TelaAbastecimento.jsx) ou pelo
+  // próprio cliente (cancelamento no Diário de Bordo) aparece aqui na hora
+  // também, sem esperar o polling. Mesmo padrão já usado nas demais telas
+  // do sistema.
   useEffect(() => {
     if (!marinaId) return
     const canal = supabase
       .channel(`vagas-${marinaId}-agendamentos`)
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'agendamentos', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [marinaId])
@@ -306,6 +312,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       await carregar()
     } catch (err) {
       alert('Não foi possível marcar o abastecimento como entregue: ' + err.message)
+    }
+  }
+
+  // Campo Status da seção "Combustível" abaixo — mesma função usada pela
+  // aba Abastecimento (TelaAbastecimento.jsx) e pelo cancelamento do
+  // cliente no Diário de Bordo, então uma mudança feita por aqui já chega
+  // sincronizada nos outros dois lugares (ver canal Realtime acima).
+  async function mudarStatusAbastecimento(id, status) {
+    try {
+      await atualizarStatusAbastecimento(id, status)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar o pedido de abastecimento: ' + err.message)
     }
   }
 
@@ -387,6 +406,20 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // pagamento real for confirmado. A única ação do operador é dar baixa
   // (marcar entregue) depois de abastecer.
   const abastecimentosAtivos = pedidosAbastecimento.filter((p) => p.status === 'pago')
+
+  // Seção "Combustível": todos os pedidos ainda não concluídos, com as
+  // mesmas informações e o mesmo status da aba Abastecimento (ver
+  // pedidosVisiveis em TelaAbastecimento.jsx — mesmo critério
+  // abastecimentoConcluido, importado da mesma fonte única). Ao contrário
+  // de abastecimentosAtivos acima (só o que já está pago, pronto pra
+  // entregar fisicamente numa embarcação já na água), esta lista mostra
+  // TODO pedido em aberto, tenha ou não uma descida/subida associada no
+  // momento — é o que permite acompanhar aqui, sem precisar trocar de aba,
+  // um pedido feito antes de qualquer agendamento ou pra uma embarcação que
+  // já saiu da Fila de Rampa/Navegando.
+  const pedidosCombustivel = pedidosAbastecimento
+    .filter((p) => !abastecimentoConcluido(p.status))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
   // Histórico de manobras: toda descida ou subida já confirmada, mais recente
   // primeiro — vira o registro permanente assim que o operador confirma a
@@ -778,6 +811,51 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
           {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
+        </tbody>
+      </table>
+
+      {/* Espelha a aba Abastecimento (TelaAbastecimento.jsx): mesmas colunas,
+          mesmo status e o mesmo seletor de ação — fonte única em
+          lib/statusAbastecimento.js. Qualquer mudança feita aqui, na aba
+          Abastecimento ou pelo cliente (cancelamento no Diário de Bordo)
+          aparece nos três lugares imediatamente (ver canal Realtime acima). */}
+      <h2>Combustível</h2>
+      <table className="tabela" style={{ marginBottom: 32 }}>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Embarcação</th>
+            <th>Data/Horário</th>
+            <th>Combustível</th>
+            <th>Qtd (L)</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={7}>Nenhum pedido de abastecimento no momento.</td></tr>}
+          {pedidosCombustivel.map((p) => (
+            <tr key={p.id}>
+              <td>{p.clientes?.nome}</td>
+              <td>{p.embarcacoes?.nome || '-'}</td>
+              <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
+              <td>{p.combustiveis?.nome}</td>
+              <td>{Number(p.quantidade_litros).toFixed(2)}</td>
+              <td><span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span></td>
+              <td>
+                {p.status !== 'cancelado' && (
+                  <select value={p.status} onChange={(e) => mudarStatusAbastecimento(p.id, e.target.value)}>
+                    {!STATUS_ABASTECIMENTO_OPCOES.some((o) => o.valor === p.status) && (
+                      <option value={p.status} disabled>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</option>
+                    )}
+                    {STATUS_ABASTECIMENTO_OPCOES.map((o) => (
+                      <option key={o.valor} value={o.valor}>{o.label}</option>
+                    ))}
+                  </select>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
 

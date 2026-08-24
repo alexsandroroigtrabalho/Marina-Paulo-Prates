@@ -892,6 +892,9 @@ button.badge:hover { filter: brightness(0.95); }
    pedido (ver STATUS_FILA_OPCOES-like seletor em TelaAbastecimento.jsx) —
    mesmo tom de alerta já usado pra documento vencido/exigência pendente. */
 .status-indisponivel { background: #FCE0D6; color: #B0472A; }
+/* Pedido de abastecimento cancelado — mesmo cinza neutro já usado em
+   .status-ocupada/.status-manut-cancelada pra "encerrado, sem ação". */
+.status-cancelado { background: #E7ECEF; color: #445; }
 
 /* ---------- Painel de Controle (visão TV da marina) ---------- */
 /* Relógio com mais peso/tamanho — é lido de longe (painel pensado pra ficar
