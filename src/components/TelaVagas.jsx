@@ -335,6 +335,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // já está na água.
   const subidasNavegando = agendamentos.filter((a) => a.tipo === 'retorno' && a.status === 'navegando')
 
+  // Qualquer subida ainda em aberto pra uma embarcação — 'solicitado' e
+  // 'confirmado' (ainda esperando na Fila de Rampa) além de 'navegando'.
+  // Usada só pra achar o _subida de cada linha "na água" (abaixo): se o
+  // operador marcar "Recolhido" direto pela tabela Navegando (sem esperar o
+  // cliente chegar em "Navegando" pelo fluxo normal), uma solicitação de
+  // subida que o cliente já tivesse pedido — e que ainda estivesse esperando
+  // na Fila de Rampa — precisa ser encerrada junto, senão fica esquecida lá,
+  // pedindo uma manobra que já aconteceu. Ver encerrarNavegacaoAcao.
+  const subidasEmAberto = agendamentos.filter((a) => a.tipo === 'retorno' && ['solicitado', 'confirmado', 'navegando'].includes(a.status))
+
   // Embarcações "na água agora": a última movimentação concluída de cada
   // embarcação foi uma retirada (sem retorno concluído depois dela). Lógica
   // compartilhada com o painel do cliente — ver ultimaMovimentacaoPorEmbarcacao
@@ -357,7 +367,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // novo, ver encerrarNavegacaoAcao.
   const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos))
     .filter((a) => a.tipo === 'retirada' && a.resgate_status !== 'resgatado')
-    .map((a) => ({ ...a, _subida: subidasNavegando.find((s) => s.embarcacao_id === a.embarcacao_id) || null }))
+    .map((a) => ({ ...a, _subida: subidasEmAberto.find((s) => s.embarcacao_id === a.embarcacao_id) || null }))
 
   // Subida em "Navegando" sem uma retirada correspondente rastreada como "na
   // água" (caso raro — ex.: a retirada original foi cancelada depois que a
@@ -572,12 +582,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // ao contrário do resto da Fila de Rampa, aqui não tem "desfazer" fácil
   // (cria um retorno novo, ou cancela a descida original).
   //
-  // Quando já existe uma Subida real em andamento pra essa embarcação
-  // (a._subida, ver naAgua acima), fecha esse registro de verdade em vez de
-  // criar um retorno sintético novo: "Recolhido" conclui a própria subida;
-  // "Resgatado"/"Cancelar" cancelam só essa subida (a embarcação continua
-  // rastreada como na água — "Resgatado" também marca o resgate na retirada
-  // original, do mesmo jeito de sempre).
+  // Quando já existe uma Subida em aberto pra essa embarcação — pedida pelo
+  // cliente e ainda esperando na Fila de Rampa ('solicitado'/'confirmado'),
+  // ou já em 'navegando' (ver subidasEmAberto/naAgua acima) — fecha esse
+  // registro de verdade em vez de criar um retorno sintético novo: "Recolhido"
+  // conclui a própria subida (ela some da Fila de Rampa e do Diário de Bordo
+  // ativo do cliente na hora, do mesmo jeito que qualquer outro agendamento
+  // concluído); "Resgatado"/"Cancelar" cancelam só essa subida (a embarcação
+  // continua rastreada como na água — "Resgatado" também marca o resgate na
+  // retirada original, do mesmo jeito de sempre). Sem isso, marcar "Recolhido"
+  // direto por aqui deixava uma solicitação de subida que o cliente já tivesse
+  // enviado esquecida na Fila de Rampa, pedindo uma manobra que já aconteceu.
   const LABEL_ENCERRAR = { recolhido: 'Recolhido', resgatado: 'Resgatado', cancelado: 'Cancelado' }
   async function encerrarNavegacaoAcao(a, motivo) {
     const nome = a.clientes?.nome || 'esse cliente'
