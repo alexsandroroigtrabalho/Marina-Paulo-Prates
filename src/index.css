@@ -971,6 +971,16 @@ button.badge:hover { filter: brightness(0.95); }
 .fila-tabela-acoes { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; }
 .fila-tabela-acoes button.cancelar { background: #F1EAE3; color: #8B5A2B; }
 
+/* Botão "Cancelar" de uma descida/subida direto no Diário de Bordo do
+   cliente (ver cancelarAgendamentoCliente em TelaClienteDashboard.jsx) —
+   mesmo visual (pílula + tom terroso) do "Cancelar" já usado na Fila de
+   Rampa do Painel de Controle, só que fora daquela tabela. */
+.diario-lista button.cancelar {
+  font-size: 12px; padding: 6px 12px; border: none; border-radius: 8px;
+  background: #F1EAE3; color: #8B5A2B; cursor: pointer; font-weight: 600;
+  align-self: center; white-space: nowrap;
+}
+
 .modal-fundo {
   position: fixed; inset: 0; background: rgba(13,27,42,0.35);
   display: flex; align-items: center; justify-content: center; z-index: 10;

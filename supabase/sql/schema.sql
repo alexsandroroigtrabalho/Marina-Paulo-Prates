@@ -610,10 +610,19 @@ CREATE POLICY "cliente_ve_proprios_agendamentos" ON marina.agendamentos
   FOR SELECT TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
+-- O cliente cancela a própria descida/subida (botão "Cancelar" no Diário de
+-- Bordo, ver cancelarAgendamentoCliente em TelaClienteDashboard.jsx)
+-- enquanto ainda estiver "Solicitado" ou "Recebido" (confirmado) — uma vez
+-- "Navegando" em diante, vira decisão operacional da marina (Painel de
+-- Controle), não mais do cliente, por isso status IN ('solicitado',
+-- 'confirmado') e não qualquer status. WITH CHECK trava o resultado em
+-- 'cancelado' — o cliente não pode usar esta policy pra editar mais nada na
+-- própria linha (nem trocar data_hora, embarcação etc.), só cancelar.
+-- Ver supabase/sql/migration_cliente_cancela_confirmado.sql.
 CREATE POLICY "cliente_cancela_proprio_agendamento" ON marina.agendamentos
   FOR UPDATE TO authenticated
-  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'solicitado')
-  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status IN ('solicitado', 'confirmado'))
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'cancelado');
 
 -- Documentação, laudos e despachos: staff da marina tem acesso completo
 CREATE POLICY "admin_marina_documentos" ON marina.documentos_embarcacao

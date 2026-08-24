@@ -7,7 +7,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
-  listarAgendamentosCliente, solicitarAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
+  listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
   salvarCliente, listarHorariosOcupados,
@@ -523,6 +523,27 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
+  // Cancelar uma descida/subida direto pelo Diário de Bordo — só aparece
+  // enquanto o pedido ainda está "Solicitado"/"Recebido" (ver cancelavel em
+  // diarioDeBordo abaixo); uma vez em "Navegando" o cancelamento passa a ser
+  // uma decisão operacional da marina, não mais do cliente. Confirma antes
+  // de agir (ação sem volta fácil). atualizarStatusAgendamento já é a mesma
+  // função usada pelo Painel de Controle (Fila de Rampa/Navegando) — o
+  // status 'cancelado' propaga sozinho pra lá via Realtime, some da Fila de
+  // Rampa (statusLinha/linhasFila já excluem cancelado) e libera o horário
+  // na Agenda (marina.horarios_ocupados já ignora status='cancelado').
+  async function cancelarAgendamentoCliente(a) {
+    const tipoLabel = TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo
+    const quando = new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    if (!confirm(`Cancelar a solicitação de ${tipoLabel.toLowerCase()} de ${quando}${a.embarcacoes?.nome ? ` (${a.embarcacoes.nome})` : ''}?`)) return
+    try {
+      await atualizarStatusAgendamento(a.id, 'cancelado')
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível cancelar: ' + err.message)
+    }
+  }
+
   function abrirModalAutorizados() {
     setFormAutorizado({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
     setModalAutorizadosAberto(true)
@@ -709,6 +730,11 @@ export default function TelaClienteDashboard({ perfil }) {
       detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       ...statusAgendamentoDiario(a, ultimaPorEmbarcacao),
       quando: a.data_hora,
+      // Só dá pra cancelar enquanto o pedido ainda não saiu do papel
+      // ("Solicitado"/"Recebido") — uma vez "Navegando" em diante, virou uma
+      // manobra em andamento, e cancelar passa a ser decisão da marina pelo
+      // Painel de Controle, não mais um botão aqui. Ver cancelarAgendamentoCliente.
+      agendamentoParaCancelar: (a.status === 'solicitado' || a.status === 'confirmado') ? a : null,
     })),
     ...abastecimentos.map((p) => ({
       id: `ab-${p.id}`,
@@ -790,6 +816,12 @@ export default function TelaClienteDashboard({ perfil }) {
   const historicoSolicitacoes = diarioDeBordo.filter((item) =>
     item.statusClasse === 'em-dia' && agora - new Date(item.quando).getTime() <= HISTORICO_JANELA_MS
   )
+
+  // Pedidos de abastecimento já registrados mas ainda não pagos — o QR/link
+  // de pagamento continua acessível pra eles na área de Abastecimento (ver
+  // modal "Pedir abastecimento" abaixo), já que pagar não é mais exigido no
+  // momento do pedido.
+  const pedidosAguardandoPagamento = abastecimentos.filter((p) => p.status === 'aguardando_pagamento')
 
   function abrirModalAbastecimento() {
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '' })
@@ -938,6 +970,12 @@ export default function TelaClienteDashboard({ perfil }) {
                     {item.detalhe && <div className="linha">{item.detalhe}</div>}
                     <span className={`status-texto ${item.statusClasse}`}>{item.statusLabel}</span>
                   </div>
+                  {item.agendamentoParaCancelar && (
+                    <button type="button" className="cancelar" style={{ flexShrink: 0 }}
+                      onClick={() => cancelarAgendamentoCliente(item.agendamentoParaCancelar)}>
+                      Cancelar
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -1173,8 +1211,28 @@ export default function TelaClienteDashboard({ perfil }) {
             )}
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalAbastecimentoAberto(false)}>Cancelar</button>
-              <button type="submit" disabled={enviandoAbastecimento}>{enviandoAbastecimento ? 'Gerando...' : 'Gerar QR de pagamento'}</button>
+              <button type="submit" disabled={enviandoAbastecimento}>{enviandoAbastecimento ? 'Enviando...' : 'Confirmar pedido'}</button>
             </div>
+
+            {/* Pedidos já feitos e ainda não pagos — o QR/link de pagamento
+                continua acessível aqui pra pagar quando quiser (pagamento não
+                é mais exigido no momento do pedido, ver enviarAbastecimento:
+                o pedido já é registrado pra marina assim que confirmado). */}
+            {pedidosAguardandoPagamento.length > 0 && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--cor-borda)' }}>
+                <p className="dica" style={{ marginBottom: 8 }}>Pedidos aguardando pagamento</p>
+                {pedidosAguardandoPagamento.map((p) => (
+                  <div key={p.id} className="linha-pedido-pendente" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 13 }}>
+                      {p.combustiveis?.nome}{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''} — {Number(p.quantidade_litros).toFixed(2)} L · R$ {Number(p.valor_total).toFixed(2)}
+                    </span>
+                    <button type="button" onClick={() => { setModalAbastecimentoAberto(false); setPedidoGerado({ ...p, combustivelNome: p.combustiveis?.nome }) }}>
+                      Ver QR / pagar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </form>
         </div>
       )}
@@ -1182,7 +1240,7 @@ export default function TelaClienteDashboard({ perfil }) {
       {pedidoGerado && (
         <div className="modal-fundo" onClick={() => setPedidoGerado(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
-            <h3>Escaneie para pagar</h3>
+            <h3>Pedido registrado</h3>
             <p className="dica">{pedidoGerado.combustivelNome} · {Number(pedidoGerado.quantidade_litros).toFixed(2)} L</p>
             <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
               <QRCodeSVG value={pedidoGerado.qr_code} size={200} />
@@ -1190,8 +1248,19 @@ export default function TelaClienteDashboard({ perfil }) {
             <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--cor-primaria)', margin: '4px 0' }}>
               R$ {Number(pedidoGerado.valor_total).toFixed(2)}
             </p>
+            {TEMA_PADRAO.linkPagamento && (
+              <p>
+                <a className="btn-primario" style={{ display: 'inline-block', textDecoration: 'none' }}
+                  href={TEMA_PADRAO.linkPagamento} target="_blank" rel="noopener noreferrer">
+                  Abrir link de pagamento
+                </a>
+              </p>
+            )}
             <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
-              QR de demonstração. O pagamento real via Pix ainda não está conectado. Seu pedido já foi registrado para a marina.
+              QR de demonstração. O pagamento real via Pix ainda não está conectado.
+            </p>
+            <p className="dica">
+              Seu pedido já foi registrado para a marina — não é preciso pagar agora. Pague quando quiser com o QR acima; ele continua disponível em Serviços → Abastecimento.
             </p>
             <button className="btn-primario" style={{ width: '100%' }} onClick={() => setPedidoGerado(null)}>Fechar</button>
           </div>
