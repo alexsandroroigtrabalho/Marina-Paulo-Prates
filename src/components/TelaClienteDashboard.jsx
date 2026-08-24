@@ -174,9 +174,18 @@ function classeStatusDiario(status) {
 //     parte da lista "em-dia" de classeStatusDiario (por isso não usamos
 //     ela aqui), pensada pra outros status (ex: abastecimento) que não têm
 //     esse passo intermediário.
+//   - Subida "Navegando" (status='navegando', valor novo sem constraint no
+//     banco, ver STATUS_FILA_OPCOES em TelaVagas.jsx): a embarcação já está
+//     a caminho de volta, mas o retorno ainda não foi confirmado — fica
+//     visível igual ao "Navegando" da descida (não é um status "em-dia" de
+//     classeStatusDiario, então cai certo no branco padrão ali embaixo; só
+//     precisa do rótulo certo aqui, já que STATUS_LABEL não tem essa chave).
 function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
   if (a.status === 'confirmado') {
     return { statusLabel: 'Solicitação confirmada', statusClasse: 'pendente' }
+  }
+  if (a.status === 'navegando' && a.tipo === 'retorno') {
+    return { statusLabel: 'Navegando', statusClasse: 'pendente' }
   }
   if (a.status === 'concluido' && a.tipo === 'retirada') {
     const aindaNaAgua = ultimaPorEmbarcacao[a.embarcacao_id]?.id === a.id

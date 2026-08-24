@@ -46,15 +46,23 @@ function statusLinha(a) {
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
-// Campo Status da Fila de Rampa: um <select> só, com os 3 estados possíveis
-// pra cada tipo de solicitação — o operador escolhe direto aqui, sem botão
-// "Confirmar" separado. "Solicitado" reaproveita o status que já vem do
-// pedido do cliente; "Recebido" usa o status 'confirmado' (já existia no
-// banco, nunca usado até aqui); o status final reaproveita 'concluido' — na
-// descida vira "Navegando" (a notificação sai da Fila de Rampa e passa a
-// aparecer na tabela "Navegando" logo abaixo, como já acontecia); na subida
-// vira "Recolhido" (a notificação simplesmente some da Fila de Rampa, mesmo
-// comportamento de sempre quando um retorno é confirmado).
+// Campo Status da Fila de Rampa: um <select> só, o operador escolhe direto
+// aqui, sem botão "Confirmar" separado. "Solicitado" reaproveita o status
+// que já vem do pedido do cliente; "Recebido" usa o status 'confirmado' (já
+// existia no banco, nunca usado até aqui); o status final reaproveita
+// 'concluido' — na descida vira "Navegando" (a notificação sai da Fila de
+// Rampa e passa a aparecer na tabela "Navegando" logo abaixo, como já
+// acontecia); na subida vira "Recolhido" (a notificação simplesmente some
+// da Fila de Rampa, mesmo comportamento de sempre quando um retorno é
+// confirmado).
+//
+// Na subida, "Navegando" (status='navegando', valor novo, sem constraint no
+// banco pra travar os valores possíveis) entra como um passo a mais entre
+// "Recebido" e "Recolhido" — a embarcação já está a caminho da marina, mas
+// o retorno ainda não foi confirmado. Continua aparecendo na Fila de Rampa
+// normalmente (statusLinha só tira a notificação da lista quando o status
+// vira 'concluido') e não conta como concluído em lugar nenhum
+// (historicoManobras/ultimaMovimentacaoPorEmbarcacao só olham 'concluido').
 const STATUS_FILA_OPCOES = {
   retirada: [
     { valor: 'solicitado', label: 'Solicitado' },
@@ -64,6 +72,7 @@ const STATUS_FILA_OPCOES = {
   retorno: [
     { valor: 'solicitado', label: 'Solicitado' },
     { valor: 'confirmado', label: 'Recebido' },
+    { valor: 'navegando', label: 'Navegando' },
     { valor: 'concluido', label: 'Recolhido' },
   ],
 }
@@ -71,10 +80,10 @@ const STATUS_FILA_OPCOES = {
 // Cor do campo Status: tom terroso (mesmo de sempre) pra "Solicitado",
 // amarelo (mesmo tom já usado em Manutenção "Em andamento") pra "Recebido",
 // e o mesmo verde de ".status-navegando" (tabela Navegando) pro status
-// final — ver .select-status-fila no index.css.
+// final e pro "Navegando" da subida — ver .select-status-fila no index.css.
 function classeStatusFila(status) {
   if (status === 'confirmado') return 'recebido'
-  if (status === 'concluido') return 'navegando'
+  if (status === 'concluido' || status === 'navegando') return 'navegando'
   return 'solicitado'
 }
 
