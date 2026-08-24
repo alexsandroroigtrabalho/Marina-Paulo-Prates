@@ -150,7 +150,7 @@ const DETALHE_STATUS_RESGATE = {
   cancelado: 'Você cancelou o pedido, confirmando que está tudo bem',
 }
 const MENSAGEM_BOTAO_RESGATE = {
-  solicitado: 'Resgate solicitado, aguarde a equipe',
+  solicitado: 'Pedido recebido - providenciando resgate',
   recebido: 'Pedido recebido, equipe a caminho',
 }
 
