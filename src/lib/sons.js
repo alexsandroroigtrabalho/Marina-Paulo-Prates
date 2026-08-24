@@ -217,3 +217,17 @@ export function tocarApitoSos() {
     osc.stop(fim + 0.05)
   })
 }
+
+// Cliente cancelou o próprio S.O.S. (confirmando "Estou bem" no Diário de
+// Bordo, ver cancelarResgateCliente em TelaClienteDashboard.jsx): toca o
+// mesmo apito de SOS, mas só 4 vezes de forma pontual — ao contrário do
+// alarme de "Solicitação de resgate" ativo (que toca em loop contínuo até a
+// equipe agir, ver alarmeResgateRef em TelaVagas.jsx), este é só um aviso
+// pra equipe perceber a mudança mesmo sem estar olhando pra tela, sem ficar
+// tocando indefinidamente.
+export function tocarAlarmeCancelamentoSos() {
+  const intervaloMs = 800
+  for (let i = 0; i < 4; i++) {
+    setTimeout(tocarApitoSos, i * intervaloMs)
+  }
+}

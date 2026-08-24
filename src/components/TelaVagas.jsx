@@ -6,9 +6,9 @@ import {
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
-import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos } from '../lib/sons'
+import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos, tocarAlarmeCancelamentoSos } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
-import { STATUS_RESGATE, labelStatusResgate } from '../lib/statusResgate'
+import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido } from '../lib/statusAbastecimento'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
@@ -478,6 +478,32 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     if (alarmeResgateRef.current) clearInterval(alarmeResgateRef.current)
   }, [])
 
+  // Alarme de "Cliente cancelou o S.O.S.": toca 4 vezes (tocarAlarmeCancelamentoSos,
+  // pontual — não em loop como o alarme de resgate ativo acima) assim que
+  // resgate_status de alguma embarcação vira 'cancelado'. Mesma técnica de
+  // detecção "só a partir da atualização seguinte" já usada no apito da
+  // Fila de Rampa (ver idsConhecidosRef acima), comparando com o que já
+  // tinha sido visto — pra não disparar em falso na carga inicial da
+  // página nem tocar de novo a cada re-render enquanto o status continuar
+  // 'cancelado' (a "Estou bem" fica visível por minutos, ver
+  // JANELA_ESTOU_BEM_MS, mas o alarme é só no instante da mudança).
+  const resgateStatusConhecidoRef = useRef(null)
+  const resgateStatusAtualChave = agendamentos.map((a) => `${a.id}:${a.resgate_status || ''}`).sort().join(',')
+  useEffect(() => {
+    const atual = new Map(agendamentos.map((a) => [a.id, a.resgate_status]))
+    if (resgateStatusConhecidoRef.current === null || cargasCompletadasRef.current <= 1) {
+      resgateStatusConhecidoRef.current = atual
+      return
+    }
+    const anterior = resgateStatusConhecidoRef.current
+    atual.forEach((status, id) => {
+      if (status === 'cancelado' && anterior.get(id) !== 'cancelado' && sonsAtivados) {
+        tocarAlarmeCancelamentoSos()
+      }
+    })
+    resgateStatusConhecidoRef.current = atual
+  }, [resgateStatusAtualChave, sonsAtivados])
+
   // Liga/desliga o aviso sonoro para TODO o sistema — só o administrador
   // pode chamar isso (botão já vem desabilitado para os demais perfis em
   // ConfiguracoesPainel.jsx, e a policy do banco recusaria a escrita mesmo
@@ -560,8 +586,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // lib/statusResgate.js) tem prioridade sobre o resto; sem isso, o relógio
   // decide sozinho — Navegando (verde) até completar 2h de atraso sobre a
   // previsão de retorno, daí vira Excedeu retorno (vermelho).
+  //
+  // "cancelado" (cliente cancelou o próprio S.O.S., confirmando "Estou
+  // bem") é tratado à parte: só conta como alerta ativo por
+  // JANELA_ESTOU_BEM_MS (5min) a partir de resgate_atualizado_em — depois
+  // disso cai pro resto da função como se não tivesse resgate_status
+  // nenhum, voltando sozinho pro Navegando normal (ou Excedeu retorno, se
+  // for o caso), sem precisar de nenhuma ação da equipe.
   function statusNavegando(a) {
-    if (a.resgate_status) return { classe: `resgate-${a.resgate_status}`, texto: labelStatusResgate(a.resgate_status) }
+    if (a.resgate_status === 'cancelado') {
+      if (estouBemAtivo(a, agora.getTime())) return { classe: 'estou-bem', texto: 'Estou bem' }
+    } else if (a.resgate_status) {
+      return { classe: `resgate-${a.resgate_status}`, texto: labelStatusResgate(a.resgate_status) }
+    }
     if (a.previsao_retorno) {
       const previsto = new Date(a.previsao_retorno).getTime()
       if (agora.getTime() >= previsto + 2 * 60 * 60 * 1000) return { classe: 'excedeu_retorno', texto: 'Excedeu retorno' }
@@ -643,7 +680,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
         <td>
-          {a.resgate_status && a.resgate_status !== 'solicitado' ? (
+          {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
+            // Cliente cancelou o próprio S.O.S. — mostra "Estou bem", sem
+            // nenhum controle (não precisa de ação da equipe, é só um
+            // aviso). Some sozinho depois de JANELA_ESTOU_BEM_MS: quando
+            // isso acontece, status.classe deixa de ser 'estou-bem' (ver
+            // statusNavegando acima) e a linha cai direto no seletor normal
+            // do último ramo abaixo, como se não tivesse tido resgate nenhum.
+            <span className={`badge status-${status.classe}`} title="O cliente cancelou o S.O.S. — some sozinho em alguns minutos">
+              {status.texto}
+            </span>
+          ) : a.resgate_status && a.resgate_status !== 'solicitado' && a.resgate_status !== 'cancelado' ? (
             // Pedido já recebido (ou resgatado): vira um seletor editável,
             // igual ao padrão de status de Manutenção — salva na hora, sem
             // precisar de um botão "Salvar" separado.
@@ -652,12 +699,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               onChange={(e) => definirStatusResgate(a.id, e.target.value)}
               title="Status do resgate"
             >
-              {/* "Solicitação de resgate" fica de fora do seletor de propósito —
-                  esse estado só é alcançado pelo clique inicial no badge (ou
-                  pelo próprio cliente via S.O.S.); selecioná-lo aqui reativaria
-                  o apito contínuo de SOS por engano numa manobra que a equipe
-                  já confirmou ter recebido. */}
-              {STATUS_RESGATE.filter((s) => s.valor !== 'solicitado').map((s) => (
+              {/* "Solicitação de resgate" e "Estou bem" ficam de fora do
+                  seletor de propósito — "Solicitação de resgate" só é
+                  alcançado pelo clique inicial no badge (ou pelo próprio
+                  cliente via S.O.S.), e "Estou bem" só pelo cancelamento do
+                  próprio cliente (ver ramo acima); selecionar qualquer um
+                  dos dois aqui bagunçaria esses fluxos. */}
+              {STATUS_RESGATE.filter((s) => s.valor !== 'solicitado' && s.valor !== 'cancelado').map((s) => (
                 <option key={s.valor} value={s.valor}>{s.label}</option>
               ))}
             </select>

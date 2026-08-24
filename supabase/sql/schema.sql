@@ -249,7 +249,8 @@ CREATE TABLE marina.agendamentos (
 );
 ALTER TABLE marina.agendamentos ADD COLUMN previsao_retorno TIMESTAMPTZ; -- só para tipo='retirada': quando o cliente prevê voltar, usado pro alerta de atraso no Painel de Controle
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_solicitado BOOLEAN DEFAULT false; -- OBSOLETO — substituído por resgate_status (ver abaixo); mantido só pra não quebrar bancos antigos, nada mais escreve nele
-ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solicitado | recebido | resgatado — fluxo do alerta de resgate (S.O.S.) no Painel de Controle, ver lib/statusResgate.js
+ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solicitado | recebido | resgatado | cancelado — fluxo do alerta de resgate (S.O.S.) no Painel de Controle, ver lib/statusResgate.js. 'cancelado' = o próprio cliente cancelou (Diário de Bordo), mostra "Estou bem" por 5min (ver resgate_atualizado_em)
+ALTER TABLE marina.agendamentos ADD COLUMN resgate_atualizado_em TIMESTAMPTZ; -- quando resgate_status mudou pela última vez — usado só pra calcular a janela de "Estou bem" (ver estouBemAtivo em lib/statusResgate.js)
 -- Instante real em que o status virou 'concluido', gravado sozinho pelo
 -- aplicativo (atualizarStatusAgendamento em lib/db.js) — nunca editável
 -- por ninguém, ao contrário de `data_hora`
@@ -627,6 +628,20 @@ CREATE POLICY "cliente_cancela_proprio_agendamento" ON marina.agendamentos
   FOR UPDATE TO authenticated
   USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status IN ('solicitado', 'confirmado'))
   WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'cancelado');
+
+-- O cliente aciona e cancela o próprio S.O.S. (botões na tela principal e
+-- "Cancelar" no Diário de Bordo, ver solicitarResgate/cancelarResgateCliente
+-- em TelaClienteDashboard.jsx) enquanto a própria embarcação estiver "na
+-- água" (status='concluido' — descida já confirmada, ainda sem o retorno).
+-- WITH CHECK só confere a posse da linha (cliente_id), sem travar o valor
+-- de resgate_status resultante — a interface é quem decide os valores
+-- válidos (solicitado/cancelado; recebido/resgatado ficam só com a
+-- equipe). Já existia em produção antes desta sessão; documentada aqui
+-- pela primeira vez junto com a migration_resgate_atualizado_em.sql.
+CREATE POLICY "cliente_solicita_resgate" ON marina.agendamentos
+  FOR UPDATE TO authenticated
+  USING (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()) AND status = 'concluido')
+  WITH CHECK (cliente_id IN (SELECT id FROM marina.clientes WHERE user_id = auth.uid()));
 
 -- Documentação, laudos e despachos: staff da marina tem acesso completo
 CREATE POLICY "admin_marina_documentos" ON marina.documentos_embarcacao

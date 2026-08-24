@@ -136,16 +136,28 @@ const STATUS_LABEL = {
 const TIPO_AGENDAMENTO_LABEL = { retirada: 'Descida', retorno: 'Subida' }
 
 // Textos do S.O.S. por etapa do resgate (ver lib/statusResgate.js) — usados
-// no botão de ação e no Diário de Bordo.
+// no botão de ação e no Diário de Bordo. 'cancelado' (o próprio cliente
+// cancelou, ver cancelarResgateCliente abaixo) fica de fora de
+// MENSAGEM_BOTAO_RESGATE de propósito: cai no texto padrão do botão
+// ("S.O.S. · Solicitar resgate"), porque cancelar já libera o botão pra um
+// novo pedido na hora — não precisa de um texto de transição como
+// "solicitado"/"recebido" têm.
 const DETALHE_STATUS_RESGATE = {
   solicitado: 'Resgate solicitado à equipe da marina',
   recebido: 'Equipe confirmou o recebimento do pedido, a caminho',
   resgatado: 'Atendimento concluído pela equipe',
+  cancelado: 'Você cancelou o pedido, confirmando que está tudo bem',
 }
 const MENSAGEM_BOTAO_RESGATE = {
   solicitado: 'Resgate solicitado, aguarde a equipe',
   recebido: 'Pedido recebido, equipe a caminho',
 }
+
+// Enquanto o resgate estiver num destes status, o cliente ainda pode
+// cancelá-lo direto pelo Diário de Bordo (ver cancelarResgateCliente e
+// resgateParaCancelar abaixo) — uma vez "Resgatado" o atendimento já foi
+// concluído pela equipe, não faz sentido cancelar.
+const STATUS_RESGATE_CANCELAVEIS = ['solicitado', 'recebido']
 
 // Agrupa os status de todas as origens (agendamentos, abastecimento,
 // manutenção, despachos, laudos) em 3 cores só, pro Diário de Bordo não
@@ -751,6 +763,28 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
+  // Cancelar o próprio pedido de S.O.S. direto pelo Diário de Bordo — só
+  // enquanto ainda estiver "Solicitado" ou "Recebido" (ver
+  // STATUS_RESGATE_CANCELAVEIS/resgateParaCancelar abaixo); uma vez
+  // "Resgatado" o atendimento já terminou. Confirma antes de agir, mesmo
+  // padrão de cancelarAgendamentoCliente/cancelarAbastecimentoCliente
+  // acima. atualizarStatusResgate('cancelado') já propaga sozinho pro
+  // Painel de Controle (TelaVagas.jsx assina agendamentos via Realtime): lá
+  // toca o alarme de cancelamento (4 apitos) e mostra "Estou bem" por
+  // alguns minutos antes de voltar sozinho pro Navegando — ver
+  // lib/statusResgate.js (estouBemAtivo) e lib/sons.js
+  // (tocarAlarmeCancelamentoSos).
+  async function cancelarResgateCliente() {
+    if (!agendamentoNavegando || !STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status)) return
+    if (!confirm('Confirma que está tudo bem e deseja cancelar o pedido de S.O.S.? A equipe da marina será avisada imediatamente.')) return
+    try {
+      await atualizarStatusResgate(agendamentoNavegando.id, 'cancelado')
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível cancelar: ' + err.message)
+    }
+  }
+
   // Diário de Bordo: junta retiradas/retornos, abastecimentos, manutenção,
   // regularização, laudos e o S.O.S. (quando ativo) numa única linha do
   // tempo, mais recente primeiro. Cada origem tem seu próprio campo de
@@ -825,7 +859,8 @@ export default function TelaClienteDashboard({ perfil }) {
     // de pedidos de resgate anteriores — resgate_status é um campo só na
     // própria linha do agendamento em navegação). Continua em vermelho
     // ("sos") em "Solicitação de resgate" e "Pedido recebido"; vira verde
-    // ("em-dia") quando a equipe marca "Resgatado".
+    // ("em-dia") quando a equipe marca "Resgatado" ou quando o próprio
+    // cliente cancela (confirmando "Estou bem" — ver cancelarResgateCliente).
     ...(agendamentoNavegando?.resgate_status
       ? [{
           id: `sos-${agendamentoNavegando.id}`,
@@ -833,8 +868,11 @@ export default function TelaClienteDashboard({ perfil }) {
           titulo: `S.O.S. · ${agendamentoNavegando.embarcacoes?.nome || 'embarcação'}`,
           detalhe: DETALHE_STATUS_RESGATE[agendamentoNavegando.resgate_status] || '',
           statusLabel: labelStatusResgate(agendamentoNavegando.resgate_status),
-          statusClasse: agendamentoNavegando.resgate_status === 'resgatado' ? 'em-dia' : 'sos',
+          statusClasse: ['resgatado', 'cancelado'].includes(agendamentoNavegando.resgate_status) ? 'em-dia' : 'sos',
           quando: agendamentoNavegando.data_hora,
+          // Só dá pra cancelar enquanto ainda está "Solicitado" ou
+          // "Recebido" — ver cancelarResgateCliente.
+          resgateParaCancelar: STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status) ? agendamentoNavegando : null,
         }]
       : []),
   ].sort((a, b) => new Date(b.quando) - new Date(a.quando))
@@ -985,8 +1023,8 @@ export default function TelaClienteDashboard({ perfil }) {
 
             <button
               type="button"
-              className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando?.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado' ? 'enviado' : ''}`}
-              disabled={!agendamentoNavegando || enviandoResgate || (agendamentoNavegando.resgate_status && agendamentoNavegando.resgate_status !== 'resgatado')}
+              className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando && STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status) ? 'enviado' : ''}`}
+              disabled={!agendamentoNavegando || enviandoResgate || (agendamentoNavegando && STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status))}
               onClick={solicitarResgate}
             >
               <IconLifebuoy size={20} />
@@ -1025,6 +1063,12 @@ export default function TelaClienteDashboard({ perfil }) {
                   {item.abastecimentoParaCancelar && (
                     <button type="button" className="cancelar" style={{ flexShrink: 0 }}
                       onClick={() => cancelarAbastecimentoCliente(item.abastecimentoParaCancelar)}>
+                      Cancelar
+                    </button>
+                  )}
+                  {item.resgateParaCancelar && (
+                    <button type="button" className="cancelar" style={{ flexShrink: 0 }}
+                      onClick={cancelarResgateCliente}>
                       Cancelar
                     </button>
                   )}

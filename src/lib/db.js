@@ -361,10 +361,14 @@ export async function atualizarStatusAgendamento(id, status) {
   if (error) throw error
 }
 
-// status: null (sem resgate), 'solicitado', 'recebido' ou 'resgatado' — ver
-// lib/statusResgate.js para o fluxo completo.
+// status: null (sem resgate), 'solicitado', 'recebido', 'resgatado' ou
+// 'cancelado' — ver lib/statusResgate.js para o fluxo completo. Grava
+// também resgate_atualizado_em — é o carimbo que TelaVagas.jsx usa pra
+// saber por quanto tempo ainda mostrar "Estou bem" depois que o cliente
+// cancela o S.O.S. (5 minutos, ver estouBemAtivo em lib/statusResgate.js),
+// sem precisar de nenhum job/trigger no banco pra isso.
 export async function atualizarStatusResgate(id, status) {
-  const { error } = await db.from('agendamentos').update({ resgate_status: status }).eq('id', id)
+  const { error } = await db.from('agendamentos').update({ resgate_status: status, resgate_atualizado_em: new Date().toISOString() }).eq('id', id)
   if (error) throw error
 }
 

@@ -1,0 +1,27 @@
+-- Adiciona marina.agendamentos.resgate_atualizado_em — carimbo de quando
+-- resgate_status mudou pela última vez (ver atualizarStatusResgate em
+-- lib/db.js, que passou a gravar isso junto). É o que permite ao Painel de
+-- Controle (TelaVagas.jsx) mostrar "Estou bem" só por 5 minutos depois que
+-- o cliente cancela o próprio S.O.S. (novo valor de resgate_status,
+-- 'cancelado' — ver cancelarResgateCliente em TelaClienteDashboard.jsx e
+-- lib/statusResgate.js) e voltar sozinho pro "Navegando" normal depois
+-- disso, sem precisar de nenhum job/trigger no banco: é só uma leitura
+-- derivada (estouBemAtivo) contra o relógio que já roda naquela tela.
+--
+-- Nenhuma policy nova precisou ser criada pra isso: a policy
+-- "cliente_solicita_resgate" (já existente em produção, aplicada antes
+-- desta sessão, mas sem registro em nenhum migration_*.sql até agora —
+-- corrigido junto aqui) já permite ao cliente atualizar qualquer coluna da
+-- própria linha, incluindo resgate_status e agora resgate_atualizado_em,
+-- enquanto o agendamento estiver com status='concluido' (embarcação na
+-- água). Testado numa transação isolada em produção (DO block com RAISE
+-- EXCEPTION, revertendo tudo) antes de aplicar de verdade: cliente
+-- conseguiu gravar resgate_status='cancelado' + resgate_atualizado_em na
+-- própria linha, sem deixar nenhum dado de teste na tabela.
+--
+-- Já aplicada diretamente no projeto (yhioftajhsfpymrqaijd) via MCP em
+-- 2026-08-24 — este arquivo fica só como registro/histórico, seguindo o
+-- mesmo padrão dos outros migration_*.sql deste diretório. Seguro rodar de
+-- novo (idempotente: ADD COLUMN IF NOT EXISTS).
+
+ALTER TABLE marina.agendamentos ADD COLUMN IF NOT EXISTS resgate_atualizado_em TIMESTAMPTZ;
