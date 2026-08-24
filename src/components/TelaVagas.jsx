@@ -41,28 +41,36 @@ const TIPO_AGENDAMENTO_LABEL = {
 // novo "Recebido" (status='confirmado', ver STATUS_FILA_OPCOES/campo Status
 // abaixo), que fica no meio do caminho entre "Solicitado" e o status final
 // (Navegando/Recolhido) sem sair da Fila de Rampa.
+//
+// Exceção: na subida, assim que o status vira 'navegando' a notificação
+// também sai da Fila de Rampa — a embarcação já está a caminho da marina, e
+// esse acompanhamento passa a acontecer na tabela "Navegando" logo abaixo
+// (junto com o resto do que já está na água), não mais aqui. "Recolhido"
+// deixou de ser uma opção do campo Status da Fila de Rampa por causa disso —
+// vira uma ação da tabela "Navegando" (ver naAgua/subidasNavegando/
+// linhaNavegando/linhaSubidaAvulsa).
 function statusLinha(a) {
   if (a.status === 'concluido') return a.tipo === 'retirada' ? 'navegando' : null
+  if (a.tipo === 'retorno' && a.status === 'navegando') return null
   return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
 }
 
 // Campo Status da Fila de Rampa: um <select> só, o operador escolhe direto
 // aqui, sem botão "Confirmar" separado. "Solicitado" reaproveita o status
 // que já vem do pedido do cliente; "Recebido" usa o status 'confirmado' (já
-// existia no banco, nunca usado até aqui); o status final reaproveita
-// 'concluido' — na descida vira "Navegando" (a notificação sai da Fila de
-// Rampa e passa a aparecer na tabela "Navegando" logo abaixo, como já
-// acontecia); na subida vira "Recolhido" (a notificação simplesmente some
-// da Fila de Rampa, mesmo comportamento de sempre quando um retorno é
-// confirmado).
+// existia no banco, nunca usado até aqui).
+//
+// Na descida, o status final reaproveita 'concluido' e vira "Navegando" — a
+// notificação sai da Fila de Rampa e passa a aparecer na tabela "Navegando"
+// logo abaixo, como já acontecia.
 //
 // Na subida, "Navegando" (status='navegando', valor novo, sem constraint no
-// banco pra travar os valores possíveis) entra como um passo a mais entre
-// "Recebido" e "Recolhido" — a embarcação já está a caminho da marina, mas
-// o retorno ainda não foi confirmado. Continua aparecendo na Fila de Rampa
-// normalmente (statusLinha só tira a notificação da lista quando o status
-// vira 'concluido') e não conta como concluído em lugar nenhum
-// (historicoManobras/ultimaMovimentacaoPorEmbarcacao só olham 'concluido').
+// banco pra travar os valores possíveis) é o último passo por aqui: assim
+// que escolhido, a notificação sai da Fila de Rampa (ver statusLinha acima)
+// e passa a aparecer também na tabela "Navegando", junto com o resto do que
+// já está na água. "Recolhido" não é mais uma opção deste campo — vira uma
+// ação de lá (ver linhaNavegando/encerrarNavegacaoAcao), então nem precisa
+// de status próprio aqui.
 const STATUS_FILA_OPCOES = {
   retirada: [
     { valor: 'solicitado', label: 'Solicitado' },
@@ -73,7 +81,6 @@ const STATUS_FILA_OPCOES = {
     { valor: 'solicitado', label: 'Solicitado' },
     { valor: 'confirmado', label: 'Recebido' },
     { valor: 'navegando', label: 'Navegando' },
-    { valor: 'concluido', label: 'Recolhido' },
   ],
 }
 
@@ -322,6 +329,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
+  // Subidas (retorno) já em "Navegando" (status='navegando', ver
+  // STATUS_FILA_OPCOES/statusLinha acima) — saíram da Fila de Rampa e agora
+  // são acompanhadas aqui, na tabela "Navegando", junto com o resto do que
+  // já está na água.
+  const subidasNavegando = agendamentos.filter((a) => a.tipo === 'retorno' && a.status === 'navegando')
+
   // Embarcações "na água agora": a última movimentação concluída de cada
   // embarcação foi uma retirada (sem retorno concluído depois dela). Lógica
   // compartilhada com o painel do cliente — ver ultimaMovimentacaoPorEmbarcacao
@@ -336,8 +349,21 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // nem sempre chega a pedir a subida pelo app). Só afeta essa tabela do
   // Painel de Controle; o histórico de manobras e o painel do cliente
   // continuam mostrando/usando essa retirada normalmente.
+  //
+  // Cada linha carrega também a subida em andamento pra essa mesma
+  // embarcação (_subida), se houver — é o caso normal (o barco saiu, agora
+  // está voltando): a linha continua uma só, mas o campo Status passa a
+  // fechar esse retorno de verdade em vez de criar um retorno sintético
+  // novo, ver encerrarNavegacaoAcao.
   const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos))
     .filter((a) => a.tipo === 'retirada' && a.resgate_status !== 'resgatado')
+    .map((a) => ({ ...a, _subida: subidasNavegando.find((s) => s.embarcacao_id === a.embarcacao_id) || null }))
+
+  // Subida em "Navegando" sem uma retirada correspondente rastreada como "na
+  // água" (caso raro — ex.: a retirada original foi cancelada depois que a
+  // subida já tinha sido pedida). Sem isso ela ficaria invisível assim que
+  // saísse da Fila de Rampa, sem nenhum jeito de ser fechada.
+  const subidasAvulsas = subidasNavegando.filter((s) => !naAgua.some((a) => a.embarcacao_id === s.embarcacao_id))
 
   // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
   // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
@@ -545,12 +571,24 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // esperar o cliente enviar uma Subida pelo app. Confirma antes de agir —
   // ao contrário do resto da Fila de Rampa, aqui não tem "desfazer" fácil
   // (cria um retorno novo, ou cancela a descida original).
+  //
+  // Quando já existe uma Subida real em andamento pra essa embarcação
+  // (a._subida, ver naAgua acima), fecha esse registro de verdade em vez de
+  // criar um retorno sintético novo: "Recolhido" conclui a própria subida;
+  // "Resgatado"/"Cancelar" cancelam só essa subida (a embarcação continua
+  // rastreada como na água — "Resgatado" também marca o resgate na retirada
+  // original, do mesmo jeito de sempre).
   const LABEL_ENCERRAR = { recolhido: 'Recolhido', resgatado: 'Resgatado', cancelado: 'Cancelado' }
   async function encerrarNavegacaoAcao(a, motivo) {
     const nome = a.clientes?.nome || 'esse cliente'
     if (!confirm(`Marcar "${LABEL_ENCERRAR[motivo]}" para ${nome}${a.embarcacoes?.nome ? ` (${a.embarcacoes.nome})` : ''}?`)) return
     try {
-      await encerrarNavegacao(a, motivo)
+      if (a._subida) {
+        await atualizarStatusAgendamento(a._subida.id, motivo === 'recolhido' ? 'concluido' : 'cancelado')
+        if (motivo === 'resgatado') await atualizarStatusResgate(a.id, 'resgatado')
+      } else {
+        await encerrarNavegacao(a, motivo)
+      }
       await carregar()
     } catch (err) {
       alert('Não foi possível atualizar: ' + err.message)
@@ -632,6 +670,37 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     )
   }
 
+  // Linha de uma Subida "avulsa" na tabela Navegando (ver subidasAvulsas
+  // acima) — já saiu da Fila de Rampa, mas não tem uma retirada rastreada
+  // como "na água" pra se juntar. Colunas mais simples: sem horário de saída
+  // vindo de uma retirada, e o próprio horário da subida vale como previsão
+  // de retorno. Sem fluxo de S.O.S./resgate aqui — isso vive na retirada.
+  function linhaSubidaAvulsa(a) {
+    return (
+      <tr key={a.id}>
+        <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
+        <td>—</td>
+        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+        <td>
+          <select
+            className="badge select-status-fila status-navegando"
+            value=""
+            title="Selecionar ação"
+            onChange={(e) => {
+              const valor = e.target.value
+              e.target.value = ''
+              if (valor === 'concluido' || valor === 'cancelado') mudarStatusAgendamento(a.id, valor)
+            }}
+          >
+            <option value="">Navegando</option>
+            <option value="concluido">Recolhido</option>
+            <option value="cancelado">Cancelar</option>
+          </select>
+        </td>
+      </tr>
+    )
+  }
+
   const IconeClima = clima ? (ICONE_CLIMA[clima.icone] || IconCloud) : null
 
   return (
@@ -691,8 +760,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
+          {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
         </tbody>
       </table>
 
