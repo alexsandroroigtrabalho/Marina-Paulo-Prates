@@ -1,13 +1,14 @@
 // Status do fluxo simplificado de solicitações de combustível — fonte
-// única dos rótulos e das opções do seletor de status, usada tanto pela
-// aba "Abastecimento" (TelaAbastecimento.jsx) quanto pela seção
-// "Combustível" do Painel de Controle (TelaVagas.jsx) e pelo Diário de
-// Bordo do cliente (TelaClienteDashboard.jsx). Antes deste arquivo, cada
-// tela tinha sua própria cópia dessas informações — bastava mexer numa e
-// esquecer a outra pra elas mostrarem status diferentes pro mesmo pedido.
+// única dos rótulos usada pela aba "Abastecimento" (TelaAbastecimento.jsx,
+// único lugar com o <select> editável de status), pela seção "Combustível"
+// do Painel de Controle (TelaVagas.jsx, só consulta — sem controle nenhum
+// de alteração ali) e pelo Diário de Bordo do cliente
+// (TelaClienteDashboard.jsx). Antes deste arquivo, cada tela tinha sua
+// própria cópia dessas informações — bastava mexer numa e esquecer a
+// outra pra elas mostrarem status diferentes pro mesmo pedido.
 //
-// O operador só escolhe entre estas 4 opções (ver <select> nas telas
-// administrativas):
+// O operador só escolhe entre estas 4 opções, e só pela aba Abastecimento
+// (ver STATUS_ABASTECIMENTO_OPCOES/<select> em TelaAbastecimento.jsx):
 //   'aguardando_pagamento' — a marina confirmou o pedido, falta o cliente
 //                             pagar. Continua visível nas duas telas
 //                             administrativas e no Diário de Bordo.
@@ -29,10 +30,10 @@
 // o código cru se algum pedido velho ainda estiver com um desses
 // ('entregue' também é tratado como concluído, ver abastecimentoConcluido).
 export const STATUS_ABASTECIMENTO_OPCOES = [
+  { valor: 'indisponivel', label: 'Indisponível' },
   { valor: 'aguardando_pagamento', label: 'Aguardando pagamento' },
   { valor: 'pago', label: 'Pagamento efetuado' },
   { valor: 'cancelado', label: 'Cancelar' },
-  { valor: 'indisponivel', label: 'Indisponível' },
 ]
 
 export const STATUS_ABASTECIMENTO_LABEL = {
