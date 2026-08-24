@@ -480,12 +480,30 @@ export default function TelaClienteDashboard({ perfil }) {
         cliente_id: cliente.id,
         embarcacao_id: formAgendamento.embarcacao_id || null,
         tipo: modalTipo,
-        data_hora: `${formAgendamento.data}T${formAgendamento.hora}`,
+        // Convertido pra um instante UTC explícito (.toISOString()) antes de
+        // mandar pro banco — ver correção "sincronização de horários" abaixo.
+        // Enviar a string "AAAA-MM-DDTHH:mm" pura (sem fuso) fazia o Postgres
+        // (timezone da sessão = UTC, `SHOW timezone`) gravar esse horário
+        // como se já fosse UTC, quando na verdade era o horário LOCAL do
+        // navegador do cliente — quem morasse num fuso diferente de UTC via
+        // um horário errado em tudo que lê data_hora depois (Fila de Rampa,
+        // Navegando, Diário de Bordo, Histórico de manobras, exportações).
+        // `new Date(...)` interpreta a string sem fuso como hora local do
+        // navegador (comportamento padrão do JS) — `.toISOString()` converte
+        // esse mesmo instante pra UTC de forma correta, então quem ler de
+        // volta (sempre via `new Date(iso).toLocaleString(...)`, já usado em
+        // todo o sistema) volta a ver exatamente o horário que o cliente
+        // escolheu aqui, não importa o fuso do servidor.
+        data_hora: new Date(`${formAgendamento.data}T${formAgendamento.hora}`).toISOString(),
         observacoes: formAgendamento.observacoes || null,
         autorizado_id: formAgendamento.autorizado_id || null,
         // Só faz sentido prever retorno numa descida — é o que o Painel de
-        // Controle usa pra avisar quando a embarcação está demorando.
-        previsao_retorno: modalTipo === 'retirada' && formAgendamento.previsao_retorno ? formAgendamento.previsao_retorno : null,
+        // Controle usa pra avisar quando a embarcação está demorando. Mesma
+        // correção de fuso do data_hora acima — o <input type="datetime-local">
+        // também devolve uma string sem fuso.
+        previsao_retorno: modalTipo === 'retirada' && formAgendamento.previsao_retorno
+          ? new Date(formAgendamento.previsao_retorno).toISOString()
+          : null,
       })
       setModalTipo(null)
       await carregar()

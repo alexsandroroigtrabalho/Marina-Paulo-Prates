@@ -368,6 +368,41 @@ export async function atualizarStatusResgate(id, status) {
   if (error) throw error
 }
 
+// Encerra uma navegação direto pela tabela "Navegando" do Painel de
+// Controle, sem esperar o cliente enviar uma Subida pelo app — usado quando
+// o campo Status dessa tabela recebe "Recolhido" ou "Resgatado" (ver
+// TelaVagas.jsx). Cria um agendamento de retorno já concluído, com a mesma
+// consequência de uma Subida confirmada normalmente: tira a embarcação de
+// "Navegando" (ultimaMovimentacaoPorEmbarcacao passa a apontar pro retorno)
+// e limpa o Diário de Bordo ativo do cliente (statusAgendamentoDiario, em
+// TelaClienteDashboard.jsx, já trata qualquer retorno concluído assim). No
+// caso de "Resgatado", também grava resgate_status='resgatado' na descida
+// original — mesmo rótulo/histórico já usado pelo fluxo de S.O.S., pra
+// quem olhar o Histórico de Manobras depois entender que não foi um
+// retorno comum. "Cancelado" não cria retorno nenhum — só cancela a
+// própria descida (mesmo efeito do botão "Cancelar" já usado na Fila de
+// Rampa).
+export async function encerrarNavegacao(retirada, motivo) {
+  if (motivo === 'cancelado') {
+    return atualizarStatusAgendamento(retirada.id, 'cancelado')
+  }
+  const agora = new Date().toISOString()
+  const { error } = await db.from('agendamentos').insert({
+    marina_id: retirada.marina_id,
+    cliente_id: retirada.cliente_id,
+    embarcacao_id: retirada.embarcacao_id,
+    tipo: 'retorno',
+    data_hora: agora,
+    status: 'concluido',
+    concluido_em: agora,
+    observacoes: motivo === 'resgatado' ? 'Encerrado pela equipe — resgate' : 'Encerrado pela equipe — recolhido direto pela tabela Navegando',
+  })
+  if (error) throw error
+  if (motivo === 'resgatado') {
+    await atualizarStatusResgate(retirada.id, 'resgatado')
+  }
+}
+
 
 /* ---------- Documentação (TIE, seguro, habilitação, vistoria...) ---------- */
 export async function listarDocumentos(marinaId) {

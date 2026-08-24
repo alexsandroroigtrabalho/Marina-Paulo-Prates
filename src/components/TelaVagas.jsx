@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
-  listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate,
+  listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
@@ -531,6 +531,23 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
+  // Encerrar a navegação direto pela tabela "Navegando" (campo Status —
+  // "Recolhido"/"Resgatado"/"Cancelar", ver linhaNavegando abaixo), sem
+  // esperar o cliente enviar uma Subida pelo app. Confirma antes de agir —
+  // ao contrário do resto da Fila de Rampa, aqui não tem "desfazer" fácil
+  // (cria um retorno novo, ou cancela a descida original).
+  const LABEL_ENCERRAR = { recolhido: 'Recolhido', resgatado: 'Resgatado', cancelado: 'Cancelado' }
+  async function encerrarNavegacaoAcao(a, motivo) {
+    const nome = a.clientes?.nome || 'esse cliente'
+    if (!confirm(`Marcar "${LABEL_ENCERRAR[motivo]}" para ${nome}${a.embarcacoes?.nome ? ` (${a.embarcacoes.nome})` : ''}?`)) return
+    try {
+      await encerrarNavegacao(a, motivo)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar: ' + err.message)
+    }
+  }
+
   // Linha de "Navegando" — só o essencial: quem está com a embarcação, desde
   // quando, e a previsão de retorno (com o status mudando sozinho se
   // atrasar). Sem a natureza do pedido, sem o indicativo luminoso e sem
@@ -562,15 +579,44 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                 <option key={s.valor} value={s.valor}>{s.label}</option>
               ))}
             </select>
-          ) : (
+          ) : a.resgate_status === 'solicitado' ? (
+            // Alerta ativo, ainda não confirmado pela equipe — continua um
+            // botão de clique único (sem seletor no meio), pra confirmar o
+            // recebimento o mais rápido possível e parar o apito contínuo.
             <button
               type="button"
               className={`badge status-${status.classe}`}
-              title={a.resgate_status === 'solicitado' ? 'Clique para confirmar o recebimento do pedido' : 'Clique para marcar Solicitação de resgate'}
+              title="Clique para confirmar o recebimento do pedido"
               onClick={() => avancarResgate(a.id, a.resgate_status)}
             >
               {status.texto}
             </button>
+          ) : (
+            // Navegação normal (sem alerta de resgate em andamento): o
+            // campo Status vira um seletor só, com a opção de marcar
+            // manualmente uma Solicitação de resgate (mesma ação de antes,
+            // agora aqui dentro) e as 3 formas de encerrar a navegação —
+            // Recolhido (retorno normal, sem o cliente precisar pedir a
+            // Subida pelo app), Resgatado (fecha com o mesmo rótulo/
+            // histórico do fluxo de S.O.S.) e Cancelar (anula a descida).
+            <select
+              className={`badge select-status-fila status-${status.classe}`}
+              value=""
+              title="Selecionar ação"
+              onChange={(e) => {
+                const valor = e.target.value
+                e.target.value = ''
+                if (!valor) return
+                if (valor === 'sos') avancarResgate(a.id, a.resgate_status)
+                else encerrarNavegacaoAcao(a, valor)
+              }}
+            >
+              <option value="">{status.texto}</option>
+              <option value="sos">Solicitação de resgate</option>
+              <option value="recolhido">Recolhido</option>
+              <option value="resgatado">Resgatado</option>
+              <option value="cancelado">Cancelar</option>
+            </select>
           )}
         </td>
       </tr>
