@@ -316,6 +316,37 @@ SELECT cron.schedule(
   $$SELECT marina.limpar_historico_manobras_antigo()$$
 );
 
+-- Confirmação automática de solicitações de descida/subida — se ninguém
+-- confirmar nem cancelar dentro do prazo, o status avança sozinho de
+-- 'solicitado' para 'confirmado' ("Recebido"), do mesmo jeito que já
+-- acontece quando o operador confirma manualmente pelo campo Status da Fila
+-- de Rampa. Sem envio de e-mail: o cliente já vê a mudança na hora, tanto no
+-- Painel de Controle quanto na tela dele, porque os dois já assinam
+-- mudanças em marina.agendamentos via Supabase Realtime.
+--
+-- Prazos por tipo, contados a partir de created_at: descida (retirada) 30
+-- minutos, subida (retorno) 15 minutos. Se o operador já confirmou ou
+-- cancelou antes disso, o status não é mais 'solicitado' e a linha nem
+-- entra no UPDATE — o job nunca sobrescreve uma decisão já tomada.
+-- Ver supabase/sql/migration_auto_confirmar_agendamentos.sql.
+CREATE OR REPLACE FUNCTION marina.auto_confirmar_agendamentos()
+RETURNS void
+LANGUAGE sql
+AS $$
+  UPDATE marina.agendamentos
+  SET status = 'confirmado'
+  WHERE status = 'solicitado'
+    AND (
+      (tipo = 'retirada' AND created_at <= now() - interval '30 minutes')
+      OR (tipo = 'retorno' AND created_at <= now() - interval '15 minutes')
+    );
+$$;
+SELECT cron.schedule(
+  'auto-confirmar-agendamentos',
+  '*/5 * * * *',
+  $$SELECT marina.auto_confirmar_agendamentos()$$
+);
+
 -- ------------------------------------------------------------
 -- 10. DOCUMENTOS DA EMBARCAÇÃO (TIE, seguro, habilitação, vistoria...)
 -- ------------------------------------------------------------
