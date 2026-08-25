@@ -316,8 +316,8 @@ function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento
       }}
     >
       <option value="">{jaInformou ? 'Pagamento informado ✓' : 'Pagamento'}</option>
-      <option value="pagar">Realizar Pagamento</option>
-      <option value="informar" disabled={jaInformou}>Informe de Pagamento</option>
+      <option value="pagar">- Realizar pagamento</option>
+      <option value="informar" disabled={jaInformou}>- Informe de pagamento</option>
     </select>
   )
 }
@@ -440,7 +440,13 @@ export default function TelaClienteDashboard({ perfil }) {
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
   const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '', completarTanque: false })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
-  const [pedidoGerado, setPedidoGerado] = useState(null) // pedido recém-criado, para mostrar o QR
+  const [pedidoGerado, setPedidoGerado] = useState(null) // pedido com "Realizar Pagamento" escolhido — mostra QR/link direto
+  // Pedido recém-registrado (enviarAbastecimento), aguardando o cliente
+  // escolher entre "Realizar Pagamento" e "Informe de Pagamento" na mesma
+  // caixa seletora usada no resto do Diário de Bordo (ver
+  // SeletorAcaoPagamento) — só existe entre o momento do registro e essa
+  // escolha; ao escolher "Realizar Pagamento" vira um pedidoGerado normal.
+  const [pedidoParaEscolherAcao, setPedidoParaEscolherAcao] = useState(null)
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false)
   const [enviandoResgate, setEnviandoResgate] = useState(false)
 
@@ -723,14 +729,26 @@ export default function TelaClienteDashboard({ perfil }) {
   // propaga pra aba Abastecimento dele via Realtime, mesma assinatura de
   // pedidos_abastecimento já usada pro resto da sincronização.
   function abrirPagamentoAbastecimento(p) {
+    // Fecha qualquer modal de onde a ação "Realizar Pagamento" possa ter
+    // partido (ver SeletorAcaoPagamento, usado no card do Diário de Bordo,
+    // no modal "Pedir abastecimento", no modal "Pagamentos" e no
+    // "Pedido registrado" logo após uma nova solicitação) antes de abrir o
+    // modal do QR/link — os que já estiverem fechados, fechar de novo não
+    // tem efeito nenhum.
     setModalAbastecimentoAberto(false)
+    setModalPagamentosAberto(false)
+    setPedidoParaEscolherAcao(null)
     setPedidoGerado({ ...p, combustivelNome: p.combustiveis?.nome })
   }
 
-  async function informarPagamentoCliente(p) {
+  // aoConcluir (opcional): só roda se o informe deu certo — usado pelo
+  // "Pedido registrado" (ver pedidoParaEscolherAcao) pra fechar aquele
+  // modal só depois de confirmar que a gravação funcionou.
+  async function informarPagamentoCliente(p, aoConcluir) {
     try {
       await informarPagamentoAbastecimento(p.id)
       await carregar()
+      aoConcluir?.()
     } catch (err) {
       alert('Não foi possível informar o pagamento: ' + err.message)
     }
@@ -1173,7 +1191,11 @@ export default function TelaClienteDashboard({ perfil }) {
       if (completarTanque) {
         alert('Pedido registrado! Aguarde a resposta da marina no seu Diário de Bordo.')
       } else {
-        setPedidoGerado({ ...pedido, combustivelNome: combustivel.nome })
+        // Em vez de já abrir o QR direto, deixa o cliente escolher entre
+        // "Realizar Pagamento" e "Informe de Pagamento" primeiro — ver
+        // pedidoParaEscolherAcao acima e o modal "Pedido registrado" mais
+        // abaixo.
+        setPedidoParaEscolherAcao({ ...pedido, combustivelNome: combustivel.nome })
       }
       await carregar()
     } catch (err) {
@@ -1577,6 +1599,25 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
+      {pedidoParaEscolherAcao && (
+        <div className="modal-fundo" onClick={() => setPedidoParaEscolherAcao(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <h3>Pedido registrado</h3>
+            <p className="dica">{pedidoParaEscolherAcao.combustivelNome} · {Number(pedidoParaEscolherAcao.quantidade_litros).toFixed(2)} L</p>
+            <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--cor-primaria)', margin: '4px 0' }}>
+              R$ {Number(pedidoParaEscolherAcao.valor_total).toFixed(2)}
+            </p>
+            <p className="dica">Seu pedido já foi registrado para a marina. Escolha como deseja prosseguir com o pagamento:</p>
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0 4px' }}>
+              <SeletorAcaoPagamento pedido={pedidoParaEscolherAcao}
+                onRealizarPagamento={abrirPagamentoAbastecimento}
+                onInformarPagamento={(p) => informarPagamentoCliente(p, () => setPedidoParaEscolherAcao(null))} />
+            </div>
+            <button className="btn-primario" style={{ width: '100%' }} onClick={() => setPedidoParaEscolherAcao(null)}>Fechar</button>
+          </div>
+        </div>
+      )}
+
       {pedidoGerado && (
         <div className="modal-fundo" onClick={() => setPedidoGerado(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -1609,14 +1650,28 @@ export default function TelaClienteDashboard({ perfil }) {
 
       {modalPagamentosAberto && cliente && (() => {
         const statusAgenda = statusAgendaCliente(cliente)
+        // "Pagamentos" agora é uma lista de pendências, não mais só a
+        // mensalidade fixa: junta a mensalidade (quando não liberada) com
+        // todo pedido de combustível "Aguardando pagamento" (mesma lista de
+        // pedidosAguardandoPagamento já usada na aba Abastecimento — ver
+        // acima). Cada item some sozinho da lista assim que deixa de ser
+        // pendência (mensalidade liberada, ou pedido marcado "Pagamento
+        // efetuado" pelo administrador): nenhum código novo de
+        // sincronização foi preciso pra isso, é a mesma leitura filtrada de
+        // sempre reagindo ao Realtime que já existia (ver assinatura de
+        // 'clientes'/'pedidos_abastecimento' no useEffect de carregamento).
+        const pendenciaMensalidade = !statusAgenda.liberado
+        const semPendencias = !pendenciaMensalidade && pedidosAguardandoPagamento.length === 0
         return (
           <div className="modal-fundo" onClick={() => setModalPagamentosAberto(false)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', maxHeight: '85vh', overflowY: 'auto' }}>
               <h3>Pagamentos</h3>
-              <p className={`status-texto ${statusAgenda.classe}`}>{statusAgenda.texto}</p>
 
-              {!statusAgenda.liberado && (
-                <>
+              {semPendencias && <p className="dica">Nenhum pagamento pendente no momento.</p>}
+
+              {pendenciaMensalidade && (
+                <div style={{ paddingBottom: pedidosAguardandoPagamento.length > 0 ? 16 : 0, marginBottom: pedidosAguardandoPagamento.length > 0 ? 16 : 0, borderBottom: pedidosAguardandoPagamento.length > 0 ? '1px solid var(--cor-borda)' : 'none' }}>
+                  <p className={`status-texto ${statusAgenda.classe}`}>{statusAgenda.texto}</p>
                   <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
                     <QRCodeSVG value={QR_PAGAMENTO_DEMO} size={200} />
                   </div>
@@ -1636,10 +1691,26 @@ export default function TelaClienteDashboard({ perfil }) {
                   <p className="dica">
                     Depois de pagar, a administração confirma o recebimento e sua Agenda (Descida/Subida) é liberada automaticamente, não é preciso fazer mais nada aqui.
                   </p>
-                </>
+                </div>
               )}
 
-              <button className="btn-primario" style={{ width: '100%' }} onClick={() => setModalPagamentosAberto(false)}>Fechar</button>
+              {pedidosAguardandoPagamento.length > 0 && (
+                <div style={{ textAlign: 'left' }}>
+                  <p className="dica" style={{ marginBottom: 8 }}>Combustível aguardando pagamento</p>
+                  {pedidosAguardandoPagamento.map((p) => (
+                    <div key={p.id} className="linha-pedido-pendente" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 13 }}>
+                        {p.combustiveis?.nome}{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''} — {Number(p.quantidade_litros).toFixed(2)} L · R$ {Number(p.valor_total).toFixed(2)}
+                      </span>
+                      <SeletorAcaoPagamento pedido={p}
+                        onRealizarPagamento={abrirPagamentoAbastecimento}
+                        onInformarPagamento={informarPagamentoCliente} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button className="btn-primario" style={{ width: '100%', marginTop: 12 }} onClick={() => setModalPagamentosAberto(false)}>Fechar</button>
             </div>
           </div>
         )
