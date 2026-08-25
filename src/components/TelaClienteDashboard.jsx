@@ -302,29 +302,37 @@ function statusAbastecimentoDiario(p) {
 //     Status na aba Abastecimento do administrador (ver
 //     informarPagamentoAbastecimento em lib/db.js) — quem confirma de
 //     verdade continua sendo a equipe, marcando "Pagamento efetuado" dela
-//     mesma (esse sim grava pago_em) no seletor da aba Abastecimento. Uma
-//     vez informado, a opção fica desabilitada aqui (não faz sentido
-//     avisar duas vezes).
+//     mesma (esse sim grava pago_em) no seletor da aba Abastecimento.
 // O travessão ("-") é só o placeholder da caixa (sempre volta pra ele
 // depois de cada escolha, ver onChange abaixo) — as opções em si não
 // levam travessão nenhum na frente, só o texto puro.
+// Uma vez informado (pedido.informado_pagamento_em já gravado), some a
+// opção "Pagamento efetuado" da lista — não tem mais o que informar de
+// novo — e mostra um "✓ Informado" ao lado da caixa, pra ficar claro que
+// aquele clique já funcionou (antes disso ficava só desabilitada, sem
+// nenhum aviso — parecia travada). "Realizar pagamento" continua
+// disponível, o cliente pode querer ver o QR/link de novo mesmo depois de
+// avisar que já pagou.
 function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento }) {
   const jaInformou = !!pedido.informado_pagamento_em
   return (
-    <select
-      value=""
-      className="selecao-acao-pagamento"
-      onChange={(e) => {
-        const acao = e.target.value
-        e.target.value = ''
-        if (acao === 'pagar') onRealizarPagamento(pedido)
-        if (acao === 'informar') onInformarPagamento(pedido)
-      }}
-    >
-      <option value="">-</option>
-      <option value="pagar">Realizar pagamento</option>
-      <option value="informar" disabled={jaInformou}>Pagamento efetuado</option>
-    </select>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {jaInformou && <span className="pagamento-ja-informado">✓ Informado</span>}
+      <select
+        value=""
+        className="selecao-acao-pagamento"
+        onChange={(e) => {
+          const acao = e.target.value
+          e.target.value = ''
+          if (acao === 'pagar') onRealizarPagamento(pedido)
+          if (acao === 'informar') onInformarPagamento(pedido)
+        }}
+      >
+        <option value="">-</option>
+        <option value="pagar">Realizar pagamento</option>
+        {!jaInformou && <option value="informar">Pagamento efetuado</option>}
+      </select>
+    </span>
   )
 }
 

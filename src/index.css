@@ -1182,6 +1182,14 @@ button.badge:hover { filter: brightness(0.95); }
 .indicador-informe-pagamento.pendente { background: var(--cor-pagamento-pendente); }
 .indicador-informe-pagamento.informado { background: var(--cor-pagamento-efetuado); }
 
+/* "✓ Informado" ao lado da caixa Realizar Pagamento/Pagamento efetuado (ver
+   SeletorAcaoPagamento em TelaClienteDashboard.jsx) — some assim que o
+   cliente informa o pagamento, confirmando visualmente que o clique
+   funcionou (a opção correspondente já sai da caixa nesse momento). */
+.pagamento-ja-informado {
+  font-size: 12px; font-weight: 600; color: var(--cor-pagamento-efetuado); white-space: nowrap;
+}
+
 /* ---------- Agenda do dia (grade de horários) ---------- */
 .agenda-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; font-weight: 700; color: var(--cor-primaria); }
 .agenda-nav button { background: none; border: none; color: var(--cor-secundaria); cursor: pointer; font-size: 16px; }
