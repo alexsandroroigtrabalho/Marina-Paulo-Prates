@@ -211,6 +211,17 @@ function classeStatusDiario(status) {
 //     visível igual ao "Navegando" da descida (não é um status "em-dia" de
 //     classeStatusDiario, então cai certo no branco padrão ali embaixo; só
 //     precisa do rótulo certo aqui, já que STATUS_LABEL não tem essa chave).
+//   - 'cancelado': classeStatusDiario('cancelado') sozinho devolveria
+//     'cancelado' (fica parado no Diário de Bordo ativo pra sempre, com um
+//     badge vermelho) — força 'em-dia' aqui, mesmo tratamento já dado ao
+//     combustível cancelado (ver statusAbastecimentoDiario abaixo): uma
+//     descida/subida cancelada (pelo administrador ou pelo próprio
+//     cliente) também é terminal, não sobra ação nenhuma, então some do
+//     Diário de Bordo ativo do mesmo jeito. Continua no Histórico de
+//     Solicitações normalmente, e já sai do Painel de Controle desde
+//     sempre (Fila de Rampa/Navegando só mostram status ativo — ver
+//     linhasFilaAtivas em lib/filaRampa.js; cancelados só aparecem lá
+//     atrás do botão "Ver cancelados").
 function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
   if (a.status === 'confirmado') {
     return { statusLabel: 'Solicitação confirmada', statusClasse: 'pendente' }
@@ -228,6 +239,9 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
     // aparecer no Histórico de Solicitações da engrenagem (onde o item
     // continua visível/exportável por até 5 dias, nunca apagado do banco).
     return { statusLabel: 'Recolhido', statusClasse: classeStatusDiario(a.status) }
+  }
+  if (a.status === 'cancelado') {
+    return { statusLabel: 'Cancelado', statusClasse: 'em-dia' }
   }
   return { statusLabel: STATUS_LABEL[a.status] || a.status, statusClasse: classeStatusDiario(a.status) }
 }
