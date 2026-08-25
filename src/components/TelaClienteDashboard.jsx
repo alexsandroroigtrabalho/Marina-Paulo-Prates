@@ -301,7 +301,10 @@ function statusAbastecimentoDiario(p) {
 //     informarPagamentoAbastecimento em lib/db.js) — não confirma o
 //     pagamento sozinho, quem confirma continua sendo a equipe. Uma vez
 //     informado, a opção fica desabilitada (não faz sentido avisar duas
-//     vezes) e o placeholder mostra o "✓".
+//     vezes).
+// O travessão ("-") é só o placeholder da caixa (sempre volta pra ele
+// depois de cada escolha, ver onChange abaixo) — as opções em si não
+// levam travessão nenhum na frente, só o texto puro.
 function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento }) {
   const jaInformou = !!pedido.informado_pagamento_em
   return (
@@ -315,9 +318,9 @@ function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento
         if (acao === 'informar') onInformarPagamento(pedido)
       }}
     >
-      <option value="">{jaInformou ? 'Pagamento informado ✓' : 'Pagamento'}</option>
-      <option value="pagar">- Realizar pagamento</option>
-      <option value="informar" disabled={jaInformou}>- Informe de pagamento</option>
+      <option value="">-</option>
+      <option value="pagar">Realizar pagamento</option>
+      <option value="informar" disabled={jaInformou}>Informe de pagamento</option>
     </select>
   )
 }
