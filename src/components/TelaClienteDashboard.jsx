@@ -217,9 +217,16 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
 
 // Rótulo/cor de um pedido de abastecimento no Diário de Bordo — mesmo
 // espírito de statusAgendamentoDiario acima: a maioria dos status já cai
-// certo em STATUS_LABEL/classeStatusDiario, só os dois valores novos do
-// fluxo simplificado (ver <select> em TelaAbastecimento.jsx) precisam de
+// certo em STATUS_LABEL/classeStatusDiario, só alguns valores do fluxo
+// simplificado (ver <select> em TelaAbastecimento.jsx) precisam de
 // tratamento especial:
+//   - 'solicitado': valor inicial de todo pedido novo (ver
+//     enviarAbastecimento) — ainda ninguém da marina olhou pra ele, então
+//     mostra "Aguardando resposta da solicitação" em vez do rótulo cru
+//     "—" que esse status usa nas telas administrativas (ver
+//     STATUS_ABASTECIMENTO_LABEL em lib/statusAbastecimento.js — lá o "—"
+//     faz sentido porque o status real já está visível no seletor de ação
+//     ao lado; aqui no Diário de Bordo do cliente precisa de uma frase).
 //   - 'aguardando_pagamento': a marina já confirmou o pedido, só falta o
 //     cliente pagar — mostra os dois estados juntos ("Confirmado —
 //     Aguardando pagamento"), como pedido pelo administrador.
@@ -230,6 +237,7 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
 // confirmado, o pedido já sai do Diário de Bordo (ver filtro em
 // diarioDeBordo abaixo), do mesmo jeito que já sai da tela do administrador.
 function statusAbastecimentoDiario(p) {
+  if (p.status === 'solicitado') return { statusLabel: 'Aguardando resposta da solicitação', statusClasse: 'pendente' }
   if (p.status === 'aguardando_pagamento') return { statusLabel: 'Confirmado — Aguardando pagamento', statusClasse: 'pendente' }
   if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
   return { statusLabel: STATUS_ABASTECIMENTO_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
@@ -974,7 +982,16 @@ export default function TelaClienteDashboard({ perfil }) {
         quantidade_litros: litros,
         preco_litro_no_pedido: combustivel.preco_litro,
         valor_total: valorTotal,
-        status: 'aguardando_pagamento',
+        // Pedido normal começa em 'solicitado' — ninguém da marina decidiu
+        // nada ainda, mostra "Aguardando resposta da solicitação" no
+        // Diário de Bordo e "—" nas telas administrativas (ver
+        // statusAbastecimentoDiario acima e STATUS_ABASTECIMENTO_LABEL em
+        // lib/statusAbastecimento.js) — só muda quando o administrador
+        // escolhe uma das 4 opções reais no seletor de ação da aba
+        // Abastecimento. "Completar tanque" pula essa etapa (o combustível
+        // já foi posto fisicamente, não é uma decisão a tomar) e continua
+        // indo direto pra 'aguardando_pagamento', com o "Tanque cheio".
+        status: completarTanque ? 'aguardando_pagamento' : 'solicitado',
         qr_code: completarTanque ? null : qrDemo,
         qr_code_demo: !completarTanque,
         observacoes: completarTanque ? OBSERVACAO_COMPLETAR_TANQUE : null,

@@ -23,11 +23,18 @@
 //                             próprio cliente, direto no Diário de Bordo).
 //   'indisponivel'          — a marina não tem esse combustível disponível
 //                             agora.
-// 'solicitado' (valor inicial de todo pedido novo) / 'confirmado' /
-// 'entregue' são valores legados (pedidos de antes desse fluxo
-// simplificado) — 'solicitado' continua aparecendo normalmente até a
-// marina agir; 'confirmado'/'entregue' só têm rótulo aqui pra não mostrar
-// o código cru se algum pedido velho ainda estiver com um desses
+// 'solicitado' é o valor inicial de todo pedido novo (ver
+// enviarAbastecimento em TelaClienteDashboard.jsx) — ninguém da marina
+// decidiu nada ainda, então o rótulo aqui é só um travessão ("—"): nas
+// duas telas administrativas o status de verdade já está claro pelo
+// seletor de ação ao lado (sempre começa em "—" também, ver <select> em
+// TelaAbastecimento.jsx — só muda quando o operador escolhe uma das 4
+// opções reais). No Diário de Bordo do cliente esse mesmo 'solicitado'
+// ganha um texto próprio, "Aguardando resposta da solicitação" — ver
+// statusAbastecimentoDiario em TelaClienteDashboard.jsx, que trata esse
+// caso antes de cair aqui. 'confirmado'/'entregue' são valores legados
+// (pedidos de antes desse fluxo simplificado) — só têm rótulo aqui pra não
+// mostrar o código cru se algum pedido velho ainda estiver com um desses
 // ('entregue' também é tratado como concluído, ver abastecimentoConcluido).
 export const STATUS_ABASTECIMENTO_OPCOES = [
   { valor: 'indisponivel', label: 'Indisponível' },
@@ -37,7 +44,7 @@ export const STATUS_ABASTECIMENTO_OPCOES = [
 ]
 
 export const STATUS_ABASTECIMENTO_LABEL = {
-  solicitado: 'Solicitado',
+  solicitado: '—',
   confirmado: 'Confirmado',
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
