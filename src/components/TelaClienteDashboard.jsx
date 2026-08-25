@@ -296,12 +296,15 @@ function statusAbastecimentoDiario(p) {
 //     pedidoGerado mais abaixo) — usa o que já está cadastrado na
 //     plataforma (qr_code do pedido e TEMA_PADRAO.linkPagamento), nada
 //     novo é gerado aqui.
-//   - "Informe de Pagamento": só avisa a marina (liga a bolinha vermelho/
-//     verde ao lado do Status na aba Abastecimento do administrador, ver
-//     informarPagamentoAbastecimento em lib/db.js) — não confirma o
-//     pagamento sozinho, quem confirma continua sendo a equipe. Uma vez
-//     informado, a opção fica desabilitada (não faz sentido avisar duas
-//     vezes).
+//   - "Pagamento efetuado" (value="informar", ver onChange abaixo — o
+//     rótulo mudou, mas continua sendo só um AVISO do cliente, não uma
+//     confirmação de verdade): liga a bolinha vermelho/verde ao lado do
+//     Status na aba Abastecimento do administrador (ver
+//     informarPagamentoAbastecimento em lib/db.js) — quem confirma de
+//     verdade continua sendo a equipe, marcando "Pagamento efetuado" dela
+//     mesma (esse sim grava pago_em) no seletor da aba Abastecimento. Uma
+//     vez informado, a opção fica desabilitada aqui (não faz sentido
+//     avisar duas vezes).
 // O travessão ("-") é só o placeholder da caixa (sempre volta pra ele
 // depois de cada escolha, ver onChange abaixo) — as opções em si não
 // levam travessão nenhum na frente, só o texto puro.
@@ -320,7 +323,7 @@ function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento
     >
       <option value="">-</option>
       <option value="pagar">Realizar pagamento</option>
-      <option value="informar" disabled={jaInformou}>Informe de pagamento</option>
+      <option value="informar" disabled={jaInformou}>Pagamento efetuado</option>
     </select>
   )
 }
