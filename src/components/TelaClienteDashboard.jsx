@@ -995,12 +995,12 @@ export default function TelaClienteDashboard({ perfil }) {
       // pagamento" ou "Indisponível" — ver cancelarAbastecimentoCliente.
       abastecimentoParaCancelar: STATUS_ABASTECIMENTO_CANCELAVEIS.includes(p.status) ? p : null,
       // Caixa de ações de pagamento (Realizar Pagamento/Informe de
-      // Pagamento) — só faz sentido com "Aguardando pagamento" de verdade
-      // (tem QR gerado, ver enviarAbastecimento); "Completar tanque" não
-      // tem QR nenhum, paga presencialmente na marina (ver detalhe acima),
-      // por isso fica de fora aqui do mesmo jeito que já fica de fora de
-      // pedidosAguardandoPagamento.
-      pedidoParaPagar: (p.status === 'aguardando_pagamento' && !ehCompletarTanque(p)) ? p : null,
+      // Pagamento) — mesmo critério de pedidosAguardandoPagamento acima
+      // ('solicitado' incluído, não só 'aguardando_pagamento': o QR já
+      // existe desde a solicitação); "Completar tanque" não tem QR nenhum,
+      // paga presencialmente na marina (ver detalhe acima), por isso fica
+      // de fora aqui do mesmo jeito.
+      pedidoParaPagar: ((p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !ehCompletarTanque(p)) ? p : null,
     })),
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,
@@ -1121,11 +1121,18 @@ export default function TelaClienteDashboard({ perfil }) {
   // Pedidos de abastecimento já registrados mas ainda não pagos — o QR/link
   // de pagamento continua acessível pra eles na área de Abastecimento (ver
   // modal "Pedir abastecimento" abaixo), já que pagar não é mais exigido no
-  // momento do pedido. Fica de fora um pedido "Completar tanque" (ver
+  // momento do pedido. Inclui 'solicitado' (não só 'aguardando_pagamento'):
+  // o QR já é gerado desde o instante da solicitação, antes mesmo da
+  // marina revisar (ver enviarAbastecimento) — sem isso a caixa de
+  // Realizar Pagamento/Informe de Pagamento só reaparecia depois que um
+  // administrador entrasse na aba Abastecimento e avançasse o status, o
+  // que podia levar horas; a policy cliente_informa_pagamento_abastecimento
+  // no banco já permite o "Informe de Pagamento" nos dois status por esse
+  // mesmo motivo. Fica de fora um pedido "Completar tanque" (ver
   // ehCompletarTanque): não tem QR nenhum pra mostrar (paga presencialmente
   // na marina, ver enviarAbastecimento) — aparece só como aviso no Diário
   // de Bordo ("Procurar a marina para efetuar o pagamento").
-  const pedidosAguardandoPagamento = abastecimentos.filter((p) => p.status === 'aguardando_pagamento' && !ehCompletarTanque(p))
+  const pedidosAguardandoPagamento = abastecimentos.filter((p) => (p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !ehCompletarTanque(p))
 
   function abrirModalAbastecimento() {
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '', completarTanque: false })
