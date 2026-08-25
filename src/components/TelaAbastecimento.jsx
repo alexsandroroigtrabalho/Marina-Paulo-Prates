@@ -5,7 +5,7 @@ import {
   listarPedidosAbastecimento, atualizarStatusAbastecimento, solicitarAbastecimento,
   listarClientes, listarEmbarcacoes, completarTanqueComLitros,
 } from '../lib/db'
-import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, classeStatusAbastecimento, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
 
 const FORM_MANUAL_VAZIO = { cliente_id: '', embarcacao_id: '', combustivel_id: '', quantidade_litros: '', status: 'aguardando_pagamento' }
 
@@ -296,7 +296,7 @@ export default function TelaAbastecimento({ marinaId }) {
                       <td>{p.combustiveis?.nome}{aguardandoLitrosCompletarTanque(p) ? ' · Completar tanque' : ''}</td>
                       <td>{aguardandoLitrosCompletarTanque(p) ? <FormLitrosCompletarTanque pedido={p} onRegistrado={carregar} /> : Number(p.quantidade_litros).toFixed(2)}</td>
                       <td>{aguardandoLitrosCompletarTanque(p) ? 'A combinar' : `R$ ${Number(p.valor_total).toFixed(2)}`}</td>
-                      <td><span className={`badge status-${p.status}`}>{STATUS_LABEL[p.status] || p.status}</span></td>
+                      <td><span className={`badge status-${classeStatusAbastecimento(p.status)}`}>{STATUS_LABEL[p.status] || p.status}</span></td>
                       <td>
                         {/* Indicador de "Informe de Pagamento" (ver
                             informarPagamentoAbastecimento em lib/db.js e o

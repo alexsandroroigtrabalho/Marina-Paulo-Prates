@@ -10,7 +10,7 @@ import { ativarSons } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, classeStatusAbastecimento, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
@@ -835,7 +835,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                 {aguardandoLitrosCompletarTanque(p) && p.status === 'aguardando_pagamento' ? (
                   <span className="badge status-tanque-cheio">Tanque cheio</span>
                 ) : (
-                  <span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>
+                  <span className={`badge status-${classeStatusAbastecimento(p.status)}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>
                 )}
               </td>
             </tr>

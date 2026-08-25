@@ -251,16 +251,15 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
 // certo em STATUS_LABEL/classeStatusDiario, só alguns valores do fluxo
 // simplificado (ver <select> em TelaAbastecimento.jsx) precisam de
 // tratamento especial:
-//   - 'solicitado': valor inicial de todo pedido novo (ver
-//     enviarAbastecimento) — ainda ninguém da marina olhou pra ele, então
-//     mostra "Aguardando resposta da solicitação" em vez do rótulo cru
-//     "—" que esse status usa nas telas administrativas (ver
-//     STATUS_ABASTECIMENTO_LABEL em lib/statusAbastecimento.js — lá o "—"
-//     faz sentido porque o status real já está visível no seletor de ação
-//     ao lado; aqui no Diário de Bordo do cliente precisa de uma frase).
-//   - 'aguardando_pagamento': a marina já confirmou o pedido, só falta o
-//     cliente pagar — mostra os dois estados juntos ("Confirmado —
-//     Aguardando pagamento"), como pedido pelo administrador.
+//   - 'solicitado'/'aguardando_pagamento': mesmo rótulo "Aguardando
+//     pagamento" pros dois (ver STATUS_ABASTECIMENTO_LABEL em
+//     lib/statusAbastecimento.js, fonte única também usada aqui) — desde
+//     que o pedido é feito, antes mesmo de a marina revisar, o cliente já
+//     pode Realizar Pagamento ou avisar Pagamento efetuado (ver
+//     pedidoParaPagar/SeletorAcaoPagamento abaixo), então pro cliente os
+//     dois status contam a mesma história: fica "Aguardando pagamento" até
+//     o administrador mudar isso de vez escolhendo uma das 4 opções reais
+//     no seletor de ação da aba Abastecimento.
 //   - 'indisponivel': a marina não tem esse combustível disponível agora —
 //     mesmo tom visual ("cancelado", cinza) de uma solicitação que não vai
 //     seguir adiante, com o texto certo.
@@ -278,8 +277,9 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
 // sai do Diário de Bordo ativo (ver filtro em diarioAtivo abaixo), do mesmo
 // jeito que já sai das telas do administrador.
 function statusAbastecimentoDiario(p) {
-  if (p.status === 'solicitado') return { statusLabel: 'Aguardando resposta da solicitação', statusClasse: 'pendente' }
-  if (p.status === 'aguardando_pagamento') return { statusLabel: 'Confirmado — Aguardando pagamento', statusClasse: 'pendente' }
+  if (p.status === 'solicitado' || p.status === 'aguardando_pagamento') {
+    return { statusLabel: STATUS_ABASTECIMENTO_LABEL.aguardando_pagamento, statusClasse: 'pendente' }
+  }
   if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
   if (p.status === 'cancelado') return { statusLabel: 'Cancelado', statusClasse: 'em-dia' }
   return { statusLabel: STATUS_ABASTECIMENTO_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }

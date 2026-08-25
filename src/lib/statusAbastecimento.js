@@ -28,18 +28,21 @@
 //   'indisponivel'          — a marina não tem esse combustível disponível
 //                             agora.
 // 'solicitado' é o valor inicial de todo pedido novo (ver
-// enviarAbastecimento em TelaClienteDashboard.jsx) — ninguém da marina
-// decidiu nada ainda, então o rótulo aqui é só um travessão ("—"): nas
-// duas telas administrativas o status de verdade já está claro pelo
-// seletor de ação ao lado (sempre começa em "—" também, ver <select> em
-// TelaAbastecimento.jsx — só muda quando o operador escolhe uma das 4
-// opções reais). No Diário de Bordo do cliente esse mesmo 'solicitado'
-// ganha um texto próprio, "Aguardando resposta da solicitação" — ver
-// statusAbastecimentoDiario em TelaClienteDashboard.jsx, que trata esse
-// caso antes de cair aqui. 'confirmado'/'entregue' são valores legados
-// (pedidos de antes desse fluxo simplificado) — só têm rótulo aqui pra não
-// mostrar o código cru se algum pedido velho ainda estiver com um desses
-// ('entregue' também é tratado como concluído, ver abastecimentoConcluido).
+// enviarAbastecimento em TelaClienteDashboard.jsx). Mostra o mesmo rótulo
+// "Aguardando pagamento" de 'aguardando_pagamento' (não mais um travessão
+// "—"): o cliente já pode Realizar Pagamento/informar Pagamento efetuado
+// desde a hora da solicitação, antes mesmo de a marina revisar (ver
+// pedidosAguardandoPagamento/pedidoParaPagar em TelaClienteDashboard.jsx e
+// a policy cliente_informa_pagamento_abastecimento no banco) — então, pro
+// cliente e pra quem olha as telas administrativas, os dois status contam
+// a mesma história: "aguardando o cliente pagar", até o administrador
+// mudar isso de vez escolhendo uma das 4 opções reais no seletor de ação
+// da aba Abastecimento (marcar Pagamento efetuado, Cancelar, Indisponível,
+// ou simplesmente confirmar Aguardando pagamento). 'confirmado'/'entregue'
+// são valores legados (pedidos de antes desse fluxo simplificado) — só têm
+// rótulo aqui pra não mostrar o código cru se algum pedido velho ainda
+// estiver com um desses ('entregue' também é tratado como concluído, ver
+// abastecimentoConcluido).
 export const STATUS_ABASTECIMENTO_OPCOES = [
   { valor: 'indisponivel', label: 'Indisponível' },
   { valor: 'aguardando_pagamento', label: 'Aguardando pagamento' },
@@ -48,7 +51,7 @@ export const STATUS_ABASTECIMENTO_OPCOES = [
 ]
 
 export const STATUS_ABASTECIMENTO_LABEL = {
-  solicitado: '—',
+  solicitado: 'Aguardando pagamento',
   confirmado: 'Confirmado',
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
@@ -59,6 +62,18 @@ export const STATUS_ABASTECIMENTO_LABEL = {
 
 export function labelStatusAbastecimento(status) {
   return STATUS_ABASTECIMENTO_LABEL[status] || status
+}
+
+// Classe CSS do badge de status (TelaAbastecimento.jsx/TelaVagas.jsx —
+// `badge status-${classeStatusAbastecimento(p.status)}`): 'solicitado'
+// pinta igual a 'aguardando_pagamento' (mesmo laranja de "aguardando o
+// cliente pagar", ver .status-aguardando_pagamento em index.css) — os dois
+// já mostram o mesmo rótulo "Aguardando pagamento" (ver
+// STATUS_ABASTECIMENTO_LABEL acima), então a cor do selo tem que
+// acompanhar, senão dois pedidos com o texto igual ficavam com cores
+// diferentes lado a lado na tabela.
+export function classeStatusAbastecimento(status) {
+  return status === 'solicitado' ? 'aguardando_pagamento' : status
 }
 
 // Pedido finalizado — não sobra nenhuma ação pendente pra marina, então
@@ -92,16 +107,18 @@ export const STATUS_ABASTECIMENTO_CANCELAVEIS = ['aguardando_pagamento', 'indisp
 // existente como marcador, sem precisar de coluna nova no banco.
 //
 // Segue exatamente a mesma lógica de qualquer outro pedido — começa em
-// 'solicitado' (rótulo "—" aqui, "Aguardando resposta da solicitação" no
-// Diário de Bordo) e só muda quando o administrador escolhe uma das 4
-// opções no seletor de ação da aba Abastecimento. A diferença aparece só
-// depois que o operador escolhe "Aguardando pagamento": a seção
-// "Combustível" do Painel de Controle passa a mostrar "Tanque cheio" em
-// verde em vez do rótulo padrão (ver TelaVagas.jsx), e o Diário de Bordo do
-// cliente passa a mostrar "Procurar a marina para efetuar o pagamento" (ver
-// statusAbastecimentoDiario em TelaClienteDashboard.jsx) — mas o status
-// gravado continua sendo o mesmo 'aguardando_pagamento' de sempre, e some
-// das telas do mesmo jeito assim que o operador marcar "Pagamento
+// 'solicitado' (rótulo "Aguardando pagamento" aqui e no Diário de Bordo,
+// ver STATUS_ABASTECIMENTO_LABEL acima) e só muda quando o administrador
+// escolhe uma das 4 opções no seletor de ação da aba Abastecimento. A
+// diferença aparece só enquanto os litros ainda não foram registrados (ver
+// aguardandoLitrosCompletarTanque abaixo): a seção "Combustível" do Painel
+// de Controle mostra "completar" na quantidade e, uma vez o operador
+// escolher "Aguardando pagamento" sem litros ainda, "Tanque cheio" em verde
+// no lugar do rótulo padrão (ver TelaVagas.jsx); o Diário de Bordo do
+// cliente mostra "Procurar a marina para efetuar o pagamento" nesse mesmo
+// caso (ver statusAbastecimentoDiario em TelaClienteDashboard.jsx) — mas o
+// status gravado continua sendo o mesmo 'aguardando_pagamento' de sempre, e
+// some das telas do mesmo jeito assim que o operador marcar "Pagamento
 // efetuado" na aba Abastecimento (ver abastecimentoConcluido acima).
 export const OBSERVACAO_COMPLETAR_TANQUE = 'Completar tanque'
 export function ehCompletarTanque(pedido) {
@@ -116,9 +133,11 @@ export function ehCompletarTanque(pedido) {
 // quantidade/valor/QR e a caixa Realizar Pagamento/Informe de Pagamento
 // (mesma integração completa de cliente/embarcação/combustível/litros/
 // valor/pagamento do fluxo geral, ver TelaClienteDashboard.jsx). Continua
-// tratado como "Completar tanque" (rótulo "—"/"Tanque cheio"/aviso "ir
-// pagar presencialmente") só enquanto os litros ainda não foram
-// informados — ou seja, enquanto quantidade_litros continuar no
+// tratado como "Completar tanque" ("completar" na quantidade, "Tanque
+// cheio"/aviso "ir pagar presencialmente" — o rótulo de status em si já é
+// "Aguardando pagamento" desde 'solicitado', ver STATUS_ABASTECIMENTO_LABEL
+// acima) só enquanto os litros ainda não foram informados — ou seja,
+// enquanto quantidade_litros continuar no
 // placeholder 0 de sempre (ver enviarAbastecimento).
 export function aguardandoLitrosCompletarTanque(pedido) {
   return ehCompletarTanque(pedido) && Number(pedido?.quantidade_litros) === 0
