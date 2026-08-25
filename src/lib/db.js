@@ -361,7 +361,7 @@ export async function atualizarStatusAgendamento(id, status) {
   if (error) throw error
 }
 
-// status: null (sem resgate), 'solicitado', 'recebido', 'resgatado' ou
+// status: null (sem resgate), 'solicitado', 'recebido', 'recolhido' ou
 // 'cancelado' — ver lib/statusResgate.js para o fluxo completo. Grava
 // também resgate_atualizado_em — é o carimbo que TelaVagas.jsx usa pra
 // saber por quanto tempo ainda mostrar "Estou bem" depois que o cliente
@@ -374,18 +374,17 @@ export async function atualizarStatusResgate(id, status) {
 
 // Encerra uma navegação direto pela tabela "Navegando" do Painel de
 // Controle, sem esperar o cliente enviar uma Subida pelo app — usado quando
-// o campo Status dessa tabela recebe "Recolhido" ou "Resgatado" (ver
-// TelaVagas.jsx). Cria um agendamento de retorno já concluído, com a mesma
-// consequência de uma Subida confirmada normalmente: tira a embarcação de
-// "Navegando" (ultimaMovimentacaoPorEmbarcacao passa a apontar pro retorno)
-// e limpa o Diário de Bordo ativo do cliente (statusAgendamentoDiario, em
-// TelaClienteDashboard.jsx, já trata qualquer retorno concluído assim). No
-// caso de "Resgatado", também grava resgate_status='resgatado' na descida
-// original — mesmo rótulo/histórico já usado pelo fluxo de S.O.S., pra
-// quem olhar o Histórico de Manobras depois entender que não foi um
-// retorno comum. "Cancelado" não cria retorno nenhum — só cancela a
-// própria descida (mesmo efeito do botão "Cancelar" já usado na Fila de
-// Rampa).
+// o campo Status dessa tabela recebe "Recolhido" (ver TelaVagas.jsx; era
+// "Recolhido" ou "Resgatado" antes — as duas opções foram unificadas numa
+// só, "Recolhido" cumpre a mesma função de encerrar tanto uma navegação
+// comum quanto um S.O.S. em andamento). Cria um agendamento de retorno já
+// concluído, com a mesma consequência de uma Subida confirmada normalmente:
+// tira a embarcação de "Navegando" (ultimaMovimentacaoPorEmbarcacao passa a
+// apontar pro retorno) e limpa o Diário de Bordo ativo do cliente
+// (statusAgendamentoDiario, em TelaClienteDashboard.jsx, já trata qualquer
+// retorno concluído assim). "Cancelado" não cria retorno nenhum — só
+// cancela a própria descida (mesmo efeito do botão "Cancelar" já usado na
+// Fila de Rampa).
 export async function encerrarNavegacao(retirada, motivo) {
   if (motivo === 'cancelado') {
     return atualizarStatusAgendamento(retirada.id, 'cancelado')
@@ -399,12 +398,9 @@ export async function encerrarNavegacao(retirada, motivo) {
     data_hora: agora,
     status: 'concluido',
     concluido_em: agora,
-    observacoes: motivo === 'resgatado' ? 'Encerrado pela equipe — resgate' : 'Encerrado pela equipe — recolhido direto pela tabela Navegando',
+    observacoes: 'Encerrado pela equipe — recolhido direto pela tabela Navegando',
   })
   if (error) throw error
-  if (motivo === 'resgatado') {
-    await atualizarStatusResgate(retirada.id, 'resgatado')
-  }
 }
 
 

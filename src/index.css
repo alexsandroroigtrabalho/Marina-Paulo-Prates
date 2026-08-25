@@ -969,9 +969,9 @@ button.badge:hover { filter: brightness(0.95); }
 .select-status-fila.status-solicitado { background: #F1E3D6; color: #8B5A2B; }
 .select-status-fila.status-recebido { background: #FFF3C4; color: #8A6D00; }
 .status-resgate-solicitado, .status-resgate-recebido { background: #7A3B33; color: #fff; font-weight: 800; }
-.status-resgate-resgatado { background: #DCEEDB; color: #2F7D32; font-weight: 700; }
+.status-resgate-recolhido { background: #DCEEDB; color: #2F7D32; font-weight: 700; }
 /* "Estou bem" — cliente cancelou o próprio S.O.S. (ver estouBemAtivo em
-   lib/statusResgate.js); mesmo verde tranquilo de ".status-resgate-resgatado"
+   lib/statusResgate.js); mesmo verde tranquilo de ".status-resgate-recolhido"
    acima ("situação resolvida"), só que temporário — some sozinho depois de
    alguns minutos, sem exigir nenhuma ação da equipe. */
 .status-estou-bem { background: #DCEEDB; color: #2F7D32; font-weight: 700; }

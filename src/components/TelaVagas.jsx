@@ -358,10 +358,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // movimentações têm o mesmo data_hora, senão uma retirada recém-confirmada
   // podia não aparecer aqui).
   //
-  // Exceção: se a equipe já marcou o resgate dessa retirada como "Resgatado"
+  // Exceção: se a equipe já marcou o resgate dessa retirada como "Recolhido"
   // (fim do atendimento de S.O.S., ver definirStatusResgate), a embarcação sai
   // da tela "Navegando" na hora — o resgate encerrou a navegação mesmo sem
-  // passar pelo fluxo normal de "Confirmar retorno" (o cliente resgatado
+  // passar pelo fluxo normal de "Confirmar retorno" (o cliente recolhido
   // nem sempre chega a pedir a subida pelo app). Só afeta essa tabela do
   // Painel de Controle; o histórico de manobras e o painel do cliente
   // continuam mostrando/usando essa retirada normalmente.
@@ -372,7 +372,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // fechar esse retorno de verdade em vez de criar um retorno sintético
   // novo, ver encerrarNavegacaoAcao.
   const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos))
-    .filter((a) => a.tipo === 'retirada' && a.resgate_status !== 'resgatado')
+    .filter((a) => a.tipo === 'retirada' && a.resgate_status !== 'recolhido')
     .map((a) => ({ ...a, _subida: subidasEmAberto.find((s) => s.embarcacao_id === a.embarcacao_id) || null }))
 
   // Subida em "Navegando" sem uma retirada correspondente rastreada como "na
@@ -458,7 +458,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // CONFIRMA o pedido (clique que avança pra "Pedido recebido", ver
   // avancarResgate) ou quando o aviso sonoro é desabilitado. Depois de
   // confirmado, o alerta continua visível (badge/seletor vermelho) até virar
-  // "Resgatado", só sem o apito contínuo.
+  // "Recolhido", só sem o apito contínuo.
   const temResgateAtivo = naAgua.some((a) => a.resgate_status === 'solicitado')
   useEffect(() => {
     if (temResgateAtivo && sonsAtivados) {
@@ -613,7 +613,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   //  - "Solicitação de resgate": confirma o recebimento do pedido — avança
   //    automaticamente pra "Pedido recebido" (continua vermelho) e para o
   //    apito contínuo de SOS.
-  // A opção "Resgatado" (fechar o atendimento) fica no seletor que aparece
+  // A opção "Recolhido" (fechar o atendimento) fica no seletor que aparece
   // assim que o pedido já foi recebido — ver definirStatusResgate abaixo.
   async function avancarResgate(id, statusAtual) {
     try {
@@ -634,8 +634,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   }
 
   // Encerrar a navegação direto pela tabela "Navegando" (campo Status —
-  // "Recolhido"/"Resgatado"/"Cancelar", ver linhaNavegando abaixo), sem
-  // esperar o cliente enviar uma Subida pelo app. Confirma antes de agir —
+  // "Recolhido"/"Cancelar", ver linhaNavegando abaixo), sem esperar o
+  // cliente enviar uma Subida pelo app. Confirma antes de agir —
   // ao contrário do resto da Fila de Rampa, aqui não tem "desfazer" fácil
   // (cria um retorno novo, ou cancela a descida original).
   //
@@ -645,19 +645,21 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // registro de verdade em vez de criar um retorno sintético novo: "Recolhido"
   // conclui a própria subida (ela some da Fila de Rampa e do Diário de Bordo
   // ativo do cliente na hora, do mesmo jeito que qualquer outro agendamento
-  // concluído); "Resgatado"/"Cancelar" cancelam só essa subida (a embarcação
-  // continua rastreada como na água — "Resgatado" também marca o resgate na
-  // retirada original, do mesmo jeito de sempre). Sem isso, marcar "Recolhido"
-  // direto por aqui deixava uma solicitação de subida que o cliente já tivesse
-  // enviado esquecida na Fila de Rampa, pedindo uma manobra que já aconteceu.
-  const LABEL_ENCERRAR = { recolhido: 'Recolhido', resgatado: 'Resgatado', cancelado: 'Cancelado' }
+  // concluído); "Cancelar" cancela só essa subida (a embarcação continua
+  // rastreada como na água). Sem isso, marcar "Recolhido" direto por aqui
+  // deixava uma solicitação de subida que o cliente já tivesse enviado
+  // esquecida na Fila de Rampa, pedindo uma manobra que já aconteceu.
+  //
+  // "Resgatado" existia como opção separada de "Recolhido" antes — foi
+  // retirada: "Recolhido" agora cumpre as duas funções (encerrar uma
+  // navegação comum e encerrar um S.O.S. em andamento), sem distinção.
+  const LABEL_ENCERRAR = { recolhido: 'Recolhido', cancelado: 'Cancelado' }
   async function encerrarNavegacaoAcao(a, motivo) {
     const nome = a.clientes?.nome || 'esse cliente'
     if (!confirm(`Marcar "${LABEL_ENCERRAR[motivo]}" para ${nome}${a.embarcacoes?.nome ? ` (${a.embarcacoes.nome})` : ''}?`)) return
     try {
       if (a._subida) {
         await atualizarStatusAgendamento(a._subida.id, motivo === 'recolhido' ? 'concluido' : 'cancelado')
-        if (motivo === 'resgatado') await atualizarStatusResgate(a.id, 'resgatado')
       } else {
         await encerrarNavegacao(a, motivo)
       }
@@ -691,7 +693,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               {status.texto}
             </span>
           ) : a.resgate_status && a.resgate_status !== 'solicitado' && a.resgate_status !== 'cancelado' ? (
-            // Pedido já recebido (ou resgatado): vira um seletor editável,
+            // Pedido já recebido (ou recolhido): vira um seletor editável,
             // igual ao padrão de status de Manutenção — salva na hora, sem
             // precisar de um botão "Salvar" separado.
             <select
@@ -725,10 +727,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             // Navegação normal (sem alerta de resgate em andamento): o
             // campo Status vira um seletor só, com a opção de marcar
             // manualmente uma Solicitação de resgate (mesma ação de antes,
-            // agora aqui dentro) e as 3 formas de encerrar a navegação —
+            // agora aqui dentro) e as 2 formas de encerrar a navegação —
             // Recolhido (retorno normal, sem o cliente precisar pedir a
-            // Subida pelo app), Resgatado (fecha com o mesmo rótulo/
-            // histórico do fluxo de S.O.S.) e Cancelar (anula a descida).
+            // Subida pelo app) e Cancelar (anula a descida).
             <select
               className={`badge select-status-fila status-${status.classe}`}
               value=""
@@ -744,7 +745,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               <option value="">{status.texto}</option>
               <option value="sos">Solicitação de resgate</option>
               <option value="recolhido">Recolhido</option>
-              <option value="resgatado">Resgatado</option>
               <option value="cancelado">Cancelar</option>
             </select>
           )}

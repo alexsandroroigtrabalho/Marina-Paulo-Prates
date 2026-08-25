@@ -7,7 +7,11 @@
 //                    embarcação precisa de ajuda sem esperar o cliente agir).
 //  2. "recebido"   — a equipe confirma que viu o alerta (clique no Painel de
 //                    Controle) — some aqui o apito contínuo de SOS.
-//  3. "resgatado"  — a equipe marca manualmente quando o atendimento termina.
+//  3. "recolhido"  — a equipe marca manualmente quando o atendimento termina
+//                    (também é o mesmo status usado pra encerrar a
+//                    navegação sem S.O.S. nenhum — ver LABEL_ENCERRAR em
+//                    TelaVagas.jsx: "Recolhido" cumpre as duas funções, não
+//                    existe mais uma opção "Resgatado" separada).
 //  4. "cancelado"  — o próprio cliente cancela o pedido direto no Diário de
 //                    Bordo (ver cancelarResgateCliente em
 //                    TelaClienteDashboard.jsx), confirmando que está tudo
@@ -22,7 +26,7 @@
 export const STATUS_RESGATE = [
   { valor: 'solicitado', label: 'Solicitação de resgate' },
   { valor: 'recebido', label: 'Pedido recebido' },
-  { valor: 'resgatado', label: 'Resgatado' },
+  { valor: 'recolhido', label: 'Recolhido' },
   { valor: 'cancelado', label: 'Estou bem' },
 ]
 

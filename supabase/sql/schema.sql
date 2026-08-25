@@ -249,7 +249,7 @@ CREATE TABLE marina.agendamentos (
 );
 ALTER TABLE marina.agendamentos ADD COLUMN previsao_retorno TIMESTAMPTZ; -- só para tipo='retirada': quando o cliente prevê voltar, usado pro alerta de atraso no Painel de Controle
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_solicitado BOOLEAN DEFAULT false; -- OBSOLETO — substituído por resgate_status (ver abaixo); mantido só pra não quebrar bancos antigos, nada mais escreve nele
-ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solicitado | recebido | resgatado | cancelado — fluxo do alerta de resgate (S.O.S.) no Painel de Controle, ver lib/statusResgate.js. 'cancelado' = o próprio cliente cancelou (Diário de Bordo), mostra "Estou bem" por 5min (ver resgate_atualizado_em)
+ALTER TABLE marina.agendamentos ADD COLUMN resgate_status TEXT; -- null | solicitado | recebido | recolhido | cancelado — fluxo do alerta de resgate (S.O.S.) no Painel de Controle, ver lib/statusResgate.js. 'cancelado' = o próprio cliente cancelou (Diário de Bordo), mostra "Estou bem" por 5min (ver resgate_atualizado_em)
 ALTER TABLE marina.agendamentos ADD COLUMN resgate_atualizado_em TIMESTAMPTZ; -- quando resgate_status mudou pela última vez — usado só pra calcular a janela de "Estou bem" (ver estouBemAtivo em lib/statusResgate.js)
 -- Instante real em que o status virou 'concluido', gravado sozinho pelo
 -- aplicativo (atualizarStatusAgendamento em lib/db.js) — nunca editável
@@ -635,7 +635,7 @@ CREATE POLICY "cliente_cancela_proprio_agendamento" ON marina.agendamentos
 -- água" (status='concluido' — descida já confirmada, ainda sem o retorno).
 -- WITH CHECK só confere a posse da linha (cliente_id), sem travar o valor
 -- de resgate_status resultante — a interface é quem decide os valores
--- válidos (solicitado/cancelado; recebido/resgatado ficam só com a
+-- válidos (solicitado/cancelado; recebido/recolhido ficam só com a
 -- equipe). Já existia em produção antes desta sessão; documentada aqui
 -- pela primeira vez junto com a migration_resgate_atualizado_em.sql.
 CREATE POLICY "cliente_solicita_resgate" ON marina.agendamentos

@@ -146,7 +146,7 @@ const TIPO_AGENDAMENTO_LABEL = { retirada: 'Descida', retorno: 'Subida' }
 const DETALHE_STATUS_RESGATE = {
   solicitado: 'Resgate solicitado à equipe da marina',
   recebido: 'Equipe confirmou o recebimento do pedido, a caminho',
-  resgatado: 'Atendimento concluído pela equipe',
+  recolhido: 'Atendimento concluído pela equipe',
   cancelado: 'Você cancelou o pedido, confirmando que está tudo bem',
 }
 const MENSAGEM_BOTAO_RESGATE = {
@@ -156,7 +156,7 @@ const MENSAGEM_BOTAO_RESGATE = {
 
 // Enquanto o resgate estiver num destes status, o cliente ainda pode
 // cancelá-lo direto pelo Diário de Bordo (ver cancelarResgateCliente e
-// resgateParaCancelar abaixo) — uma vez "Resgatado" o atendimento já foi
+// resgateParaCancelar abaixo) — uma vez "Recolhido" o atendimento já foi
 // concluído pela equipe, não faz sentido cancelar.
 const STATUS_RESGATE_CANCELAVEIS = ['solicitado', 'recebido']
 
@@ -767,7 +767,7 @@ export default function TelaClienteDashboard({ perfil }) {
   // Cancelar o próprio pedido de S.O.S. direto pelo Diário de Bordo — só
   // enquanto ainda estiver "Solicitado" ou "Recebido" (ver
   // STATUS_RESGATE_CANCELAVEIS/resgateParaCancelar abaixo); uma vez
-  // "Resgatado" o atendimento já terminou. Confirma antes de agir, mesmo
+  // "Recolhido" o atendimento já terminou. Confirma antes de agir, mesmo
   // padrão de cancelarAgendamentoCliente/cancelarAbastecimentoCliente
   // acima. atualizarStatusResgate('cancelado') já propaga sozinho pro
   // Painel de Controle (TelaVagas.jsx assina agendamentos via Realtime): lá
@@ -861,7 +861,7 @@ export default function TelaClienteDashboard({ perfil }) {
     // de pedidos de resgate anteriores — resgate_status é um campo só na
     // própria linha do agendamento em navegação). Continua em vermelho
     // ("sos") em "Solicitação de resgate" e "Pedido recebido"; vira verde
-    // ("em-dia") quando a equipe marca "Resgatado" ou quando o próprio
+    // ("em-dia") quando a equipe marca "Recolhido" ou quando o próprio
     // cliente cancela (confirmando "Estou bem" — ver cancelarResgateCliente).
     ...(agendamentoNavegando?.resgate_status
       ? [{
@@ -870,7 +870,7 @@ export default function TelaClienteDashboard({ perfil }) {
           titulo: `S.O.S. · ${agendamentoNavegando.embarcacoes?.nome || 'embarcação'}`,
           detalhe: DETALHE_STATUS_RESGATE[agendamentoNavegando.resgate_status] || '',
           statusLabel: labelStatusResgate(agendamentoNavegando.resgate_status),
-          statusClasse: ['resgatado', 'cancelado'].includes(agendamentoNavegando.resgate_status) ? 'em-dia' : 'sos',
+          statusClasse: ['recolhido', 'cancelado'].includes(agendamentoNavegando.resgate_status) ? 'em-dia' : 'sos',
           quando: agendamentoNavegando.data_hora,
           // Só dá pra cancelar enquanto ainda está "Solicitado" ou
           // "Recebido" — ver cancelarResgateCliente.
