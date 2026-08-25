@@ -4,7 +4,7 @@ import {
   listarCombustiveis, salvarCombustivel,
   listarPedidosAbastecimento, atualizarStatusAbastecimento,
 } from '../lib/db'
-import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, abastecimentoConcluido } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, abastecimentoConcluido, ehCompletarTanque } from '../lib/statusAbastecimento'
 
 export default function TelaAbastecimento({ marinaId }) {
   const [aba, setAba] = useState('pedidos') // pedidos | combustiveis
@@ -118,9 +118,16 @@ export default function TelaAbastecimento({ marinaId }) {
                   <td>{p.clientes?.nome}</td>
                   <td>{p.embarcacoes?.nome || '-'}</td>
                   <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
-                  <td>{p.combustiveis?.nome}</td>
-                  <td>{Number(p.quantidade_litros).toFixed(2)}</td>
-                  <td>R$ {Number(p.valor_total).toFixed(2)}</td>
+                  {/* "Completar tanque" (ver lib/statusAbastecimento.js): o
+                      cliente não informou litros, então não tem quantidade/
+                      valor fechado ainda — mostra "—"/"A combinar" em vez de
+                      "0.00"/"R$ 0.00" (placeholders só pras colunas NOT NULL
+                      do banco, ver enviarAbastecimento em
+                      TelaClienteDashboard.jsx), com o combustível marcado
+                      pra ficar claro que é esse tipo de pedido. */}
+                  <td>{p.combustiveis?.nome}{ehCompletarTanque(p) ? ' · Completar tanque' : ''}</td>
+                  <td>{ehCompletarTanque(p) ? '—' : Number(p.quantidade_litros).toFixed(2)}</td>
+                  <td>{ehCompletarTanque(p) ? 'A combinar' : `R$ ${Number(p.valor_total).toFixed(2)}`}</td>
                   <td><span className={`badge status-${p.status}`}>{STATUS_LABEL[p.status] || p.status}</span></td>
                   <td>
                     {/* Só estas 4 opções — "Pagamento efetuado" conclui e some

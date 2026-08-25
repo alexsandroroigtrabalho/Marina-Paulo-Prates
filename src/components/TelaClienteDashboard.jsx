@@ -16,7 +16,7 @@ import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_CANCELAVEIS } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_CANCELAVEIS, OBSERVACAO_COMPLETAR_TANQUE, ehCompletarTanque } from '../lib/statusAbastecimento'
 import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
@@ -343,7 +343,7 @@ export default function TelaClienteDashboard({ perfil }) {
   const [formManutencao, setFormManutencao] = useState({ embarcacao_id: '', tipo_servico: 'limpeza', descricao: '' })
   const [enviandoManutencao, setEnviandoManutencao] = useState(false)
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
-  const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '' })
+  const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '', completarTanque: false })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
   const [pedidoGerado, setPedidoGerado] = useState(null) // pedido recém-criado, para mostrar o QR
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false)
@@ -820,7 +820,9 @@ export default function TelaClienteDashboard({ perfil }) {
       id: `ab-${p.id}`,
       icone: IconGasStation,
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
-      detalhe: `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
+      detalhe: ehCompletarTanque(p) && p.status === 'aguardando_pagamento'
+        ? 'Procurar a marina para efetuar o pagamento'
+        : `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
       ...statusAbastecimentoDiario(p),
       quando: p.created_at,
       // Só dá pra cancelar enquanto o pedido ainda está "Aguardando
@@ -918,11 +920,14 @@ export default function TelaClienteDashboard({ perfil }) {
   // Pedidos de abastecimento já registrados mas ainda não pagos — o QR/link
   // de pagamento continua acessível pra eles na área de Abastecimento (ver
   // modal "Pedir abastecimento" abaixo), já que pagar não é mais exigido no
-  // momento do pedido.
-  const pedidosAguardandoPagamento = abastecimentos.filter((p) => p.status === 'aguardando_pagamento')
+  // momento do pedido. Fica de fora um pedido "Completar tanque" (ver
+  // ehCompletarTanque): não tem QR nenhum pra mostrar (paga presencialmente
+  // na marina, ver enviarAbastecimento) — aparece só como aviso no Diário
+  // de Bordo ("Procurar a marina para efetuar o pagamento").
+  const pedidosAguardandoPagamento = abastecimentos.filter((p) => p.status === 'aguardando_pagamento' && !ehCompletarTanque(p))
 
   function abrirModalAbastecimento() {
-    setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '' })
+    setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '', completarTanque: false })
     setModalAbastecimentoAberto(true)
   }
 
@@ -937,13 +942,23 @@ export default function TelaClienteDashboard({ perfil }) {
     return ativos.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))[0]
   }
 
+  // "Completar tanque": o cliente não informa litros (só se sabe depois de
+  // encher), então não dá pra gerar um QR Pix com valor fechado como no
+  // pedido normal — vai sem quantidade/valor (0, só placeholder pras
+  // colunas NOT NULL) e sem QR nenhum; observacoes marca o pedido pra ser
+  // reconhecido nas outras telas (ver ehCompletarTanque em
+  // lib/statusAbastecimento.js). O pagamento é combinado presencialmente
+  // na marina — ver o aviso no Diário de Bordo (statusAbastecimentoDiario)
+  // e o "Tanque cheio" da seção Combustível do Painel de Controle
+  // (TelaVagas.jsx).
   async function enviarAbastecimento(e) {
     e.preventDefault()
     if (!cliente) return
     const combustivel = combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)
     if (!combustivel) return
-    const litros = Number(formAbastecimento.quantidade_litros)
-    const valorTotal = litros * Number(combustivel.preco_litro)
+    const completarTanque = formAbastecimento.completarTanque
+    const litros = completarTanque ? 0 : Number(formAbastecimento.quantidade_litros)
+    const valorTotal = completarTanque ? 0 : litros * Number(combustivel.preco_litro)
     setEnviandoAbastecimento(true)
     try {
       // QR "Pix copia e cola" de demonstração — o pagamento real será conectado
@@ -960,11 +975,16 @@ export default function TelaClienteDashboard({ perfil }) {
         preco_litro_no_pedido: combustivel.preco_litro,
         valor_total: valorTotal,
         status: 'aguardando_pagamento',
-        qr_code: qrDemo,
-        qr_code_demo: true,
+        qr_code: completarTanque ? null : qrDemo,
+        qr_code_demo: !completarTanque,
+        observacoes: completarTanque ? OBSERVACAO_COMPLETAR_TANQUE : null,
       })
       setModalAbastecimentoAberto(false)
-      setPedidoGerado({ ...pedido, combustivelNome: combustivel.nome })
+      if (completarTanque) {
+        alert('Pedido registrado! Procure a marina para efetuar o pagamento.')
+      } else {
+        setPedidoGerado({ ...pedido, combustivelNome: combustivel.nome })
+      }
       await carregar()
     } catch (err) {
       alert(err.message)
@@ -1311,13 +1331,26 @@ export default function TelaClienteDashboard({ perfil }) {
               <option value="">Selecione o combustível</option>
               {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} · R$ {Number(c.preco_litro).toFixed(2)}/L</option>)}
             </select>
-            <input type="number" min="1" step="0.5" required placeholder="Quantidade (litros)"
-              value={formAbastecimento.quantidade_litros}
-              onChange={(e) => setFormAbastecimento({ ...formAbastecimento, quantidade_litros: e.target.value })} />
-            {formAbastecimento.combustivel_id && formAbastecimento.quantidade_litros > 0 && (
+            <label className="opcao-checkbox">
+              <input type="checkbox" checked={formAbastecimento.completarTanque}
+                onChange={(e) => setFormAbastecimento({ ...formAbastecimento, completarTanque: e.target.checked, quantidade_litros: '' })} />
+              Completar tanque (quantidade a definir)
+            </label>
+            {formAbastecimento.completarTanque ? (
               <p className="dica">
-                Total estimado: <b>R$ {(Number(formAbastecimento.quantidade_litros) * Number(combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)?.preco_litro || 0)).toFixed(2)}</b>
+                Sem quantidade fechada — a marina completa o tanque e o valor é acertado presencialmente, sem pagamento pelo app.
               </p>
+            ) : (
+              <>
+                <input type="number" min="1" step="0.5" required placeholder="Quantidade (litros)"
+                  value={formAbastecimento.quantidade_litros}
+                  onChange={(e) => setFormAbastecimento({ ...formAbastecimento, quantidade_litros: e.target.value })} />
+                {formAbastecimento.combustivel_id && formAbastecimento.quantidade_litros > 0 && (
+                  <p className="dica">
+                    Total estimado: <b>R$ {(Number(formAbastecimento.quantidade_litros) * Number(combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)?.preco_litro || 0)).toFixed(2)}</b>
+                  </p>
+                )}
+              </>
             )}
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalAbastecimentoAberto(false)}>Cancelar</button>

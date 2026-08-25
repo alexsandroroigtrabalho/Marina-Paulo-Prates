@@ -61,3 +61,24 @@ export function abastecimentoConcluido(status) {
 // em TelaClienteDashboard.jsx e a policy "cliente_cancela_proprio_pedido_
 // abastecimento" em supabase/sql/migration_cliente_cancela_pedido_abastecimento.sql).
 export const STATUS_ABASTECIMENTO_CANCELAVEIS = ['aguardando_pagamento', 'indisponivel']
+
+// "Completar tanque" — opção do pedido de abastecimento pra quando o
+// cliente não sabe quantos litros faltam (só se sabe depois de encher):
+// pede pra completar o tanque, sem quantidade/valor fechado no momento do
+// pedido (ver enviarAbastecimento em TelaClienteDashboard.jsx — vai com
+// quantidade_litros/valor_total = 0 e sem QR de pagamento, já que o valor
+// só é acertado presencialmente na marina). Usa o campo observacoes já
+// existente como marcador, sem precisar de coluna nova no banco.
+//
+// Enquanto ainda 'aguardando_pagamento', aparece diferente nas duas telas
+// administrativas — Diário de Bordo do cliente mostra "Procurar a marina
+// para efetuar o pagamento" (ver statusAbastecimentoDiario em
+// TelaClienteDashboard.jsx) e a seção "Combustível" do Painel de Controle
+// mostra "Tanque cheio" em verde (ver TelaVagas.jsx) — mas o status
+// gravado continua sendo o mesmo 'aguardando_pagamento' de sempre, e some
+// das telas do mesmo jeito assim que o operador marcar "Pagamento
+// efetuado" na aba Abastecimento (ver abastecimentoConcluido acima).
+export const OBSERVACAO_COMPLETAR_TANQUE = 'Completar tanque'
+export function ehCompletarTanque(pedido) {
+  return pedido?.observacoes === OBSERVACAO_COMPLETAR_TANQUE
+}

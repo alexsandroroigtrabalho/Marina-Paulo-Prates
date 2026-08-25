@@ -10,7 +10,7 @@ import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarS
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, ehCompletarTanque } from '../lib/statusAbastecimento'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
@@ -862,9 +862,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           e o mesmo status, só pra consulta — sem seletor, botão ou qualquer
           controle de alteração aqui (a mudança de status é feita só pela
           aba Abastecimento). Fonte única do rótulo/critério em
-          lib/statusAbastecimento.js. Qualquer mudança feita na aba
-          Abastecimento (ou pelo cliente, cancelando no Diário de Bordo)
-          aparece aqui imediatamente (ver canal Realtime acima). */}
+          lib/statusAbastecimento.js — exceto o "Tanque cheio" (pedido
+          "Completar tanque" ainda aguardando pagamento, ver
+          ehCompletarTanque), que só aparece aqui, nesta tela. Qualquer
+          mudança feita na aba Abastecimento (ou pelo cliente, cancelando no
+          Diário de Bordo) aparece aqui imediatamente (ver canal Realtime
+          acima). */}
       <h2>Combustível</h2>
       <table className="tabela" style={{ marginBottom: 32 }}>
         <thead>
@@ -885,8 +888,20 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               <td>{p.embarcacoes?.nome || '-'}</td>
               <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
               <td>{p.combustiveis?.nome}</td>
-              <td>{Number(p.quantidade_litros).toFixed(2)}</td>
-              <td><span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span></td>
+              <td>{ehCompletarTanque(p) ? '—' : Number(p.quantidade_litros).toFixed(2)}</td>
+              <td>
+                {/* "Completar tanque" (ver lib/statusAbastecimento.js) ainda
+                    "aguardando_pagamento" — em vez do rótulo padrão, mostra
+                    "Tanque cheio" em verde: já foi abastecido, só falta o
+                    cliente pagar presencialmente na marina. Some daqui do
+                    mesmo jeito assim que virar "Pagamento efetuado" (ver
+                    abastecimentoConcluido/pedidosCombustivel acima). */}
+                {ehCompletarTanque(p) && p.status === 'aguardando_pagamento' ? (
+                  <span className="badge status-tanque-cheio">Tanque cheio</span>
+                ) : (
+                  <span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
