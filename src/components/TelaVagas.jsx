@@ -815,7 +815,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               <td>{p.embarcacoes?.nome || '-'}</td>
               <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
               <td>{p.combustiveis?.nome}</td>
-              <td>{aguardandoLitrosCompletarTanque(p) ? '—' : Number(p.quantidade_litros).toFixed(2)}</td>
+              {/* "Completar tanque" (ver lib/statusAbastecimento.js) sem
+                  litros ainda registrados: mostra "completar" em vez de "—"
+                  ou de um número (não tem quantidade fechada, só se sabe
+                  depois de encher o tanque — ver aguardandoLitrosCompletarTanque
+                  em lib/statusAbastecimento.js). Some assim que a marina
+                  registra os litros reais na aba Abastecimento (ver
+                  FormLitrosCompletarTanque em TelaAbastecimento.jsx) — a
+                  partir daí mostra o número normalmente, igual qualquer
+                  outro pedido. */}
+              <td>{aguardandoLitrosCompletarTanque(p) ? 'completar' : Number(p.quantidade_litros).toFixed(2)}</td>
               <td>
                 {/* "Completar tanque" (ver lib/statusAbastecimento.js) ainda
                     "aguardando_pagamento" — em vez do rótulo padrão, mostra
