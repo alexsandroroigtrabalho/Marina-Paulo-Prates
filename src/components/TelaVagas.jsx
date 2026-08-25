@@ -358,13 +358,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // movimentações têm o mesmo data_hora, senão uma retirada recém-confirmada
   // podia não aparecer aqui).
   //
-  // Exceção: se a equipe já marcou o resgate dessa retirada como "Recolhido"
-  // (fim do atendimento de S.O.S., ver definirStatusResgate), a embarcação sai
-  // da tela "Navegando" na hora — o resgate encerrou a navegação mesmo sem
-  // passar pelo fluxo normal de "Confirmar retorno" (o cliente recolhido
-  // nem sempre chega a pedir a subida pelo app). Só afeta essa tabela do
-  // Painel de Controle; o histórico de manobras e o painel do cliente
-  // continuam mostrando/usando essa retirada normalmente.
+  // Marcar "Recolhido" num resgate em andamento (ver o <select> de
+  // resgate_status em linhaNavegando) passa pelo mesmo encerrarNavegacaoAcao
+  // de qualquer outro "Recolhido" — cria o retorno concluído (ou fecha a
+  // subida em aberto) de verdade, então essa retirada já sai daqui sozinha,
+  // sem precisar de nenhum caso especial: some da tela "Navegando" e do
+  // Diário de Bordo do cliente junto, igual a qualquer encerramento normal.
   //
   // Cada linha carrega também a subida em andamento pra essa mesma
   // embarcação (_subida), se houver — é o caso normal (o barco saiu, agora
@@ -372,7 +371,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // fechar esse retorno de verdade em vez de criar um retorno sintético
   // novo, ver encerrarNavegacaoAcao.
   const naAgua = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos))
-    .filter((a) => a.tipo === 'retirada' && a.resgate_status !== 'recolhido')
+    .filter((a) => a.tipo === 'retirada')
     .map((a) => ({ ...a, _subida: subidasEmAberto.find((s) => s.embarcacao_id === a.embarcacao_id) || null }))
 
   // Subida em "Navegando" sem uma retirada correspondente rastreada como "na
@@ -695,10 +694,20 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           ) : a.resgate_status && a.resgate_status !== 'solicitado' && a.resgate_status !== 'cancelado' ? (
             // Pedido já recebido (ou recolhido): vira um seletor editável,
             // igual ao padrão de status de Manutenção — salva na hora, sem
-            // precisar de um botão "Salvar" separado.
+            // precisar de um botão "Salvar" separado. "Recolhido" aqui é o
+            // mesmo encerramento de sempre (encerrarNavegacaoAcao — cria o
+            // retorno concluído/fecha a subida em aberto, com a mesma
+            // confirmação) e não só uma troca de resgate_status: assim a
+            // navegação sai do Diário de Bordo do cliente e da tabela
+            // Navegando igualzinho a um "Recolhido" sem S.O.S. nenhum, em
+            // vez de ficar presa "na água" só com o rótulo mudado.
             <select
               value={a.resgate_status}
-              onChange={(e) => definirStatusResgate(a.id, e.target.value)}
+              onChange={(e) => {
+                const valor = e.target.value
+                if (valor === 'recolhido') encerrarNavegacaoAcao(a, 'recolhido')
+                else definirStatusResgate(a.id, valor)
+              }}
               title="Status do resgate"
             >
               {/* "Solicitação de resgate" e "Estou bem" ficam de fora do
