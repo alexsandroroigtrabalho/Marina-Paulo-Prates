@@ -144,7 +144,7 @@ const TIPO_AGENDAMENTO_LABEL = { retirada: 'Descida', retorno: 'Subida' }
 // novo pedido na hora — não precisa de um texto de transição como
 // "solicitado"/"recebido" têm.
 const DETALHE_STATUS_RESGATE = {
-  solicitado: 'Resgate solicitado à equipe da marina',
+  solicitado: 'Pedido recebido - providenciando resgate',
   recebido: 'Equipe confirmou o recebimento do pedido, a caminho',
   recolhido: 'Atendimento concluído pela equipe',
   cancelado: 'Você cancelou o pedido, confirmando que está tudo bem',
