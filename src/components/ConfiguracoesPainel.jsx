@@ -41,6 +41,7 @@ export default function ConfiguracoesPainel({
   combustiveis, formCombustivel, onMudarFormCombustivel, onSalvarNovoCombustivel, onAtualizarCampoCombustivel,
   // Notificações — aviso sonoro + apitos
   sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
+  apitoCombustivelAtivado, onAlternarApitoCombustivel, salvandoApitoCombustivel,
   // Despacho — relatório automático de documentos
   emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
@@ -307,9 +308,10 @@ export default function ConfiguracoesPainel({
             <div>
               <strong>Aviso sonoro do Painel de Controle</strong>
               <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Apito ao chegar uma nova notificação de descida/subida na Fila de Rampa. Vem <b>ligado por padrão</b>{' '}
-                para todos os usuários. Somente o administrador pode desativar ou reativar — a alteração é salva e
-                aplicada imediatamente em todo o sistema, para todos os perfis conectados.
+                Apito ao chegar uma nova notificação de descida/subida na Fila de Rampa, ou um S.O.S.. Vem{' '}
+                <b>ligado por padrão</b> para todos os usuários, e toca em qualquer tela do sistema — não precisa
+                estar com o Painel de Controle aberto. Somente o administrador pode desativar ou reativar — a
+                alteração é salva e aplicada imediatamente em todo o sistema, para todos os perfis conectados.
               </p>
               <button type="button" onClick={onAlternarSons} disabled={!ehAdmin || salvandoAvisoSonoro}>
                 {salvandoAvisoSonoro ? 'Salvando…' : sonsAtivados ? '🔕 Desabilitar aviso sonoro' : '🔔 Habilitar aviso sonoro'}
@@ -336,6 +338,18 @@ export default function ConfiguracoesPainel({
                   {salvandoApitos ? 'Salvando…' : 'Salvar'}
                 </button>
               </form>
+            </div>
+
+            <div>
+              <strong>Apito de combustível</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Apito próprio (diferente dos de manobra) ao chegar um novo pedido de abastecimento pelo Diário de
+                Bordo do cliente — também toca em qualquer tela, independente do aviso sonoro acima (dá pra manter
+                um ligado e o outro desligado). Vem <b>ligado por padrão</b>.
+              </p>
+              <button type="button" onClick={onAlternarApitoCombustivel} disabled={!ehAdmin || salvandoApitoCombustivel}>
+                {salvandoApitoCombustivel ? 'Salvando…' : apitoCombustivelAtivado ? '🔕 Desabilitar apito de combustível' : '🔔 Habilitar apito de combustível'}
+              </button>
             </div>
           </div>
         )}

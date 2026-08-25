@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
@@ -6,11 +6,12 @@ import {
   listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
 } from '../lib/db'
-import { ativarSons, destravarAudioNaProximaInteracao, tocarSinalDescida, tocarSinalRetorno, tocarApitoSos, tocarAlarmeCancelamentoSos } from '../lib/sons'
+import { ativarSons } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, ehCompletarTanque } from '../lib/statusAbastecimento'
+import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
@@ -37,24 +38,12 @@ const TIPO_AGENDAMENTO_LABEL = {
   retorno: 'Subida',
 }
 
-// Uma notificação da Fila de Rampa continua "aguardando" (some da lista só
-// quando concluída) em qualquer status que não seja 'concluido' — inclui o
-// novo "Recebido" (status='confirmado', ver STATUS_FILA_OPCOES/campo Status
-// abaixo), que fica no meio do caminho entre "Solicitado" e o status final
-// (Navegando/Recolhido) sem sair da Fila de Rampa.
-//
-// Exceção: na subida, assim que o status vira 'navegando' a notificação
-// também sai da Fila de Rampa — a embarcação já está a caminho da marina, e
-// esse acompanhamento passa a acontecer na tabela "Navegando" logo abaixo
-// (junto com o resto do que já está na água), não mais aqui. "Recolhido"
-// deixou de ser uma opção do campo Status da Fila de Rampa por causa disso —
+// "Recolhido" deixou de ser uma opção do campo Status da Fila de Rampa —
 // vira uma ação da tabela "Navegando" (ver naAgua/subidasNavegando/
-// linhaNavegando/linhaSubidaAvulsa).
-function statusLinha(a) {
-  if (a.status === 'concluido') return a.tipo === 'retirada' ? 'navegando' : null
-  if (a.tipo === 'retorno' && a.status === 'navegando') return null
-  return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
-}
+// linhaNavegando/linhaSubidaAvulsa). O critério de "notificação ainda
+// aguardando" (statusLinha) mora agora em lib/filaRampa.js — extraído de
+// lá porque o apito de descida/retorno passou a precisar da mesma lógica
+// fora desta tela (ver SonsPainelAdmin.jsx, sempre montado em Layout.jsx).
 
 // Campo Status da Fila de Rampa: um <select> só, o operador escolhe direto
 // aqui, sem botão "Confirmar" separado. "Solicitado" reaproveita o status
@@ -67,8 +56,8 @@ function statusLinha(a) {
 //
 // Na subida, "Navegando" (status='navegando', valor novo, sem constraint no
 // banco pra travar os valores possíveis) é o último passo por aqui: assim
-// que escolhido, a notificação sai da Fila de Rampa (ver statusLinha acima)
-// e passa a aparecer também na tabela "Navegando", junto com o resto do que
+// que escolhido, a notificação sai da Fila de Rampa (ver statusLinha em
+// lib/filaRampa.js) e passa a aparecer também na tabela "Navegando", junto com o resto do que
 // já está na água. "Recolhido" não é mais uma opção deste campo — vira uma
 // ação de lá (ver linhaNavegando/encerrarNavegacaoAcao), então nem precisa
 // de status próprio aqui.
@@ -114,10 +103,15 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // todo mundo (ver carregarConfigMarina + assinatura Realtime abaixo).
   const [sonsAtivados, setSonsAtivados] = useState(true)
   const [salvandoAvisoSonoro, setSalvandoAvisoSonoro] = useState(false)
-  const alarmeResgateRef = useRef(null)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
   const [salvandoApitos, setSalvandoApitos] = useState(false)
+  // Apito de combustível: toca (em SonsPainelAdmin.jsx, sempre montado)
+  // quando o cliente registra um pedido de abastecimento pelo Diário de
+  // Bordo — configurável à parte do aviso sonoro geral, mesma fonte
+  // marinas.config_json (chave apitoCombustivelAtivado, ligada por padrão).
+  const [apitoCombustivelAtivado, setApitoCombustivelAtivado] = useState(true)
+  const [salvandoApitoCombustivel, setSalvandoApitoCombustivel] = useState(false)
 
   // Configurações do sistema — todas centralizadas no Painel de Controle
   // (ver ConfiguracoesPainel.jsx). Mensalidade e o e-mail do relatório de
@@ -146,6 +140,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       setConfigApitos(apitos)
       setFormApitos(apitos)
       setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
+      setApitoCombustivelAtivado(cfg.apitoCombustivelAtivado ?? true)
       setFormMensalidade(cfg.valorMensalidade != null ? String(cfg.valorMensalidade) : '')
       setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
       setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
@@ -234,13 +229,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-  // Conta quantas vezes carregar() já terminou de verdade — usado pra
-  // distinguir "página acabou de abrir, dados ainda nem chegaram" (0) de
-  // "primeira leva de dados reais acabou de chegar" (1) de "isso é uma
-  // atualização de verdade, pode ter notificação nova" (2+). Sem isso, o som
-  // tocava sozinho ao abrir a página pra tudo que já estava esperando.
-  const cargasCompletadasRef = useRef(0)
-
   async function carregar() {
     if (!marinaId) return
     const [a, p, c, doc] = await Promise.all([
@@ -248,7 +236,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       listarPedidosAbastecimento(marinaId), listarCombustiveis(marinaId), listarDocumentos(marinaId),
     ])
     setAgendamentos(a); setPedidosAbastecimento(p); setCombustiveis(c); setDocumentos(doc)
-    cargasCompletadasRef.current += 1
   }
 
   useEffect(() => { carregar() }, [marinaId])
@@ -336,9 +323,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   }
 
   // Subidas (retorno) já em "Navegando" (status='navegando', ver
-  // STATUS_FILA_OPCOES/statusLinha acima) — saíram da Fila de Rampa e agora
-  // são acompanhadas aqui, na tabela "Navegando", junto com o resto do que
-  // já está na água.
+  // STATUS_FILA_OPCOES acima e statusLinha em lib/filaRampa.js) — saíram da
+  // Fila de Rampa e agora são acompanhadas aqui, na tabela "Navegando",
+  // junto com o resto do que já está na água.
   const subidasNavegando = agendamentos.filter((a) => a.tipo === 'retorno' && a.status === 'navegando')
 
   // Qualquer subida ainda em aberto pra uma embarcação — 'solicitado' e
@@ -380,12 +367,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // saísse da Fila de Rampa, sem nenhum jeito de ser fechada.
   const subidasAvulsas = subidasNavegando.filter((s) => !naAgua.some((a) => a.embarcacao_id === s.embarcacao_id))
 
-  // Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
-  // retorno. Assim que vira "Navegando" a notificação sai daqui sozinha e
-  // passa a aparecer na tabela "Navegando" logo abaixo.
-  const linhasFila = agendamentos
-    .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
-    .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
+  // Linhas ativas da Fila de Rampa — ver lib/filaRampa.js (linhasFilaAtivas).
+  const linhasFila = linhasFilaAtivas(agendamentos)
 
   // Só aparece no painel o pedido já pago via Pix — não existe aqui opção de
   // marcar "aguardando pagamento" ou "pago", isso é automático quando o
@@ -425,83 +408,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return temVencido ? 'pendente' : 'regular'
   }
 
-  // Sinal sonoro: toca sozinho assim que uma notificação NOVA entra na Fila
-  // de Rampa — apito longo pra descida, três apitos curtos pra retorno. Não
-  // toca nada nem no instante em que a página abre (dados ainda vazios) nem
-  // na primeira leva de dados reais que chega logo em seguida (senão
-  // dispararia pra tudo que já estava esperando quando a TV foi ligada) — só
-  // a partir da atualização seguinte, comparando com o que já tinha sido visto.
-  const idsConhecidosRef = useRef(null)
-  const idsLinhaFilaAtual = linhasFila.map((a) => a.id).sort().join(',')
-  useEffect(() => {
-    const idsAtuais = new Set(linhasFila.map((a) => a.id))
-    if (idsConhecidosRef.current === null || cargasCompletadasRef.current <= 1) {
-      idsConhecidosRef.current = idsAtuais
-      return
-    }
-    linhasFila.forEach((a) => {
-      // Só toca o apito se o aviso sonoro estiver habilitado — desabilitado,
-      // a notificação continua aparecendo na Fila de Rampa normalmente, só
-      // sem o som.
-      if (!idsConhecidosRef.current.has(a.id) && sonsAtivados) {
-        if (a.tipo === 'retirada') tocarSinalDescida(configApitos.descida)
-        else tocarSinalRetorno(configApitos.retorno)
-      }
-    })
-    idsConhecidosRef.current = idsAtuais
-  }, [idsLinhaFilaAtual, configApitos, sonsAtivados])
-
-  // Alarme de "Solicitação de resgate": enquanto qualquer embarcação na água
-  // estiver nesse status inicial, o painel toca o apito de SOS em loop (não
-  // é um aviso único como descida/retorno) — para assim que o administrador
-  // CONFIRMA o pedido (clique que avança pra "Pedido recebido", ver
-  // avancarResgate) ou quando o aviso sonoro é desabilitado. Depois de
-  // confirmado, o alerta continua visível (badge/seletor vermelho) até virar
-  // "Recolhido", só sem o apito contínuo.
-  const temResgateAtivo = naAgua.some((a) => a.resgate_status === 'solicitado')
-  useEffect(() => {
-    if (temResgateAtivo && sonsAtivados) {
-      if (!alarmeResgateRef.current) {
-        tocarApitoSos()
-        alarmeResgateRef.current = setInterval(tocarApitoSos, 2500)
-      }
-    } else if (alarmeResgateRef.current) {
-      clearInterval(alarmeResgateRef.current)
-      alarmeResgateRef.current = null
-    }
-  }, [temResgateAtivo, sonsAtivados])
-
-  // Garante que o intervalo do alarme de resgate seja limpo se a página for
-  // fechada/trocada enquanto ele ainda estiver tocando.
-  useEffect(() => () => {
-    if (alarmeResgateRef.current) clearInterval(alarmeResgateRef.current)
-  }, [])
-
-  // Alarme de "Cliente cancelou o S.O.S.": toca 4 vezes (tocarAlarmeCancelamentoSos,
-  // pontual — não em loop como o alarme de resgate ativo acima) assim que
-  // resgate_status de alguma embarcação vira 'cancelado'. Mesma técnica de
-  // detecção "só a partir da atualização seguinte" já usada no apito da
-  // Fila de Rampa (ver idsConhecidosRef acima), comparando com o que já
-  // tinha sido visto — pra não disparar em falso na carga inicial da
-  // página nem tocar de novo a cada re-render enquanto o status continuar
-  // 'cancelado' (a "Estou bem" fica visível por minutos, ver
-  // JANELA_ESTOU_BEM_MS, mas o alarme é só no instante da mudança).
-  const resgateStatusConhecidoRef = useRef(null)
-  const resgateStatusAtualChave = agendamentos.map((a) => `${a.id}:${a.resgate_status || ''}`).sort().join(',')
-  useEffect(() => {
-    const atual = new Map(agendamentos.map((a) => [a.id, a.resgate_status]))
-    if (resgateStatusConhecidoRef.current === null || cargasCompletadasRef.current <= 1) {
-      resgateStatusConhecidoRef.current = atual
-      return
-    }
-    const anterior = resgateStatusConhecidoRef.current
-    atual.forEach((status, id) => {
-      if (status === 'cancelado' && anterior.get(id) !== 'cancelado' && sonsAtivados) {
-        tocarAlarmeCancelamentoSos()
-      }
-    })
-    resgateStatusConhecidoRef.current = atual
-  }, [resgateStatusAtualChave, sonsAtivados])
+  // Os apitos (descida/retorno/S.O.S./cancelamento de S.O.S./combustível)
+  // não tocam mais daqui — saíram pra SonsPainelAdmin.jsx, sempre montado em
+  // Layout.jsx, pra continuar tocando mesmo com o administrador em outra
+  // tela (fora do Painel de Controle). Esta tela mantém só a leitura/edição
+  // da configuração (sonsAtivados/configApitos/apitoCombustivelAtivado
+  // abaixo), usada pelo modal de Configurações → Notificações.
 
   // Liga/desliga o aviso sonoro para TODO o sistema — só o administrador
   // pode chamar isso (botão já vem desabilitado para os demais perfis em
@@ -524,12 +436,27 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-  // Cada navegador só libera áudio depois de alguma interação do próprio
-  // usuário na página (política padrão dos navegadores). Como o aviso
-  // sonoro agora vem ligado por padrão pra todo mundo — sem um botão manual
-  // de "Ativar sons" —, este efeito destrava o áudio silenciosamente assim
-  // que a pessoa clicar/tocar em qualquer coisa no painel, uma vez por sessão.
-  useEffect(() => { destravarAudioNaProximaInteracao() }, [])
+  // Liga/desliga só o apito de combustível — independente do interruptor
+  // geral acima (dá pra manter descida/retorno/S.O.S. ligados e desligar só
+  // este, ou vice-versa). Mesmo mecanismo de sempre: só admin, grava em
+  // marinas.config_json, Realtime propaga na hora.
+  async function alternarApitoCombustivel() {
+    if (!ehAdmin || salvandoApitoCombustivel) return
+    const novoValor = !apitoCombustivelAtivado
+    setSalvandoApitoCombustivel(true)
+    try {
+      await atualizarConfigMarina(marinaId, { apitoCombustivelAtivado: novoValor })
+      setApitoCombustivelAtivado(novoValor)
+      if (novoValor) ativarSons()
+    } catch (err) {
+      alert('Não foi possível salvar o apito de combustível: ' + err.message)
+    } finally {
+      setSalvandoApitoCombustivel(false)
+    }
+  }
+
+  // Destravar o áudio na primeira interação da sessão saiu daqui — agora
+  // acontece em SonsPainelAdmin.jsx (sempre montado, não só nesta tela).
 
   // Repassa as ações do painel (aviso sonoro, histórico, combustíveis) pro
   // botão de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
@@ -954,6 +881,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         onMudarApitos={setFormApitos}
         onSalvarApitos={salvarConfigApitos}
         salvandoApitos={salvandoApitos}
+        apitoCombustivelAtivado={apitoCombustivelAtivado}
+        onAlternarApitoCombustivel={alternarApitoCombustivel}
+        salvandoApitoCombustivel={salvandoApitoCombustivel}
         emailRelatorio={emailRelatorio}
         onMudarEmailRelatorio={setEmailRelatorio}
         onSalvarEmailRelatorio={salvarEmailRelatorio}

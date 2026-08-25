@@ -231,3 +231,69 @@ export function tocarAlarmeCancelamentoSos() {
     setTimeout(tocarApitoSos, i * intervaloMs)
   }
 }
+
+// Apito de "novo pedido de combustível": toca pra equipe assim que o cliente
+// registra um pedido de abastecimento pelo Diário de Bordo (normal ou
+// "Completar tanque" — os dois entram como 'solicitado', ver
+// enviarAbastecimento em TelaClienteDashboard.jsx). Dois tons curtos e
+// suaves (sino, não buzina) — de propósito bem diferente do apito de
+// descida/retorno e do alarme de SOS, pra dar pra distinguir de ouvido qual
+// tipo de notificação chegou. Configurável (ligado/desligado) em
+// Configurações → Notificações, ver ConfiguracoesPainel.jsx; quem decide
+// SE toca e QUANDO é o apito global em SonsPainelAdmin.jsx (roda em
+// qualquer tela do painel administrativo, não só no Painel de Controle).
+export function tocarApitoCombustivel() {
+  const c = getContexto()
+  if (c.state === 'suspended') c.resume()
+  const inicio = c.currentTime
+  const duracaoTom = 0.16
+  const tons = [660, 880]
+
+  tons.forEach((freq, i) => {
+    const t0 = inicio + i * duracaoTom
+    const fim = t0 + duracaoTom + 0.1
+    const osc = c.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(freq, t0)
+
+    const envelope = c.createGain()
+    const pico = 0.24
+    envelope.gain.setValueAtTime(0.0001, t0)
+    envelope.gain.exponentialRampToValueAtTime(pico, t0 + 0.02)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, fim)
+
+    osc.connect(envelope)
+    envelope.connect(c.destination)
+    osc.start(t0)
+    osc.stop(fim + 0.05)
+  })
+}
+
+// Apito de "resposta da marina": toca no Diário de Bordo do próprio cliente
+// (TelaClienteDashboard.jsx) sempre que algum item muda de status — a marina
+// respondeu a uma solicitação (descida/subida confirmada, combustível
+// respondido, manutenção atualizada, S.O.S. avançou, etc). Um tom único,
+// bem curto e discreto (é uma notificação pro cliente, não um alerta de
+// equipe) — pode ser silenciado a qualquer momento pela opção "Silenciar
+// notificações" nas configurações do próprio Diário de Bordo.
+export function tocarApitoRespostaDiario() {
+  const c = getContexto()
+  if (c.state === 'suspended') c.resume()
+  const inicio = c.currentTime
+  const duracao = 0.22
+
+  const osc = c.createOscillator()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(740, inicio)
+
+  const envelope = c.createGain()
+  const pico = 0.22
+  envelope.gain.setValueAtTime(0.0001, inicio)
+  envelope.gain.exponentialRampToValueAtTime(pico, inicio + 0.02)
+  envelope.gain.exponentialRampToValueAtTime(0.0001, inicio + duracao)
+
+  osc.connect(envelope)
+  envelope.connect(c.destination)
+  osc.start(inicio)
+  osc.stop(inicio + duracao + 0.05)
+}

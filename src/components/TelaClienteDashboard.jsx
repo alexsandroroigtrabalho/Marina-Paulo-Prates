@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   IconAnchor, IconLogout, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
   IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock, IconId,
-  IconHistory,
+  IconHistory, IconBell, IconBellOff,
 } from '@tabler/icons-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
@@ -12,6 +12,7 @@ import {
   solicitarAbastecimento, atualizarStatusAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
   salvarCliente, listarHorariosOcupados,
 } from '../lib/db'
+import { destravarAudioNaProximaInteracao, tocarApitoRespostaDiario } from '../lib/sons'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
@@ -26,6 +27,22 @@ import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 // concluída), não só por 5 dias depois de sair do Diário de Bordo ativo —
 // ver diarioAtivo/historicoSolicitacoes mais abaixo.
 const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
+
+// "Silenciar notificações" (engrenagem → Diário de Bordo): preferência só
+// deste navegador/aparelho, não do cadastro do cliente — por isso fica em
+// localStorage, não no banco (não existe hoje um campo de configuração por
+// cliente; se um dia existir, dá pra migrar pra lá sem mexer no resto desta
+// tela). Controla só o apito de resposta (ver tocarApitoRespostaDiario
+// abaixo) — o Diário de Bordo continua atualizando normalmente, silenciado
+// ou não.
+const CHAVE_MUDO_DIARIO = 'marina-diario-notificacoes-silenciadas'
+function lerMudoDiario() {
+  try {
+    return localStorage.getItem(CHAVE_MUDO_DIARIO) === '1'
+  } catch {
+    return false
+  }
+}
 
 // QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
 // acesso), no mesmo espírito do QR de abastecimento — sem valor fixo (quem
@@ -260,7 +277,7 @@ function statusAbastecimentoDiario(p) {
 // Controle da equipe (classes .menu-acoes* já existentes). "Minhas
 // cobranças" saiu daqui (removida a pedido) — "Meus dados" entrou no
 // lugar, editável, sempre sincronizado com o banco (tabela clientes).
-function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDados, onAbrirHistorico }) {
+function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDados, onAbrirHistorico, notificacoesSilenciadas, onAlternarNotificacoes }) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef(null)
 
@@ -293,6 +310,14 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDa
           </button>
           <button type="button" onClick={() => executar(onAbrirHistorico)}>
             <IconHistory size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Histórico de solicitações
+          </button>
+          {/* Silencia só o apito de resposta (tocarApitoRespostaDiario) —
+              não afeta a atualização do Diário de Bordo em si, só o som.
+              Preferência local deste navegador, ver CHAVE_MUDO_DIARIO. */}
+          <button type="button" onClick={() => executar(onAlternarNotificacoes)}>
+            {notificacoesSilenciadas
+              ? <><IconBellOff size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Reativar notificações</>
+              : <><IconBell size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Silenciar notificações</>}
           </button>
         </div>
       )}
@@ -369,6 +394,29 @@ export default function TelaClienteDashboard({ perfil }) {
   const [enviandoResgate, setEnviandoResgate] = useState(false)
 
   const [erroCarregamento, setErroCarregamento] = useState(null)
+  // "Silenciar notificações" — ver CHAVE_MUDO_DIARIO acima.
+  const [notificacoesSilenciadas, setNotificacoesSilenciadas] = useState(lerMudoDiario)
+  function alternarNotificacoes() {
+    setNotificacoesSilenciadas((atual) => {
+      const novo = !atual
+      try { localStorage.setItem(CHAVE_MUDO_DIARIO, novo ? '1' : '0') } catch { /* preferência só local, sem problema se não salvar */ }
+      return novo
+    })
+  }
+
+  // Destrava o áudio na primeira interação da sessão (clique/tecla/toque) —
+  // mesmo helper usado no painel administrativo (ver lib/sons.js), preciso
+  // aqui porque o apito de resposta (tocarApitoRespostaDiario) também
+  // depende do navegador já ter liberado áudio.
+  useEffect(() => { destravarAudioNaProximaInteracao() }, [])
+
+  // Conta quantas vezes carregar() já terminou de verdade — mesma técnica
+  // usada no apito do painel administrativo (ver SonsPainelAdmin.jsx):
+  // evita o apito de resposta tocar sozinho ao abrir a página pra tudo que
+  // já estava ali, disparando só a partir da atualização seguinte.
+  const cargasCompletadasRef = useRef(0)
+  // Último status conhecido de cada item do Diário de Bordo (id → statusLabel) — ver efeito do apito de resposta, mais abaixo.
+  const statusDiarioConhecidoRef = useRef(null)
 
   async function carregar() {
     try {
@@ -410,6 +458,7 @@ export default function TelaClienteDashboard({ perfil }) {
       setConfigRampa(lerConfigRampa(marinaCarregada))
       setConfigRampaCarregada(true)
       setMarina(marinaCarregada)
+      cargasCompletadasRef.current += 1
     } catch (err) {
       // Não derruba a tela — mantém o que já estava carregado e avisa, pra
       // dar pra tentar de novo (ex: recarregando a página) em vez de ficar
@@ -906,6 +955,34 @@ export default function TelaClienteDashboard({ perfil }) {
       : []),
   ].sort((a, b) => new Date(b.quando) - new Date(a.quando))
 
+  // Apito de resposta: toca uma vez sempre que algum item do Diário de
+  // Bordo já existente muda de statusLabel — é isso que sinaliza que a
+  // marina respondeu a alguma solicitação (confirmou uma descida/subida,
+  // respondeu um pedido de combustível, avançou uma manutenção, mudou o
+  // S.O.S. de etapa, etc). Mesma técnica "só a partir da atualização
+  // seguinte" já usada no apito administrativo (ver SonsPainelAdmin.jsx):
+  // não compara contra o item mais antigo que HISTORICO_JANELA_MS, nem
+  // dispara pra item novo (uma solicitação nova é ação do próprio cliente,
+  // não uma resposta recebida) — só quando um id que já existia troca de
+  // rótulo. Desligado por "Silenciar notificações" (engrenagem, ver
+  // notificacoesSilenciadas acima).
+  const chaveStatusDiario = diarioDeBordo.map((item) => `${item.id}:${item.statusLabel}`).sort().join(',')
+  useEffect(() => {
+    const atual = new Map(diarioDeBordo.map((item) => [item.id, item.statusLabel]))
+    if (statusDiarioConhecidoRef.current === null || cargasCompletadasRef.current <= 1) {
+      statusDiarioConhecidoRef.current = atual
+      return
+    }
+    const anterior = statusDiarioConhecidoRef.current
+    let mudou = false
+    atual.forEach((statusLabel, id) => {
+      if (anterior.has(id) && anterior.get(id) !== statusLabel) mudou = true
+    })
+    if (mudou && !notificacoesSilenciadas) tocarApitoRespostaDiario()
+    statusDiarioConhecidoRef.current = atual
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveStatusDiario, notificacoesSilenciadas])
+
   // Uma vez concluída/paga/aprovada (mesma classeStatusDiario 'em-dia' que
   // já colore o badge de verde), a solicitação sai do Diário de Bordo ativo
   // — continua visível, sem limite de tempo aqui, no Histórico de
@@ -1049,6 +1126,8 @@ export default function TelaClienteDashboard({ perfil }) {
               onAbrirAutorizados={abrirModalAutorizados}
               onAbrirMeusDados={abrirModalDados}
               onAbrirHistorico={() => setModalHistoricoAberto(true)}
+              notificacoesSilenciadas={notificacoesSilenciadas}
+              onAlternarNotificacoes={alternarNotificacoes}
             />
           )}
         </div>

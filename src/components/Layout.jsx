@@ -1,6 +1,7 @@
 import { IconSettings, IconArrowLeft, IconLogout } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import { APLICACOES } from '../lib/apps'
+import SonsPainelAdmin from './SonsPainelAdmin'
 
 // Itens de RV Marine — a única das 4 aplicações com telas prontas hoje.
 // "Despachos" saiu daqui (não foi apagado, só desligado do menu): vai virar
@@ -60,6 +61,12 @@ export default function Layout({
 
   return (
     <div className="app-shell">
+      {/* Apito global do painel administrativo: montado aqui (o shell que
+          envolve TODAS as telas da equipe, em qualquer aplicação/tela
+          escolhida) pra tocar os apitos configurados mesmo com o
+          administrador fora do Painel de Controle — ver
+          SonsPainelAdmin.jsx. Não desenha nada (retorna null). */}
+      <SonsPainelAdmin marinaId={perfil?.marina_id} />
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
           sempre que não há nada de verdade pra navegar — nem aplicação
           escolhida ainda, nem uma das 3 aplicações ainda "Em construção"
