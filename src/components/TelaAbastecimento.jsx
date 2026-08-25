@@ -257,6 +257,21 @@ export default function TelaAbastecimento({ marinaId }) {
                       <td>{ehCompletarTanque(p) ? 'A combinar' : `R$ ${Number(p.valor_total).toFixed(2)}`}</td>
                       <td><span className={`badge status-${p.status}`}>{STATUS_LABEL[p.status] || p.status}</span></td>
                       <td>
+                        {/* Indicador de "Informe de Pagamento" (ver
+                            informarPagamentoAbastecimento em lib/db.js e o
+                            seletor de ações no Diário de Bordo do cliente,
+                            em TelaClienteDashboard.jsx): vermelho enquanto o
+                            cliente não avisa que pagou, verde assim que
+                            avisa. Só um aviso visual — não confirma o
+                            pagamento sozinho, quem confirma continua sendo
+                            a equipe pela opção "Pagamento efetuado" no
+                            seletor ao lado. */}
+                        <span
+                          className={`indicador-informe-pagamento ${p.informado_pagamento_em ? 'informado' : 'pendente'}`}
+                          title={p.informado_pagamento_em
+                            ? `Cliente informou pagamento em ${new Date(p.informado_pagamento_em).toLocaleString('pt-BR')}`
+                            : 'Cliente ainda não informou pagamento'}
+                        />
                         {/* Só estas 4 opções — "Pagamento efetuado" conclui e some
                             da lista (ver pedidosVisiveis acima); "Cancelar" e
                             "Indisponível" avisam o cliente pelo Diário de Bordo dele

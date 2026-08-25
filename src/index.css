@@ -999,6 +999,20 @@ button.badge:hover { filter: brightness(0.95); }
   align-self: center; white-space: nowrap;
 }
 
+/* Caixa seletora "Realizar Pagamento"/"Informe de Pagamento" (ver
+   SeletorAcaoPagamento em TelaClienteDashboard.jsx) — mesma pílula do
+   ".cancelar" acima, só que como <select>, pra ficar lado a lado com ele
+   nos cards do Diário de Bordo sem destoar. Dentro de um .modal-card (lista
+   "Pedidos aguardando pagamento" do modal "Pedir abastecimento") já herda
+   o padding/borda padrão de ".modal-card select" — aqui só cobre o caso de
+   fora do modal. */
+.diario-lista select.selecao-acao-pagamento,
+.linha-pedido-pendente select.selecao-acao-pagamento {
+  font-size: 12px; padding: 6px 10px; border: 1px solid #D8E6EC; border-radius: 8px;
+  background: var(--cor-card); color: var(--cor-texto); cursor: pointer; font-weight: 600;
+  align-self: center; white-space: nowrap; flex-shrink: 0;
+}
+
 .modal-fundo {
   position: fixed; inset: 0; background: rgba(13,27,42,0.35);
   display: flex; align-items: center; justify-content: center; z-index: 10;
@@ -1154,6 +1168,19 @@ button.badge:hover { filter: brightness(0.95); }
 .chave-pagamento-rotulo { font-size: 13px; font-weight: 600; }
 .chave-pagamento-rotulo.on { color: var(--cor-pagamento-efetuado); }
 .chave-pagamento-rotulo.off { color: var(--cor-pagamento-pendente); }
+
+/* Indicador de "Informe de Pagamento" (aba Abastecimento do administrador,
+   ao lado do Status, antes do seletor de ação) — mesmo par vermelho/verde
+   de .toggle-pagamento acima, só que como bolinha em vez de chave: vermelho
+   enquanto o cliente não clica em "Informe de Pagamento" no Diário de
+   Bordo dele, verde assim que clica (ver informarPagamentoAbastecimento em
+   lib/db.js). Não confirma o pagamento sozinho — só avisa a equipe. */
+.indicador-informe-pagamento {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  margin-right: 8px; vertical-align: middle; flex-shrink: 0;
+}
+.indicador-informe-pagamento.pendente { background: var(--cor-pagamento-pendente); }
+.indicador-informe-pagamento.informado { background: var(--cor-pagamento-efetuado); }
 
 /* ---------- Agenda do dia (grade de horários) ---------- */
 .agenda-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; font-weight: 700; color: var(--cor-primaria); }

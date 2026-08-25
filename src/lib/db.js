@@ -549,6 +549,17 @@ export async function atualizarStatusAbastecimento(id, status) {
   if (error) throw error
 }
 
+// "Informe de Pagamento" — o cliente avisa que já pagou (fora do app, ou
+// pelo QR/link que o app não confirma sozinho). Só grava o carimbo — não
+// muda o status do pedido; quem confirma de verdade é a marina, marcando
+// "Pagamento efetuado" (ver atualizarStatusAbastecimento acima). A policy
+// cliente_informa_pagamento_abastecimento só deixa isso acontecer enquanto
+// o pedido ainda está 'aguardando_pagamento'.
+export async function informarPagamentoAbastecimento(id) {
+  const { error } = await db.from('pedidos_abastecimento').update({ informado_pagamento_em: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+
 /* ---------- Autorizados (pessoas que o cliente autoriza a retirar/devolver a embarcação) ---------- */
 export async function listarAutorizados(clienteId) {
   const { data, error } = await db

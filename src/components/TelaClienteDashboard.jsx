@@ -9,7 +9,7 @@ import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
-  solicitarAbastecimento, atualizarStatusAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
+  solicitarAbastecimento, atualizarStatusAbastecimento, informarPagamentoAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
   salvarCliente, listarHorariosOcupados,
 } from '../lib/db'
 import { destravarAudioNaProximaInteracao, tocarApitoRespostaDiario } from '../lib/sons'
@@ -283,6 +283,43 @@ function statusAbastecimentoDiario(p) {
   if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
   if (p.status === 'cancelado') return { statusLabel: 'Cancelado', statusClasse: 'em-dia' }
   return { statusLabel: STATUS_ABASTECIMENTO_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
+}
+
+// Caixa seletora de ações de pagamento de um pedido de abastecimento
+// "Aguardando pagamento" — aparece tanto no card do Diário de Bordo quanto
+// na lista "Pedidos aguardando pagamento" do modal "Pedir abastecimento"
+// (mesmo componente nos dois lugares, pra nunca ficarem com comportamentos
+// diferentes). Mesmo padrão de <select> de ação usado nas telas
+// administrativas (ver TelaAbastecimento.jsx/TelaVagas.jsx): sempre volta
+// pro placeholder depois de cada escolha, não é um <select> "de estado".
+//   - "Realizar Pagamento": abre o mesmo QR/link já gerado no pedido (ver
+//     pedidoGerado mais abaixo) — usa o que já está cadastrado na
+//     plataforma (qr_code do pedido e TEMA_PADRAO.linkPagamento), nada
+//     novo é gerado aqui.
+//   - "Informe de Pagamento": só avisa a marina (liga a bolinha vermelho/
+//     verde ao lado do Status na aba Abastecimento do administrador, ver
+//     informarPagamentoAbastecimento em lib/db.js) — não confirma o
+//     pagamento sozinho, quem confirma continua sendo a equipe. Uma vez
+//     informado, a opção fica desabilitada (não faz sentido avisar duas
+//     vezes) e o placeholder mostra o "✓".
+function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento }) {
+  const jaInformou = !!pedido.informado_pagamento_em
+  return (
+    <select
+      value=""
+      className="selecao-acao-pagamento"
+      onChange={(e) => {
+        const acao = e.target.value
+        e.target.value = ''
+        if (acao === 'pagar') onRealizarPagamento(pedido)
+        if (acao === 'informar') onInformarPagamento(pedido)
+      }}
+    >
+      <option value="">{jaInformou ? 'Pagamento informado ✓' : 'Pagamento'}</option>
+      <option value="pagar">Realizar Pagamento</option>
+      <option value="informar" disabled={jaInformou}>Informe de Pagamento</option>
+    </select>
+  )
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
@@ -679,6 +716,26 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
+  // Ações da SeletorAcaoPagamento (Diário de Bordo e modal "Pedir
+  // abastecimento" — ver componente acima). "Realizar Pagamento" só abre o
+  // mesmo modal de QR/link que já existia (pedidoGerado); "Informe de
+  // Pagamento" grava o carimbo que liga a bolinha verde do administrador —
+  // propaga pra aba Abastecimento dele via Realtime, mesma assinatura de
+  // pedidos_abastecimento já usada pro resto da sincronização.
+  function abrirPagamentoAbastecimento(p) {
+    setModalAbastecimentoAberto(false)
+    setPedidoGerado({ ...p, combustivelNome: p.combustiveis?.nome })
+  }
+
+  async function informarPagamentoCliente(p) {
+    try {
+      await informarPagamentoAbastecimento(p.id)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível informar o pagamento: ' + err.message)
+    }
+  }
+
   function abrirModalAutorizados() {
     setFormAutorizado({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
     setModalAutorizadosAberto(true)
@@ -916,6 +973,13 @@ export default function TelaClienteDashboard({ perfil }) {
       // Só dá pra cancelar enquanto o pedido ainda está "Aguardando
       // pagamento" ou "Indisponível" — ver cancelarAbastecimentoCliente.
       abastecimentoParaCancelar: STATUS_ABASTECIMENTO_CANCELAVEIS.includes(p.status) ? p : null,
+      // Caixa de ações de pagamento (Realizar Pagamento/Informe de
+      // Pagamento) — só faz sentido com "Aguardando pagamento" de verdade
+      // (tem QR gerado, ver enviarAbastecimento); "Completar tanque" não
+      // tem QR nenhum, paga presencialmente na marina (ver detalhe acima),
+      // por isso fica de fora aqui do mesmo jeito que já fica de fora de
+      // pedidosAguardandoPagamento.
+      pedidoParaPagar: (p.status === 'aguardando_pagamento' && !ehCompletarTanque(p)) ? p : null,
     })),
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,
@@ -1222,6 +1286,11 @@ export default function TelaClienteDashboard({ perfil }) {
                       Cancelar
                     </button>
                   )}
+                  {item.pedidoParaPagar && (
+                    <SeletorAcaoPagamento pedido={item.pedidoParaPagar}
+                      onRealizarPagamento={abrirPagamentoAbastecimento}
+                      onInformarPagamento={informarPagamentoCliente} />
+                  )}
                   {item.abastecimentoParaCancelar && (
                     <button type="button" className="cancelar" style={{ flexShrink: 0 }}
                       onClick={() => cancelarAbastecimentoCliente(item.abastecimentoParaCancelar)}>
@@ -1497,9 +1566,9 @@ export default function TelaClienteDashboard({ perfil }) {
                     <span style={{ fontSize: 13 }}>
                       {p.combustiveis?.nome}{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''} — {Number(p.quantidade_litros).toFixed(2)} L · R$ {Number(p.valor_total).toFixed(2)}
                     </span>
-                    <button type="button" onClick={() => { setModalAbastecimentoAberto(false); setPedidoGerado({ ...p, combustivelNome: p.combustiveis?.nome }) }}>
-                      Ver QR / pagar
-                    </button>
+                    <SeletorAcaoPagamento pedido={p}
+                      onRealizarPagamento={abrirPagamentoAbastecimento}
+                      onInformarPagamento={informarPagamentoCliente} />
                   </div>
                 ))}
               </div>
