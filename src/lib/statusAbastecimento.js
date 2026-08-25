@@ -20,7 +20,11 @@
 //                             (TelaFinanceiro.jsx lê a tabela por fora
 //                             dessas telas, sem esse filtro).
 //   'cancelado'             — pedido cancelado (pela marina ou pelo
-//                             próprio cliente, direto no Diário de Bordo).
+//                             próprio cliente, direto no Diário de Bordo)
+//                             — some das duas telas administrativas (ver
+//                             abastecimentoConcluido abaixo) e do Diário de
+//                             Bordo ativo do cliente, mesmo tratamento
+//                             terminal de 'pago'/'entregue'.
 //   'indisponivel'          — a marina não tem esse combustível disponível
 //                             agora.
 // 'solicitado' é o valor inicial de todo pedido novo (ver
@@ -57,10 +61,20 @@ export function labelStatusAbastecimento(status) {
   return STATUS_ABASTECIMENTO_LABEL[status] || status
 }
 
-// Pedido já concluído — some das telas administrativas (continua contando
-// normalmente na Arrecadação detalhada) e do Diário de Bordo do cliente.
+// Pedido finalizado — não sobra nenhuma ação pendente pra marina, então
+// some das duas telas administrativas (pedidosVisiveis em
+// TelaAbastecimento.jsx e pedidosCombustivel em TelaVagas.jsx) e do Diário
+// de Bordo ativo do cliente (ver statusAbastecimentoDiario em
+// TelaClienteDashboard.jsx). Cobre tanto uma conclusão de verdade
+// ('pago'/'entregue' — continua contando normalmente na Arrecadação
+// detalhada) quanto um cancelamento ('cancelado', seja pelo administrador
+// na aba Abastecimento ou pelo próprio cliente no Diário de Bordo — ver
+// cancelarAbastecimentoCliente): as duas situações são terminais do mesmo
+// jeito. Nada é apagado do banco — o pedido continua aparecendo
+// normalmente no Histórico de Solicitações do cliente, só sai dessas
+// listas ativas.
 export function abastecimentoConcluido(status) {
-  return status === 'pago' || status === 'entregue'
+  return status === 'pago' || status === 'entregue' || status === 'cancelado'
 }
 
 // Enquanto o pedido estiver num destes status, o cliente ainda pode

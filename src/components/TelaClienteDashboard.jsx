@@ -233,13 +233,24 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
 //   - 'indisponivel': a marina não tem esse combustível disponível agora —
 //     mesmo tom visual ("cancelado", cinza) de uma solicitação que não vai
 //     seguir adiante, com o texto certo.
-// 'pago'/'entregue' nunca chegam aqui: uma vez que o pagamento é
-// confirmado, o pedido já sai do Diário de Bordo (ver filtro em
-// diarioDeBordo abaixo), do mesmo jeito que já sai da tela do administrador.
+//   - 'cancelado': classeStatusDiario('cancelado') sozinho devolveria
+//     'cancelado' (fica parado no Diário de Bordo ativo pra sempre, com um
+//     badge cinza) — aqui força 'em-dia' igual a 'pago'/'entregue' abaixo,
+//     porque um pedido cancelado (pelo administrador na aba Abastecimento
+//     ou pelo próprio cliente, ver cancelarAbastecimentoCliente) também é
+//     terminal: não sobra ação nenhuma, então some do Diário de Bordo ativo
+//     do mesmo jeito (ver abastecimentoConcluido em
+//     lib/statusAbastecimento.js, mesmo critério usado nas duas telas
+//     administrativas). Continua no Histórico de Solicitações normalmente.
+// 'pago'/'entregue' não precisam de um "if" próprio aqui: já caem certo no
+// fallback (classeStatusDiario devolve 'em-dia' pros dois), e o pedido já
+// sai do Diário de Bordo ativo (ver filtro em diarioAtivo abaixo), do mesmo
+// jeito que já sai das telas do administrador.
 function statusAbastecimentoDiario(p) {
   if (p.status === 'solicitado') return { statusLabel: 'Aguardando resposta da solicitação', statusClasse: 'pendente' }
   if (p.status === 'aguardando_pagamento') return { statusLabel: 'Confirmado — Aguardando pagamento', statusClasse: 'pendente' }
   if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
+  if (p.status === 'cancelado') return { statusLabel: 'Cancelado', statusClasse: 'em-dia' }
   return { statusLabel: STATUS_ABASTECIMENTO_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
 }
 

@@ -101,11 +101,14 @@ export default function TelaAbastecimento({ marinaId }) {
         </>
       )}
 
-      {/* Assim que um pedido é marcado "Pagamento efetuado", ele some desta
-          lista — a solicitação já foi concluída, não precisa mais de ação da
-          equipe (continua contando normalmente pra Arrecadação detalhada, só
-          não aparece mais aqui). "Entregue" é um valor legado (pedidos de
-          antes desta mudança) e some do mesmo jeito, pelo mesmo motivo. */}
+      {/* Assim que um pedido é marcado "Pagamento efetuado" (ou "Cancelar"),
+          ele some desta lista — não precisa mais de ação da equipe
+          (pagamento efetuado continua contando normalmente pra Arrecadação
+          detalhada; cancelado não, nenhum dos dois aparece mais aqui). Os
+          dois continuam no Histórico de Solicitações do cliente. "Entregue"
+          é um valor legado (pedidos de antes desta mudança) e some do mesmo
+          jeito, pelo mesmo motivo — ver abastecimentoConcluido em
+          lib/statusAbastecimento.js. */}
       {aba === 'pedidos' && (() => {
         const pedidosVisiveis = pedidos.filter((p) => !abastecimentoConcluido(p.status))
         return (
