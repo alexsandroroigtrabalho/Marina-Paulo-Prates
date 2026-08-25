@@ -139,16 +139,27 @@ export default function TelaAbastecimento({ marinaId }) {
                         TelaVagas.jsx) só exibe o mesmo valor, sem controle
                         nenhum de alteração ali. Fonte única do rótulo/opções
                         em lib/statusAbastecimento.js, pra nunca ficarem
-                        dessincronizadas. */}
+                        dessincronizadas.
+
+                        O seletor sempre começa em "—" (não reflete o status
+                        atual — esse já está no badge da coluna Status ao
+                        lado): é só um menu de ação, pra deixar claro que o
+                        status não muda sozinho, só quando o administrador
+                        escolhe explicitamente uma das 4 opções abaixo. Volta
+                        pro "—" na hora (e.target.value = '') depois de cada
+                        escolha, mesmo padrão do seletor de ação da tabela
+                        Navegando (ver select-status-fila em TelaVagas.jsx). */}
                     {p.status !== 'cancelado' && (
-                      <select value={p.status} onChange={(e) => atualizarStatusAbastecimento(p.id, e.target.value).then(carregar).catch((err) => alert('Não foi possível atualizar o pedido: ' + err.message))}>
-                        {/* Pedido recém-chegado ainda em 'solicitado' (ou algum
-                            valor legado, ex.: 'confirmado') — mostra a situação
-                            atual certa até o operador escolher uma das 4 ações
-                            reais abaixo; não reaparece depois que ele agir. */}
-                        {!STATUS_ABASTECIMENTO_OPCOES.some((o) => o.valor === p.status) && (
-                          <option value={p.status} disabled>{STATUS_LABEL[p.status] || p.status}</option>
-                        )}
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const valor = e.target.value
+                          e.target.value = ''
+                          if (!valor) return
+                          atualizarStatusAbastecimento(p.id, valor).then(carregar).catch((err) => alert('Não foi possível atualizar o pedido: ' + err.message))
+                        }}
+                      >
+                        <option value="">—</option>
                         {STATUS_ABASTECIMENTO_OPCOES.map((o) => (
                           <option key={o.valor} value={o.valor}>{o.label}</option>
                         ))}
