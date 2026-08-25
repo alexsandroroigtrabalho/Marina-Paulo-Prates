@@ -828,8 +828,14 @@ export default function TelaClienteDashboard({ perfil }) {
       id: `ab-${p.id}`,
       icone: IconGasStation,
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
-      detalhe: ehCompletarTanque(p) && p.status === 'aguardando_pagamento'
-        ? 'Procurar a marina para efetuar o pagamento'
+      // "Completar tanque" não tem litros/valor reais (ver enviarAbastecimento)
+      // — enquanto 'solicitado' (aguardando resposta da marina) mostra só o
+      // nome da opção; uma vez confirmado "Aguardando pagamento", mostra o
+      // aviso de ir pagar presencialmente. Pedido normal sempre mostra
+      // litros/valor, em qualquer status — esses dois já são conhecidos
+      // desde o momento do pedido.
+      detalhe: ehCompletarTanque(p)
+        ? (p.status === 'aguardando_pagamento' ? 'Procurar a marina para efetuar o pagamento' : 'Completar tanque')
         : `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
       ...statusAbastecimentoDiario(p),
       quando: p.created_at,
@@ -982,23 +988,24 @@ export default function TelaClienteDashboard({ perfil }) {
         quantidade_litros: litros,
         preco_litro_no_pedido: combustivel.preco_litro,
         valor_total: valorTotal,
-        // Pedido normal começa em 'solicitado' — ninguém da marina decidiu
-        // nada ainda, mostra "Aguardando resposta da solicitação" no
-        // Diário de Bordo e "—" nas telas administrativas (ver
-        // statusAbastecimentoDiario acima e STATUS_ABASTECIMENTO_LABEL em
-        // lib/statusAbastecimento.js) — só muda quando o administrador
-        // escolhe uma das 4 opções reais no seletor de ação da aba
-        // Abastecimento. "Completar tanque" pula essa etapa (o combustível
-        // já foi posto fisicamente, não é uma decisão a tomar) e continua
-        // indo direto pra 'aguardando_pagamento', com o "Tanque cheio".
-        status: completarTanque ? 'aguardando_pagamento' : 'solicitado',
+        // Todo pedido novo começa em 'solicitado', "Completar tanque"
+        // incluído — ninguém da marina decidiu nada ainda, mostra
+        // "Aguardando resposta da solicitação" no Diário de Bordo e "—"
+        // nas telas administrativas (ver statusAbastecimentoDiario acima e
+        // STATUS_ABASTECIMENTO_LABEL em lib/statusAbastecimento.js). Só
+        // muda quando o administrador escolhe uma das 4 opções reais no
+        // seletor de ação da aba Abastecimento — pra "Completar tanque",
+        // escolher "Aguardando pagamento" é o que faz aparecer o "Tanque
+        // cheio" em verde na seção Combustível do Painel de Controle (ver
+        // ehCompletarTanque em lib/statusAbastecimento.js e TelaVagas.jsx).
+        status: 'solicitado',
         qr_code: completarTanque ? null : qrDemo,
         qr_code_demo: !completarTanque,
         observacoes: completarTanque ? OBSERVACAO_COMPLETAR_TANQUE : null,
       })
       setModalAbastecimentoAberto(false)
       if (completarTanque) {
-        alert('Pedido registrado! Procure a marina para efetuar o pagamento.')
+        alert('Pedido registrado! Aguarde a resposta da marina no seu Diário de Bordo.')
       } else {
         setPedidoGerado({ ...pedido, combustivelNome: combustivel.nome })
       }

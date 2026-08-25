@@ -77,11 +77,15 @@ export const STATUS_ABASTECIMENTO_CANCELAVEIS = ['aguardando_pagamento', 'indisp
 // só é acertado presencialmente na marina). Usa o campo observacoes já
 // existente como marcador, sem precisar de coluna nova no banco.
 //
-// Enquanto ainda 'aguardando_pagamento', aparece diferente nas duas telas
-// administrativas — Diário de Bordo do cliente mostra "Procurar a marina
-// para efetuar o pagamento" (ver statusAbastecimentoDiario em
-// TelaClienteDashboard.jsx) e a seção "Combustível" do Painel de Controle
-// mostra "Tanque cheio" em verde (ver TelaVagas.jsx) — mas o status
+// Segue exatamente a mesma lógica de qualquer outro pedido — começa em
+// 'solicitado' (rótulo "—" aqui, "Aguardando resposta da solicitação" no
+// Diário de Bordo) e só muda quando o administrador escolhe uma das 4
+// opções no seletor de ação da aba Abastecimento. A diferença aparece só
+// depois que o operador escolhe "Aguardando pagamento": a seção
+// "Combustível" do Painel de Controle passa a mostrar "Tanque cheio" em
+// verde em vez do rótulo padrão (ver TelaVagas.jsx), e o Diário de Bordo do
+// cliente passa a mostrar "Procurar a marina para efetuar o pagamento" (ver
+// statusAbastecimentoDiario em TelaClienteDashboard.jsx) — mas o status
 // gravado continua sendo o mesmo 'aguardando_pagamento' de sempre, e some
 // das telas do mesmo jeito assim que o operador marcar "Pagamento
 // efetuado" na aba Abastecimento (ver abastecimentoConcluido acima).
