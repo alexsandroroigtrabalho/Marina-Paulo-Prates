@@ -549,12 +549,38 @@ export async function atualizarStatusAbastecimento(id, status) {
   if (error) throw error
 }
 
+// Registra os litros reais de um pedido "Completar tanque" assim que o
+// tanque é enchido — até aqui ele ficava com quantidade_litros/valor_total
+// no placeholder 0 e sem QR, pago só presencialmente (ver
+// enviarAbastecimento em TelaClienteDashboard.jsx). Calcula o valor com o
+// mesmo preço por litro já travado no pedido (preco_litro_no_pedido),
+// gera o mesmo QR Pix de demonstração usado em qualquer outro pedido, e
+// avança pra 'aguardando_pagamento' — a partir daqui segue exatamente o
+// mesmo fluxo de um pedido normal (ver aguardandoLitrosCompletarTanque em
+// lib/statusAbastecimento.js): quantidade/valor reais nas telas
+// administrativas e a caixa Realizar Pagamento/Informe de Pagamento no
+// Diário de Bordo do cliente.
+export async function completarTanqueComLitros(pedido, litros) {
+  const valor_total = litros * Number(pedido.preco_litro_no_pedido)
+  const qrDemo = `00020126DEMO-PIX-MARINA5204000053039865406${valor_total.toFixed(2)}5802BR5913Marina Manager6009DEMO-QR`
+  const { error } = await db.from('pedidos_abastecimento').update({
+    quantidade_litros: litros,
+    valor_total,
+    qr_code: qrDemo,
+    qr_code_demo: true,
+    status: 'aguardando_pagamento',
+  }).eq('id', pedido.id)
+  if (error) throw error
+}
+
 // "Informe de Pagamento" — o cliente avisa que já pagou (fora do app, ou
 // pelo QR/link que o app não confirma sozinho). Só grava o carimbo — não
 // muda o status do pedido; quem confirma de verdade é a marina, marcando
 // "Pagamento efetuado" (ver atualizarStatusAbastecimento acima). A policy
-// cliente_informa_pagamento_abastecimento só deixa isso acontecer enquanto
-// o pedido ainda está 'aguardando_pagamento'.
+// cliente_informa_pagamento_abastecimento só deixa isso acontecer com o
+// pedido em 'solicitado' ou 'aguardando_pagamento' (o QR já existe desde a
+// solicitação, ver enviarAbastecimento) — nunca depois de já
+// pago/cancelado.
 export async function informarPagamentoAbastecimento(id) {
   const { error } = await db.from('pedidos_abastecimento').update({ informado_pagamento_em: new Date().toISOString() }).eq('id', id)
   if (error) throw error

@@ -10,7 +10,7 @@ import { ativarSons } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, ehCompletarTanque } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
@@ -791,7 +791,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           aba Abastecimento). Fonte única do rótulo/critério em
           lib/statusAbastecimento.js — exceto o "Tanque cheio" (pedido
           "Completar tanque" ainda aguardando pagamento, ver
-          ehCompletarTanque), que só aparece aqui, nesta tela. Qualquer
+          aguardandoLitrosCompletarTanque), que só aparece aqui, nesta tela. Qualquer
           mudança feita na aba Abastecimento (ou pelo cliente, cancelando no
           Diário de Bordo) aparece aqui imediatamente (ver canal Realtime
           acima). */}
@@ -815,7 +815,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               <td>{p.embarcacoes?.nome || '-'}</td>
               <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
               <td>{p.combustiveis?.nome}</td>
-              <td>{ehCompletarTanque(p) ? '—' : Number(p.quantidade_litros).toFixed(2)}</td>
+              <td>{aguardandoLitrosCompletarTanque(p) ? '—' : Number(p.quantidade_litros).toFixed(2)}</td>
               <td>
                 {/* "Completar tanque" (ver lib/statusAbastecimento.js) ainda
                     "aguardando_pagamento" — em vez do rótulo padrão, mostra
@@ -823,7 +823,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                     cliente pagar presencialmente na marina. Some daqui do
                     mesmo jeito assim que virar "Pagamento efetuado" (ver
                     abastecimentoConcluido/pedidosCombustivel acima). */}
-                {ehCompletarTanque(p) && p.status === 'aguardando_pagamento' ? (
+                {aguardandoLitrosCompletarTanque(p) && p.status === 'aguardando_pagamento' ? (
                   <span className="badge status-tanque-cheio">Tanque cheio</span>
                 ) : (
                   <span className={`badge status-${p.status}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>

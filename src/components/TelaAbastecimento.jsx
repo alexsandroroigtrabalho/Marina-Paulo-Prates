@@ -3,11 +3,47 @@ import { supabase } from '../lib/supabase'
 import {
   listarCombustiveis, salvarCombustivel,
   listarPedidosAbastecimento, atualizarStatusAbastecimento, solicitarAbastecimento,
-  listarClientes, listarEmbarcacoes,
+  listarClientes, listarEmbarcacoes, completarTanqueComLitros,
 } from '../lib/db'
-import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, abastecimentoConcluido, ehCompletarTanque } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_OPCOES, STATUS_ABASTECIMENTO_LABEL as STATUS_LABEL, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
 
 const FORM_MANUAL_VAZIO = { cliente_id: '', embarcacao_id: '', combustivel_id: '', quantidade_litros: '', status: 'aguardando_pagamento' }
+
+// Formulário curto — só o campo de litros — pra registrar quanto entrou de
+// verdade num pedido "Completar tanque" assim que o tanque é enchido (ver
+// completarTanqueComLitros em lib/db.js). Some sozinho da linha depois:
+// aguardandoLitrosCompletarTanque passa a devolver false assim que
+// quantidade_litros deixa de ser 0, e a linha passa a se comportar como um
+// pedido normal (quantidade/valor reais, caixa de pagamento no Diário de
+// Bordo do cliente).
+function FormLitrosCompletarTanque({ pedido, onRegistrado }) {
+  const [litros, setLitros] = useState('')
+  const [enviando, setEnviando] = useState(false)
+
+  async function enviar(e) {
+    e.preventDefault()
+    if (!litros || Number(litros) <= 0) return
+    setEnviando(true)
+    try {
+      await completarTanqueComLitros(pedido, Number(litros))
+      await onRegistrado()
+    } catch (err) {
+      alert('Não foi possível registrar os litros: ' + err.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <form onSubmit={enviar} style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
+      <input required type="number" min="0.5" step="0.5" placeholder="Litros" style={{ width: 64 }}
+        value={litros} onChange={(e) => setLitros(e.target.value)} />
+      <button type="submit" disabled={enviando} style={{ whiteSpace: 'nowrap' }}>
+        {enviando ? '...' : 'Registrar'}
+      </button>
+    </form>
+  )
+}
 
 export default function TelaAbastecimento({ marinaId }) {
   const [aba, setAba] = useState('pedidos') // pedidos | combustiveis
@@ -245,16 +281,21 @@ export default function TelaAbastecimento({ marinaId }) {
                       <td>{p.clientes?.nome}</td>
                       <td>{p.embarcacoes?.nome || '-'}</td>
                       <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
-                      {/* "Completar tanque" (ver lib/statusAbastecimento.js): o
-                          cliente não informou litros, então não tem quantidade/
-                          valor fechado ainda — mostra "—"/"A combinar" em vez de
-                          "0.00"/"R$ 0.00" (placeholders só pras colunas NOT NULL
-                          do banco, ver enviarAbastecimento em
-                          TelaClienteDashboard.jsx), com o combustível marcado
-                          pra ficar claro que é esse tipo de pedido. */}
-                      <td>{p.combustiveis?.nome}{ehCompletarTanque(p) ? ' · Completar tanque' : ''}</td>
-                      <td>{ehCompletarTanque(p) ? '—' : Number(p.quantidade_litros).toFixed(2)}</td>
-                      <td>{ehCompletarTanque(p) ? 'A combinar' : `R$ ${Number(p.valor_total).toFixed(2)}`}</td>
+                      {/* "Completar tanque" (ver lib/statusAbastecimento.js), litros
+                          ainda não informados: sem quantidade/valor fechado —
+                          mostra "—"/"A combinar" em vez de "0.00"/"R$ 0.00"
+                          (placeholders só pras colunas NOT NULL do banco, ver
+                          enviarAbastecimento em TelaClienteDashboard.jsx), com o
+                          combustível marcado pra ficar claro que é esse tipo de
+                          pedido, e o formulário de litros no lugar da quantidade
+                          (ver FormLitrosCompletarTanque acima). Assim que os
+                          litros são registrados, aguardandoLitrosCompletarTanque
+                          passa a devolver false e a linha vira um pedido normal
+                          em tudo — mesma integração completa de dados do fluxo
+                          geral de abastecimento. */}
+                      <td>{p.combustiveis?.nome}{aguardandoLitrosCompletarTanque(p) ? ' · Completar tanque' : ''}</td>
+                      <td>{aguardandoLitrosCompletarTanque(p) ? <FormLitrosCompletarTanque pedido={p} onRegistrado={carregar} /> : Number(p.quantidade_litros).toFixed(2)}</td>
+                      <td>{aguardandoLitrosCompletarTanque(p) ? 'A combinar' : `R$ ${Number(p.valor_total).toFixed(2)}`}</td>
                       <td><span className={`badge status-${p.status}`}>{STATUS_LABEL[p.status] || p.status}</span></td>
                       <td>
                         {/* Indicador de "Informe de Pagamento" (ver

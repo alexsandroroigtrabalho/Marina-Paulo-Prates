@@ -17,7 +17,7 @@ import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_CANCELAVEIS, OBSERVACAO_COMPLETAR_TANQUE, ehCompletarTanque } from '../lib/statusAbastecimento'
+import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_CANCELAVEIS, OBSERVACAO_COMPLETAR_TANQUE, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
 import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
 import { TEMA_PADRAO } from '../lib/tema'
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
@@ -986,7 +986,7 @@ export default function TelaClienteDashboard({ perfil }) {
       // aviso de ir pagar presencialmente. Pedido normal sempre mostra
       // litros/valor, em qualquer status — esses dois já são conhecidos
       // desde o momento do pedido.
-      detalhe: ehCompletarTanque(p)
+      detalhe: aguardandoLitrosCompletarTanque(p)
         ? (p.status === 'aguardando_pagamento' ? 'Procurar a marina para efetuar o pagamento' : 'Completar tanque')
         : `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
       ...statusAbastecimentoDiario(p),
@@ -997,10 +997,12 @@ export default function TelaClienteDashboard({ perfil }) {
       // Caixa de ações de pagamento (Realizar Pagamento/Informe de
       // Pagamento) — mesmo critério de pedidosAguardandoPagamento acima
       // ('solicitado' incluído, não só 'aguardando_pagamento': o QR já
-      // existe desde a solicitação); "Completar tanque" não tem QR nenhum,
-      // paga presencialmente na marina (ver detalhe acima), por isso fica
-      // de fora aqui do mesmo jeito.
-      pedidoParaPagar: ((p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !ehCompletarTanque(p)) ? p : null,
+      // existe desde a solicitação). Um "Completar tanque" só entra aqui
+      // depois que a marina registra os litros reais (ver
+      // aguardandoLitrosCompletarTanque em lib/statusAbastecimento.js e
+      // completarTanqueComLitros em lib/db.js) — até lá não tem QR nenhum,
+      // paga presencialmente na marina (ver detalhe acima).
+      pedidoParaPagar: ((p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !aguardandoLitrosCompletarTanque(p)) ? p : null,
     })),
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,
@@ -1128,11 +1130,16 @@ export default function TelaClienteDashboard({ perfil }) {
   // administrador entrasse na aba Abastecimento e avançasse o status, o
   // que podia levar horas; a policy cliente_informa_pagamento_abastecimento
   // no banco já permite o "Informe de Pagamento" nos dois status por esse
-  // mesmo motivo. Fica de fora um pedido "Completar tanque" (ver
-  // ehCompletarTanque): não tem QR nenhum pra mostrar (paga presencialmente
-  // na marina, ver enviarAbastecimento) — aparece só como aviso no Diário
-  // de Bordo ("Procurar a marina para efetuar o pagamento").
-  const pedidosAguardandoPagamento = abastecimentos.filter((p) => (p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !ehCompletarTanque(p))
+  // mesmo motivo. Fica de fora um pedido "Completar tanque" enquanto os
+  // litros ainda não foram registrados pela marina (ver
+  // aguardandoLitrosCompletarTanque em lib/statusAbastecimento.js): não
+  // tem QR nenhum pra mostrar (paga presencialmente na marina, ver
+  // enviarAbastecimento) — aparece só como aviso no Diário de Bordo
+  // ("Procurar a marina para efetuar o pagamento"). Assim que a marina
+  // registra os litros reais (ver completarTanqueComLitros em lib/db.js),
+  // passa a entrar aqui normalmente, com a mesma integração completa do
+  // fluxo geral de abastecimento.
+  const pedidosAguardandoPagamento = abastecimentos.filter((p) => (p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !aguardandoLitrosCompletarTanque(p))
 
   function abrirModalAbastecimento() {
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '', completarTanque: false })
@@ -1421,7 +1428,7 @@ export default function TelaClienteDashboard({ perfil }) {
               <div className="servicos-seletor">
                 <button type="button" onClick={() => { setModalServicosAberto(false); abrirModalAbastecimento() }} disabled={combustiveis.length === 0}>
                   <IconGasStation size={22} />
-                  Abastecimento
+                  Abastecer
                 </button>
                 <button type="button" onClick={() => setModoServicos('manutencao')}>
                   <IconTools size={22} />

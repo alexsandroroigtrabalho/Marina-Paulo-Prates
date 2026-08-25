@@ -107,3 +107,19 @@ export const OBSERVACAO_COMPLETAR_TANQUE = 'Completar tanque'
 export function ehCompletarTanque(pedido) {
   return pedido?.observacoes === OBSERVACAO_COMPLETAR_TANQUE
 }
+
+// Uma vez que a marina sabe quantos litros entraram de verdade — registrado
+// pela aba Abastecimento assim que o tanque é enchido (ver
+// completarTanqueComLitros em lib/db.js e o formulário "Registrar litros"
+// em TelaAbastecimento.jsx) — o pedido "Completar tanque" passa a se
+// comportar EXATAMENTE como um pedido normal em todo lugar que mostra
+// quantidade/valor/QR e a caixa Realizar Pagamento/Informe de Pagamento
+// (mesma integração completa de cliente/embarcação/combustível/litros/
+// valor/pagamento do fluxo geral, ver TelaClienteDashboard.jsx). Continua
+// tratado como "Completar tanque" (rótulo "—"/"Tanque cheio"/aviso "ir
+// pagar presencialmente") só enquanto os litros ainda não foram
+// informados — ou seja, enquanto quantidade_litros continuar no
+// placeholder 0 de sempre (ver enviarAbastecimento).
+export function aguardandoLitrosCompletarTanque(pedido) {
+  return ehCompletarTanque(pedido) && Number(pedido?.quantidade_litros) === 0
+}
