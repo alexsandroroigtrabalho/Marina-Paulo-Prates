@@ -169,10 +169,13 @@ body {
    celular o card ganha padding menor (28px/22px, ver @media abaixo), então
    a área útil aumenta — a logo acompanha (proporcionalmente maior que no
    desktop), sem nunca ultrapassá-la. */
-.login-rv-logo { width: min(320px, 84vw); height: auto; margin-top: 4px; }
-@media (min-width: 421px) {
-  .login-rv-logo { width: min(248px, 58vw); }
-}
+/* A logo acompanha a largura do cartão de campos (.card-login, máx. 340px
+   e sem padding lateral quando é .login-sem-painel) — fica quase encostando
+   nas bordas do campo de e-mail logo abaixo, que é a referência visual da
+   coluna. Uma única regra vale de 421px pra cima: a que existia aqui
+   limitava a logo a 248px justamente nessa faixa, deixando-a bem mais
+   estreita que os campos. */
+.login-rv-logo { width: min(332px, 86vw); height: auto; margin-top: 4px; }
 
 /* Faixa de rodapé (login/cadastro): campo sólido preto ônix, só um risco
    dourado no topo dividindo do azul-petróleo de cima — texto centralizado
@@ -289,10 +292,10 @@ body {
    centralizado ao final da página. Mesmo padrão de tamanho/breakpoint da
    logo do Painel de Controle (.topo-logo/.topo-logo abaixo, 260px desktop /
    190px mobile) — a pedido explícito, pra ficar igual nas duas telas. */
-/* Largura maior que a do conteúdo (avança sobre o padding de 24px do
-   painel), com margens negativas iguais dos dois lados pra continuar
-   centrada. */
-.pagina-cliente-logo { display: block; width: calc(100% + 36px); height: auto; margin: 0 -18px 14px; }
+/* Mesma medida da logo das telas de entrada (.login-rv-logo): uma única
+   presença de marca em todo o sistema, no mesmo tamanho. Antes esta avançava
+   sobre o padding do painel e ficava bem maior que a das outras páginas. */
+.pagina-cliente-logo { display: block; width: min(332px, 86vw); height: auto; margin: 0 auto 14px; }
 .pagina-cliente-rodape {
   display: block;
   margin: 28px 0 4px;
@@ -416,14 +419,14 @@ body {
 @media (max-width: 420px) {
   .tela-central { padding: 16px; }
   .card-login { padding: 28px 22px; }
-  .login-rv-logo { width: min(280px, 76vw); }
+  .login-rv-logo { width: min(320px, 90vw); }
 }
 /* Telas baixas (não só estreitas): reduz logo e respiro pra garantir que o
    rodapé "Developed by RV Invictus.com.br" continue visível sem precisar
    rolar a página — reorganiza a proporção vertical inteira (logo mais
    compacta, menos margem no topo), não só encolhe tudo linearmente. */
 @media (max-height: 700px) {
-  .login-rv-logo { width: min(170px, 46vw); margin-top: 0; }
+  .login-rv-logo { width: min(250px, 62vw); margin-top: 0; }
   .tela-central { padding-top: 14px; padding-bottom: 14px; }
 }
 
@@ -1472,6 +1475,7 @@ button.badge:hover { filter: brightness(0.95); }
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: #D4AF37;
+  text-align: center;
   margin: 0 0 2px;
 }
 .painel-cliente .modal-card h4 { color: #F5F5F0; }
@@ -1635,3 +1639,22 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .painel-controle-grid { gap: 14px; margin-bottom: 20px; }
 .painel-controle .painel-controle-grid h3 { margin: 0 0 8px; }
 .painel-controle .painel-controle-rodape { margin: 22px 0 4px; }
+
+/* ---------- Cartão do Diário de Bordo (painel do cliente) ----------
+   Ícone e título na primeira linha; o resto (data/detalhe e status) abaixo,
+   recuado até o começo do título — a informação secundária fica presa ao
+   título a que pertence, em vez de voltar pra margem do cartão. */
+.painel-cliente .diario-item { gap: 4px; }
+.painel-cliente .diario-item-topo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--cor-primaria);
+}
+.painel-cliente .diario-item-icone { color: var(--cor-secundaria); flex-shrink: 0; }
+/* 30px = 20px do ícone + 10px do gap acima. */
+.painel-cliente .diario-item-corpo { padding-left: 30px; display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 380px) {
+  .painel-cliente .diario-item-corpo { padding-left: 0; }
+}

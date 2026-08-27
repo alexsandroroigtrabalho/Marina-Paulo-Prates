@@ -1396,7 +1396,7 @@ export default function TelaClienteDashboard({ perfil }) {
         alt="RV Invictus · Consultoria e Gestão de Processos"
         className="pagina-cliente-logo"
       />
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <strong className="painel-cliente-marina">Marina Paulo Prates</strong>
         </div>
@@ -1485,10 +1485,17 @@ export default function TelaClienteDashboard({ perfil }) {
             {diarioAtivo.map((item) => {
               const Icone = item.icone
               return (
-                <div key={item.id} className="cliente-card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <Icone size={20} style={{ color: 'var(--cor-secundaria)', flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ flex: 1 }}>
-                    <div className="linha"><b>{item.titulo}</b></div>
+                // Ícone e título na MESMA linha, no topo do cartão; detalhe e
+                // status abaixo, alinhados sob o título. O layout antigo
+                // empilhava o ícone acima do título: o estilo inline definia
+                // display:flex mas não a direção, e .cliente-card já é uma
+                // coluna — então o ícone virava a primeira "linha" do cartão.
+                <div key={item.id} className="cliente-card diario-item">
+                  <div className="diario-item-topo">
+                    <Icone size={20} className="diario-item-icone" />
+                    <b>{item.titulo}</b>
+                  </div>
+                  <div className="diario-item-corpo">
                     {item.detalhe && <div className="linha">{item.detalhe}</div>}
                     <span className={`status-texto ${item.statusClasse}`}>{item.statusLabel}</span>
                   </div>
@@ -1525,7 +1532,7 @@ export default function TelaClienteDashboard({ perfil }) {
       {modalTipo && (
         <div className="modal-fundo" onClick={() => setModalTipo(null)}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarAgendamento}>
-            <h3>{modalTipo === 'retirada' ? 'Solicitar descida para água' : 'Agendar atracação de subida'}</h3>
+            <h3>{modalTipo === 'retirada' ? 'Solicitar descida' : 'Solicitar atracação'}</h3>
             {embarcacoes.length > 0 ? (
               <select required value={formAgendamento.embarcacao_id}
                 onChange={(e) => setFormAgendamento({ ...formAgendamento, embarcacao_id: e.target.value })}>
@@ -2084,7 +2091,11 @@ export default function TelaClienteDashboard({ perfil }) {
           mostrarAviso). Não empurra nada da tela, então não muda o layout. */}
       {aviso && <div className="aviso-temporario" role="status">{aviso}</div>}
 
-      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
+      {/* Mesma assinatura do rodapé do Painel de Controle: identifica a
+          aplicação (RV Marine) e credita a RV Invictus. As telas de entrada
+          — login, cadastro e seleção de aplicações — seguem com "Developed
+          by", porque ali o usuário ainda não escolheu aplicação nenhuma. */}
+      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV Marine by RVinvictus.com.br</a>
     </div>
   )
 }
