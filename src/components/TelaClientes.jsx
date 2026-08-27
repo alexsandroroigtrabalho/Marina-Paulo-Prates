@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, listarCobrancas, buscarMarina } from '../lib/db'
+// listarCobrancas saiu daqui junto com o cartão "Total arrecadado": a
+// cobrança passou para o RV Finance (SaaS separado). A função continua em
+// lib/db.js e a tabela `cobrancas` segue no banco, com os dados intactos.
+import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao } from '../lib/db'
 import { statusAcessoCliente } from '../lib/statusPagamento'
-import ChavePagamento from './ChavePagamento'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
@@ -11,7 +13,6 @@ const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', enderec
 export default function TelaClientes({ marinaId }) {
   const [clientes, setClientes] = useState([])
   const [embarcacoes, setEmbarcacoes] = useState([])
-  const [cobrancas, setCobrancas] = useState([])
   const [aba, setAba] = useState('clientes') // 'clientes' | 'adicionar'
 
   const [formCliente, setFormCliente] = useState({ ...CLIENTE_VAZIO })
@@ -25,42 +26,24 @@ export default function TelaClientes({ marinaId }) {
   const [formEmbarcacaoExtra, setFormEmbarcacaoExtra] = useState({ ...EMBARCACAO_VAZIA })
   const [salvandoExtra, setSalvandoExtra] = useState(false)
   const [removendoId, setRemovendoId] = useState(null)
-  // Valor da mensalidade configurado em Painel de Controle → Configurações
-  // → Financeiro (marinas.config_json.valorMensalidade) — mostrado aqui
-  // como referência, não é mais uma média calculada das cobranças.
-  const [valorMensalidadeConfig, setValorMensalidadeConfig] = useState(null)
+  // A mensalidade configurada (marinas.config_json.valorMensalidade) não é
+  // mais lida aqui: a cobrança passou para o RV Finance. A configuração
+  // continua existindo no banco, só deixou de aparecer nesta tela — por isso
+  // também caiu o canal realtime que ouvia UPDATE em marina.marinas.
 
   async function carregar() {
     if (!marinaId) return
-    const [c, e, cob] = await Promise.all([listarClientes(marinaId), listarEmbarcacoes(marinaId), listarCobrancas(marinaId)])
-    setClientes(c); setEmbarcacoes(e); setCobrancas(cob)
-  }
-
-  function carregarConfigMarina() {
-    if (!marinaId) return
-    buscarMarina(marinaId).then((m) => setValorMensalidadeConfig(m?.config_json?.valorMensalidade ?? null))
+    const [c, e] = await Promise.all([listarClientes(marinaId), listarEmbarcacoes(marinaId)])
+    setClientes(c); setEmbarcacoes(e)
   }
 
   useEffect(() => { carregar() }, [marinaId])
-  useEffect(() => { carregarConfigMarina() }, [marinaId])
 
-  // Atualização em tempo real da mensalidade configurada — muda assim que o
-  // administrador salva um novo valor em Configurações, sem F5.
-  useEffect(() => {
-    if (!marinaId) return
-    const canal = supabase
-      .channel(`clientes-${marinaId}-config-marina`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'marinas', filter: `id=eq.${marinaId}` }, () => carregarConfigMarina())
-      .subscribe()
-    return () => { supabase.removeChannel(canal) }
-  }, [marinaId])
-
-  // Atualização automática em tempo real: além do próprio administrador
-  // mexendo na chave de pagamento, o status também pode mudar sozinho (o
-  // reset automático de dia 5 — ver função marina.resetar_pagamentos_mensal
-  // no banco) ou por outro administrador logado em outra tela. Sem isto,
-  // o Painel de Controle de Clientes só refletiria essas mudanças depois de
-  // um F5 manual — mesma lógica já usada no painel do cliente.
+  // Atualização automática em tempo real: o cadastro e o acesso do cliente
+  // podem mudar por outro administrador logado em outra tela, ou por
+  // alterações feitas direto no banco. Sem isto, o Painel de Controle de
+  // Clientes só refletiria essas mudanças depois de um F5 manual — mesma
+  // lógica já usada no painel do cliente.
   useEffect(() => {
     if (!marinaId) return
     const canal = supabase
@@ -89,10 +72,9 @@ export default function TelaClientes({ marinaId }) {
         marina_id: marinaId,
         ...formCliente,
         // Quem cadastra aqui é a própria administração, então o cadastro já
-        // nasce completo; o pagamento é que começa pendente até ser
-        // confirmado (ver bloco "Status de cadastro e pagamento").
+        // nasce completo e com acesso liberado — não há mais nada de pagamento
+        // a confirmar antes de usar a agenda (isso é do RV Finance agora).
         cadastro_confirmado: true,
-        pagamento_confirmado: false,
         acesso_suspenso: false,
       })
       for (const emb of formEmbarcacoes) {
@@ -126,24 +108,10 @@ export default function TelaClientes({ marinaId }) {
     }
   }
 
-  // Liberação manual da Agenda (e das demais áreas que dependem de
-  // pagamento) mesmo sem o pagamento confirmado — não mexe em
-  // pagamento_confirmado, só destrava o acesso à parte. Pede confirmação
-  // nos dois sentidos (liberar e revogar), já que muda o que o cliente
-  // consegue fazer no app.
-  async function alternarLiberacaoManual(cliente) {
-    const mensagem = cliente.acesso_liberado_manual
-      ? `Revogar a liberação manual de acesso de ${cliente.nome}? A Agenda voltará a depender da confirmação de pagamento.`
-      : `Liberar o acesso de ${cliente.nome} à Agenda e às demais áreas que dependem de pagamento, mesmo sem o pagamento confirmado?\n\n` +
-        'O status financeiro não é alterado automaticamente — o pagamento continua marcado como pendente até a administração confirmá-lo.'
-    if (!window.confirm(mensagem)) return
-    try {
-      await salvarCliente({ id: cliente.id, acesso_liberado_manual: !cliente.acesso_liberado_manual })
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível atualizar a liberação manual: ' + err.message)
-    }
-  }
+  // A liberação manual de acesso (acesso_liberado_manual) saiu daqui junto
+  // com a cobrança, que passou para o RV Finance — só fazia sentido como
+  // exceção a um pagamento pendente. A coluna continua no banco com os
+  // dados preservados; a suspensão de acesso acima é administrativa e fica.
 
   // Remoção definitiva do cadastro. Pede confirmação por ser irreversível.
   // Se o cliente tiver embarcações, cobranças ou outros registros
@@ -218,9 +186,6 @@ export default function TelaClientes({ marinaId }) {
     }
   }
 
-  const totalArrecadado = cobrancas.filter((c) => c.status === 'pago').reduce((s, c) => s + Number(c.valor), 0)
-  const pagamentosPendentes = clientes.filter((c) => !c.pagamento_confirmado).length
-
   function embarcacoesDoCliente(clienteId) {
     return embarcacoes.filter((e) => e.cliente_id === clienteId)
   }
@@ -234,20 +199,12 @@ export default function TelaClientes({ marinaId }) {
 
       {aba === 'clientes' ? (
         <>
-          <div className="resumo-financeiro">
-            <div className="stat-card">
-              <span>Total arrecadado</span>
-              <strong>R$ {totalArrecadado.toFixed(2)}</strong>
-            </div>
-            <div className="stat-card alerta">
-              <span>Pagamentos pendentes</span>
-              <strong>{pagamentosPendentes}</strong>
-            </div>
-            <div className="stat-card">
-              <span>Mensalidade (valor configurado)</span>
-              <strong>{valorMensalidadeConfig != null ? `R$ ${Number(valorMensalidadeConfig).toFixed(2)}` : 'Não configurado'}</strong>
-            </div>
-          </div>
+          {/* Os cartões de "Pagamentos pendentes", de mensalidade configurada
+              e de "Total arrecadado" saíram: cobrança e pagamento passaram
+              para o RV Finance. As colunas (pagamento_confirmado,
+              pagamento_confirmado_em, acesso_liberado_manual) e a tabela
+              `cobrancas` continuam no banco, apenas não são mais exibidas
+              nesta tela. */}
 
           <div className="lista-cards">
             {clientes.map((c, i) => {
@@ -271,27 +228,14 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 16px', marginTop: 8 }}>
                     <span className={`status-texto ${c.cadastro_confirmado ? 'em-dia' : 'pendente'}`}>Cadastro: {c.cadastro_confirmado ? 'Realizado' : 'Pendente'}</span>
 
-                    {/* Chave de pagamento — sempre um clique manual e explícito do
-                        administrador. Confirmar aqui também lança a mensalidade
-                        recebida na "Arrecadação detalhada" (aba Financeiro). */}
-                    <ChavePagamento cliente={c} marinaId={marinaId} valorMensalidade={valorMensalidadeConfig} onAtualizado={carregar} />
-
+                    {/* A chave de pagamento e o selo de liberação manual saíram
+                        daqui: a cobrança passou para o RV Finance. As colunas
+                        seguem no banco, só não são mais mostradas nem editadas
+                        nesta tela. */}
                     <span className={`status-texto ${acesso.classe}`}>Acesso à Agenda: {acesso.texto}</span>
-                    {/* Indicador dedicado, além do rótulo acima, pra deixar bem visível
-                        que o acesso está liberado sem pagamento confirmado — some
-                        sozinho assim que o pagamento é confirmado ou a liberação é
-                        revogada. */}
-                    {c.acesso_liberado_manual && !c.pagamento_confirmado && !c.acesso_suspenso && (
-                      <span className="status-texto pendente" title="Acesso liberado manualmente pela administração, sem confirmação de pagamento">
-                        🔓 Liberado manualmente sem pagamento
-                      </span>
-                    )}
                   </div>
 
                   <div className="cliente-card-acoes">
-                    <button type="button" className="botao-secundario" onClick={() => alternarLiberacaoManual(c)}>
-                      {c.acesso_liberado_manual ? 'Revogar liberação manual' : 'Liberar acesso sem confirmação de pagamento'}
-                    </button>
                     <button type="button" className="botao-secundario" onClick={() => alternarSuspensao(c)}>
                       {c.acesso_suspenso ? 'Reativar acesso' : 'Suspender acesso'}
                     </button>

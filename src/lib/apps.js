@@ -25,7 +25,11 @@ export const APLICACOES = [
     telas: [
       { chave: 'vagas', label: 'Painel de Controle' },
       { chave: 'clientes', label: 'Clientes' },
-      { chave: 'abastecimento', label: 'Abastecimento' },
+      // Abastecimento saiu junto com tudo que envolvia pagamento e cobrança:
+      // isso passa a ser assunto do RV Finance. O componente
+      // (TelaAbastecimento.jsx) e as funções de banco continuam no projeto,
+      // desligados da interface — mesmo tratamento dado ao Despachos, que
+      // espera o RV NautDoc.
       // Financeiro e Manutenção saíram daqui na Etapa 11, DEPOIS que o RV
       // Finance e o RV Manut já estavam funcionando com as mesmas telas
       // (TelaFinanceiro.jsx / TelaManutencao.jsx, reaproveitadas inteiras).

@@ -1,3 +1,17 @@
+// ATENÇÃO — TELA DESATIVADA, DO FLUXO ANTIGO.
+//
+// Esta era a aba "Abastecimento" do menu, do tempo em que o pedido de
+// combustível tinha preço, valor, QR Pix e confirmação de pagamento. Saiu do
+// menu quando a cobrança passou para o RV Finance, e o controle do pedido
+// passou a ser a seção "Solicitações de combustível" do Painel de Controle
+// (ver TelaVagas.jsx), com apenas dois botões: confirmar e cancelar.
+//
+// O arquivo ficou no projeto porque o histórico dele pode ser útil ao montar
+// a tela equivalente no RV Finance — mas NÃO compila mais contra a versão
+// atual de lib/statusAbastecimento.js: STATUS_ABASTECIMENTO_OPCOES e
+// aguardandoLitrosCompletarTanque eram do fluxo com pagamento e não existem
+// mais. Nada importa este arquivo hoje, então ele não entra no build.
+//
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {

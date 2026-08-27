@@ -495,7 +495,12 @@ export async function atualizarDespacho(id, patch) {
   if (error) throw error
 }
 
-/* ---------- Combustíveis (estoque/preço, controlado pelo gestor) ---------- */
+/* ---------- Combustíveis (tipos que o cliente pode pedir) ---------- */
+// Cadastrados pela marina em Painel de Controle -> Configurações ->
+// Combustível: só nome e ativo/inativo. Preço e estoque saíram junto com o
+// financeiro (é assunto do RV Finance) — as colunas continuam na tabela, com
+// os valores antigos, e preco_litro passou a aceitar NULL (ver
+// migration_abastecimento_sem_financeiro.sql).
 export async function listarCombustiveis(marinaId) {
   const { data, error } = await db
     .from('combustiveis')
@@ -515,7 +520,12 @@ export async function salvarCombustivel(combustivel) {
   return data[0]
 }
 
-/* ---------- Pedidos de abastecimento (cliente solicita, com QR de pagamento) ---------- */
+/* ---------- Pedidos de abastecimento (só o pedido, sem financeiro) ---------- */
+// O cliente pede pelo painel; a equipe vê na planilha do Painel de Controle e
+// decide entre confirmar e cancelar. Passados 15 minutos sem cancelamento, o
+// pedido vale como confirmado sozinho — regra derivada de created_at em
+// lib/statusAbastecimento.js, sem nada gravado no banco. Preço, valor e
+// pagamento não existem mais neste fluxo.
 export async function listarPedidosAbastecimento(marinaId) {
   const { data, error } = await db
     .from('pedidos_abastecimento')
@@ -542,6 +552,32 @@ export async function solicitarAbastecimento(pedido) {
   return data[0]
 }
 
+// "Confirmar abastecimento" na planilha do Painel de Controle. Grava o
+// momento em confirmado_em — é o que distingue esta confirmação da
+// automática, que não grava nada e vale sempre em
+// created_at + JANELA_CONFIRMACAO_MS (ver lib/statusAbastecimento.js).
+export async function confirmarAbastecimento(id) {
+  const { error } = await db.from('pedidos_abastecimento')
+    .update({ status: 'confirmado', confirmado_em: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// "Cancelar" — vale tanto para a equipe (planilha do Painel de Controle)
+// quanto para o cliente (Diário de Bordo). Para o cliente a policy
+// "cliente_cancela_proprio_pedido_abastecimento" ainda exige, no banco, que o
+// pedido esteja em 'solicitado' e dentro dos 15 minutos: a mesma condição que
+// a tela usa para mostrar o botão, então uma tentativa fora do prazo é
+// recusada pelo banco mesmo que alguém contorne a interface.
+export async function cancelarAbastecimento(id) {
+  const { error } = await db.from('pedidos_abastecimento')
+    .update({ status: 'cancelado' })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// Fluxo antigo, com pagamento — mantida porque TelaAbastecimento.jsx (fora do
+// menu desde a migração para o RV Finance) ainda a chama.
 export async function atualizarStatusAbastecimento(id, status) {
   const patch = { status }
   if (status === 'pago') patch.pago_em = new Date().toISOString()

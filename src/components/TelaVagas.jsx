@@ -3,14 +3,18 @@ import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconT
 import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
-  listarPedidosAbastecimento, atualizarStatusAbastecimento, listarCombustiveis, salvarCombustivel,
   listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
+  listarPedidosAbastecimento, confirmarAbastecimento, cancelarAbastecimento,
 } from '../lib/db'
 import { ativarSons } from '../lib/sons'
 import { buscarClimaAtual } from '../lib/clima'
 import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, classeStatusAbastecimento, abastecimentoConcluido, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
+import {
+  statusEfetivoAbastecimento, aguardandoDecisao, restanteParaConfirmar, textoRestanteParaConfirmar,
+  labelStatusAbastecimento, classeStatusAbastecimento, abastecimentoConcluido,
+  textoQuantidade, JANELA_PLANILHA_MS,
+} from '../lib/statusAbastecimento'
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 
@@ -87,12 +91,12 @@ function classeStatusFila(status) {
 export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const ehAdmin = perfil?.role === 'admin'
   const [agendamentos, setAgendamentos] = useState([])
+  // Pedidos de combustível deste marina — a planilha de solicitações mais
+  // abaixo. Só o pedido: não há preço, valor nem pagamento nesta tela.
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
-  const [combustiveis, setCombustiveis] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
-  const [formCombustivel, setFormCombustivel] = useState({ nome: '', preco_litro: '', estoque_litros: '' })
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [localizacaoClima, setLocalizacaoClima] = useState(null)
@@ -107,18 +111,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
   const [salvandoApitos, setSalvandoApitos] = useState(false)
   // Apito de combustível: toca (em SonsPainelAdmin.jsx, sempre montado)
-  // quando o cliente registra um pedido de abastecimento pelo Diário de
-  // Bordo — configurável à parte do aviso sonoro geral, mesma fonte
-  // marinas.config_json (chave apitoCombustivelAtivado, ligada por padrão).
-  const [apitoCombustivelAtivado, setApitoCombustivelAtivado] = useState(true)
-  const [salvandoApitoCombustivel, setSalvandoApitoCombustivel] = useState(false)
 
   // Configurações do sistema — todas centralizadas no Painel de Controle
-  // (ver ConfiguracoesPainel.jsx). Mensalidade e o e-mail do relatório de
-  // documentos vencidos moram no mesmo marinas.config_json que os apitos,
-  // então entram na mesma leitura/gravação abaixo.
-  const [formMensalidade, setFormMensalidade] = useState('')
-  const [salvandoMensalidade, setSalvandoMensalidade] = useState(false)
+  // (ver ConfiguracoesPainel.jsx). A mensalidade e o cadastro de
+  // combustíveis saíram daqui junto com a cobrança e o abastecimento: são
+  // assunto do RV Finance. O que sobrou (apitos, e-mail do relatório,
+  // agenda da rampa, localidade do clima) continua no mesmo
+  // marinas.config_json, lido e gravado abaixo.
   const [emailRelatorio, setEmailRelatorio] = useState('')
   const [salvandoEmailRelatorio, setSalvandoEmailRelatorio] = useState(false)
   const [ultimoEnvioRelatorio, setUltimoEnvioRelatorio] = useState(null)
@@ -140,8 +139,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       setConfigApitos(apitos)
       setFormApitos(apitos)
       setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
-      setApitoCombustivelAtivado(cfg.apitoCombustivelAtivado ?? true)
-      setFormMensalidade(cfg.valorMensalidade != null ? String(cfg.valorMensalidade) : '')
       setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
       setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
       // Localidade do clima (ver lib/clima.js) — configurada pelo
@@ -185,17 +182,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-  async function salvarValorMensalidade(e) {
-    e.preventDefault()
-    setSalvandoMensalidade(true)
-    try {
-      await atualizarConfigMarina(marinaId, { valorMensalidade: Number(formMensalidade) })
-    } catch (err) {
-      alert('Não foi possível salvar a mensalidade: ' + err.message)
-    } finally {
-      setSalvandoMensalidade(false)
-    }
-  }
 
   async function salvarEmailRelatorio(e) {
     e.preventDefault()
@@ -231,25 +217,24 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
 
   async function carregar() {
     if (!marinaId) return
-    const [a, p, c, doc] = await Promise.all([
-      listarAgendamentos(marinaId),
-      listarPedidosAbastecimento(marinaId), listarCombustiveis(marinaId), listarDocumentos(marinaId),
+    const [a, doc, ped] = await Promise.all([
+      listarAgendamentos(marinaId), listarDocumentos(marinaId), listarPedidosAbastecimento(marinaId),
     ])
-    setAgendamentos(a); setPedidosAbastecimento(p); setCombustiveis(c); setDocumentos(doc)
+    setAgendamentos(a); setDocumentos(doc); setPedidosAbastecimento(ped)
   }
 
   useEffect(() => { carregar() }, [marinaId])
 
-  // Atualização em tempo real da Fila de Rampa/Navegando/Combustível: além
-  // do polling de 10s (pensado pra smart TV sem ninguém mexendo), qualquer
-  // mudança em agendamentos — inclusive uma subida confirmada direto por
-  // outro administrador logado em outra sessão — aparece aqui na hora, sem
-  // esperar o próximo ciclo do polling. pedidos_abastecimento entrou no
-  // mesmo canal junto com a seção "Combustível" abaixo: uma mudança de
-  // status feita na aba Abastecimento (TelaAbastecimento.jsx) ou pelo
-  // próprio cliente (cancelamento no Diário de Bordo) aparece aqui na hora
-  // também, sem esperar o polling. Mesmo padrão já usado nas demais telas
-  // do sistema.
+  // Atualização em tempo real da Fila de Rampa/Navegando: além do polling de
+  // 10s (pensado pra smart TV sem ninguém mexendo), qualquer mudança em
+  // agendamentos — inclusive uma subida confirmada direto por outro
+  // administrador logado em outra sessão — aparece aqui na hora, sem esperar
+  // o próximo ciclo do polling. Mesmo padrão já usado nas demais telas do
+  // sistema.
+  //
+  // pedidos_abastecimento entra no mesmo canal: um pedido feito pelo cliente
+  // aparece na planilha na hora, sem esperar o ciclo de 10s — que é o que
+  // importa aqui, já que a equipe tem 15 minutos para decidir.
   useEffect(() => {
     if (!marinaId) return
     const canal = supabase
@@ -291,34 +276,27 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-  // O único status que o painel altera aqui é "entregue" — o pedido só
-  // aparece no painel depois de já estar pago via Pix (ver abastecimentosAtivos).
-  async function marcarAbastecimentoEntregue(id) {
+  // Os dois únicos botões da planilha de combustível. Não há nada além
+  // disso: confirmar o abastecimento ou cancelar o pedido. Quem não clicar
+  // em nenhum dos dois em 15 minutos tem o pedido confirmado sozinho pelo
+  // relógio — nada é gravado nesse caso, a regra é derivada de created_at
+  // (ver lib/statusAbastecimento.js).
+  async function confirmarPedidoAbastecimento(id) {
     try {
-      await atualizarStatusAbastecimento(id, 'entregue')
+      await confirmarAbastecimento(id)
       await carregar()
     } catch (err) {
-      alert('Não foi possível marcar o abastecimento como entregue: ' + err.message)
+      alert('Não foi possível confirmar o abastecimento: ' + err.message)
     }
   }
 
-  async function salvarNovoCombustivel(e) {
-    e.preventDefault()
+  async function cancelarPedidoAbastecimento(p) {
+    if (!confirm(`Cancelar o pedido de ${p.combustiveis?.nome || 'combustível'} de ${p.clientes?.nome || 'cliente'}?`)) return
     try {
-      await salvarCombustivel({ marina_id: marinaId, ...formCombustivel })
-      setFormCombustivel({ nome: '', preco_litro: '', estoque_litros: '' })
+      await cancelarAbastecimento(p.id)
       await carregar()
     } catch (err) {
-      alert('Não foi possível adicionar o combustível: ' + err.message)
-    }
-  }
-
-  async function atualizarCampoCombustivel(combustivel, campo, valor) {
-    try {
-      await salvarCombustivel({ id: combustivel.id, marina_id: marinaId, nome: combustivel.nome, ativo: combustivel.ativo, [campo]: valor })
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível salvar essa alteração: ' + err.message)
+      alert('Não foi possível cancelar o pedido: ' + err.message)
     }
   }
 
@@ -370,24 +348,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Linhas ativas da Fila de Rampa — ver lib/filaRampa.js (linhasFilaAtivas).
   const linhasFila = linhasFilaAtivas(agendamentos)
 
-  // Só aparece no painel o pedido já pago via Pix — não existe aqui opção de
-  // marcar "aguardando pagamento" ou "pago", isso é automático quando o
-  // pagamento real for confirmado. A única ação do operador é dar baixa
-  // (marcar entregue) depois de abastecer.
-  const abastecimentosAtivos = pedidosAbastecimento.filter((p) => p.status === 'pago')
-
-  // Seção "Combustível": todos os pedidos ainda não concluídos, com as
-  // mesmas informações e o mesmo status da aba Abastecimento (ver
-  // pedidosVisiveis em TelaAbastecimento.jsx — mesmo critério
-  // abastecimentoConcluido, importado da mesma fonte única). Ao contrário
-  // de abastecimentosAtivos acima (só o que já está pago, pronto pra
-  // entregar fisicamente numa embarcação já na água), esta lista mostra
-  // TODO pedido em aberto, tenha ou não uma descida/subida associada no
-  // momento — é o que permite acompanhar aqui, sem precisar trocar de aba,
-  // um pedido feito antes de qualquer agendamento ou pra uma embarcação que
-  // já saiu da Fila de Rampa/Navegando.
+  // Planilha de solicitações de combustível. Mostra o que ainda pede alguma
+  // coisa da marina:
+  //   - pedido esperando decisão (dentro dos 15 minutos), com os dois botões;
+  //   - pedido já confirmado, para a equipe saber que tem barco pra abastecer.
+  // Cancelado sai na hora, e confirmado sai depois de um dia
+  // (JANELA_PLANILHA_MS) — como não existe "entregue" neste fluxo, é o
+  // relógio que limpa a lista, senão ela cresceria pra sempre. Nada some do
+  // banco: o pedido continua no Histórico de Solicitações do cliente.
+  //
+  // Mais recente em cima, que é a ordem em que a equipe precisa agir.
   const pedidosCombustivel = pedidosAbastecimento
-    .filter((p) => !abastecimentoConcluido(p.status))
+    .filter((p) => !abastecimentoConcluido(statusEfetivoAbastecimento(p, agora.getTime())))
+    .filter((p) => aguardandoDecisao(p, agora.getTime()) || agora.getTime() - new Date(p.created_at).getTime() <= JANELA_PLANILHA_MS)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
   // Histórico de manobras: toda descida ou subida já confirmada, mais recente
@@ -408,12 +381,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return temVencido ? 'pendente' : 'regular'
   }
 
-  // Os apitos (descida/retorno/S.O.S./cancelamento de S.O.S./combustível)
-  // não tocam mais daqui — saíram pra SonsPainelAdmin.jsx, sempre montado em
-  // Layout.jsx, pra continuar tocando mesmo com o administrador em outra
-  // tela (fora do Painel de Controle). Esta tela mantém só a leitura/edição
-  // da configuração (sonsAtivados/configApitos/apitoCombustivelAtivado
-  // abaixo), usada pelo modal de Configurações → Notificações.
+  // Os apitos (descida/retorno/S.O.S./cancelamento de S.O.S.) não tocam mais
+  // daqui — saíram pra SonsPainelAdmin.jsx, sempre montado em Layout.jsx, pra
+  // continuar tocando mesmo com o administrador em outra tela (fora do Painel
+  // de Controle). Esta tela mantém só a leitura/edição da configuração
+  // (sonsAtivados/configApitos abaixo), usada pelo modal de Configurações →
+  // Notificações.
 
   // Liga/desliga o aviso sonoro para TODO o sistema — só o administrador
   // pode chamar isso (botão já vem desabilitado para os demais perfis em
@@ -436,57 +409,27 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-  // Liga/desliga só o apito de combustível — independente do interruptor
-  // geral acima (dá pra manter descida/retorno/S.O.S. ligados e desligar só
-  // este, ou vice-versa). Mesmo mecanismo de sempre: só admin, grava em
-  // marinas.config_json, Realtime propaga na hora.
-  async function alternarApitoCombustivel() {
-    if (!ehAdmin || salvandoApitoCombustivel) return
-    const novoValor = !apitoCombustivelAtivado
-    setSalvandoApitoCombustivel(true)
-    try {
-      await atualizarConfigMarina(marinaId, { apitoCombustivelAtivado: novoValor })
-      setApitoCombustivelAtivado(novoValor)
-      if (novoValor) ativarSons()
-    } catch (err) {
-      alert('Não foi possível salvar o apito de combustível: ' + err.message)
-    } finally {
-      setSalvandoApitoCombustivel(false)
-    }
-  }
-
   // Destravar o áudio na primeira interação da sessão saiu daqui — agora
   // acontece em SonsPainelAdmin.jsx (sempre montado, não só nesta tela).
 
-  // Repassa as ações do painel (aviso sonoro, histórico, combustíveis) pro
-  // botão de engrenagem no cabeçalho (Layout), do lado do nome do usuário —
-  // agora abre direto a tela única "Configurações do sistema" (antes era um
-  // menu dropdown com os itens soltos; todos migraram pra lá, ver
-  // ConfiguracoesPainel.jsx).
+  // Repassa as ações do painel pro botão de engrenagem no cabeçalho
+  // (Layout), do lado do nome do usuário — abre direto a tela única
+  // "Configurações do sistema" (ver ConfiguracoesPainel.jsx).
   useEffect(() => {
     onAcoes?.({ abrirConfiguracoes: () => setModalConfiguracoesAberto(true) })
   }, [])
 
   // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
+  // A coluna de abastecimento saiu daqui (foi pro RV Finance) — por isso a
+  // tabela tem 6 colunas agora, e não 7.
   function linhaNotificacao(a) {
     const doc = statusDocumentacao(a.embarcacao_id)
-    const abastecimentosDaLinha = abastecimentosAtivos.filter((p) => p.agendamento_id === a.id)
     return (
       <tr key={a.id}>
         <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
-        <td>
-          {abastecimentosDaLinha.length === 0 && '—'}
-          {abastecimentosDaLinha.map((p) => (
-            <div key={p.id} className="fila-abastecimento-linha">
-              <span>⛽ {p.combustiveis?.nome} — {Number(p.quantidade_litros).toFixed(0)} L</span>
-              <span className="badge status-pago">Pago</span>
-              <button type="button" onClick={() => marcarAbastecimentoEntregue(p.id)}>Marcar entregue</button>
-            </div>
-          ))}
-        </td>
         <td>
           <select
             className={`badge select-status-fila status-${classeStatusFila(a.status)}`}
@@ -532,15 +475,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return { classe: 'navegando', texto: 'Navegando' }
   }
 
-  // Clique no badge do resgate — comportamento depende do estado atual:
-  //  - Sem alerta (Navegando/Excedeu retorno): marca "Solicitação de
-  //    resgate" manualmente (a equipe percebeu que a embarcação precisa de
-  //    ajuda, sem esperar o cliente acionar o S.O.S. pelo app).
-  //  - "Solicitação de resgate": confirma o recebimento do pedido — avança
-  //    automaticamente pra "Pedido recebido" (continua vermelho) e para o
-  //    apito contínuo de SOS.
-  // A opção "Recolhido" (fechar o atendimento) fica no seletor que aparece
-  // assim que o pedido já foi recebido — ver definirStatusResgate abaixo.
   async function avancarResgate(id, statusAtual) {
     try {
       await atualizarStatusResgate(id, statusAtual ? 'recebido' : 'solicitado')
@@ -597,9 +531,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
 
   // Linha de "Navegando" — só o essencial: quem está com a embarcação, desde
   // quando, e a previsão de retorno (com o status mudando sozinho se
-  // atrasar). Sem a natureza do pedido, sem o indicativo luminoso e sem
-  // informação de abastecimento — isso já fica na Fila de Rampa, antes de sair
-  // pra água.
+  // atrasar). Sem a natureza do pedido e sem o indicativo luminoso — isso já
+  // fica na Fila de Rampa, antes de sair pra água. Informação de
+  // abastecimento não aparece em lugar nenhum do painel: foi pro RV Finance.
   function linhaNavegando(a) {
     const status = statusNavegando(a)
     return (
@@ -761,13 +695,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th className="col-responsavel">Responsável</th>
             <th>Horário</th>
             <th>Documentação</th>
-            <th>Abastecimento</th>
+            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. */}
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {linhasFila.length === 0 && <tr><td colSpan={7}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
+          {linhasFila.length === 0 && <tr><td colSpan={6}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
@@ -789,61 +723,54 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         </tbody>
       </table>
 
-      {/* Espelha a aba Abastecimento (TelaAbastecimento.jsx): mesmas colunas
-          e o mesmo status, só pra consulta — sem seletor, botão ou qualquer
-          controle de alteração aqui (a mudança de status é feita só pela
-          aba Abastecimento). Fonte única do rótulo/critério em
-          lib/statusAbastecimento.js — exceto o "Tanque cheio" (pedido
-          "Completar tanque" ainda aguardando pagamento, ver
-          aguardandoLitrosCompletarTanque), que só aparece aqui, nesta tela. Qualquer
-          mudança feita na aba Abastecimento (ou pelo cliente, cancelando no
-          Diário de Bordo) aparece aqui imediatamente (ver canal Realtime
-          acima). */}
-      <h2>Combustível</h2>
-      <table className="tabela">
+      {/* Planilha de solicitações de combustível. Só o pedido — nada de
+          preço, valor ou pagamento, que são do RV Finance. A equipe tem dois
+          botões e 15 minutos; passado o prazo, a linha aparece confirmada
+          sozinha (ver statusEfetivoAbastecimento em
+          lib/statusAbastecimento.js). */}
+      <h2>Solicitações de combustível</h2>
+      <table className="tabela tabela-fila">
         <thead>
           <tr>
-            <th>Cliente</th>
-            <th>Embarcação</th>
-            <th>Data/Horário</th>
+            <th className="col-responsavel">Responsável</th>
             <th>Combustível</th>
-            <th>Qtd (L)</th>
+            <th>Quantidade</th>
+            <th>Pedido em</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>Nenhum pedido de abastecimento no momento.</td></tr>}
-          {pedidosCombustivel.map((p) => (
-            <tr key={p.id}>
-              <td>{p.clientes?.nome}</td>
-              <td>{p.embarcacoes?.nome || '-'}</td>
-              <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
-              <td>{p.combustiveis?.nome}</td>
-              {/* "Completar tanque" (ver lib/statusAbastecimento.js) sem
-                  litros ainda registrados: mostra "completar" em vez de "—"
-                  ou de um número (não tem quantidade fechada, só se sabe
-                  depois de encher o tanque — ver aguardandoLitrosCompletarTanque
-                  em lib/statusAbastecimento.js). Some assim que a marina
-                  registra os litros reais na aba Abastecimento (ver
-                  FormLitrosCompletarTanque em TelaAbastecimento.jsx) — a
-                  partir daí mostra o número normalmente, igual qualquer
-                  outro pedido. */}
-              <td>{aguardandoLitrosCompletarTanque(p) ? 'completar' : Number(p.quantidade_litros).toFixed(2)}</td>
-              <td>
-                {/* "Completar tanque" (ver lib/statusAbastecimento.js) ainda
-                    "aguardando_pagamento" — em vez do rótulo padrão, mostra
-                    "Tanque cheio" em verde: já foi abastecido, só falta o
-                    cliente pagar presencialmente na marina. Some daqui do
-                    mesmo jeito assim que virar "Pagamento efetuado" (ver
-                    abastecimentoConcluido/pedidosCombustivel acima). */}
-                {aguardandoLitrosCompletarTanque(p) && p.status === 'aguardando_pagamento' ? (
-                  <span className="badge status-tanque-cheio">Tanque cheio</span>
-                ) : (
-                  <span className={`badge status-${classeStatusAbastecimento(p.status)}`}>{STATUS_ABASTECIMENTO_LABEL[p.status] || p.status}</span>
-                )}
-              </td>
-            </tr>
-          ))}
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>Nenhuma solicitação de combustível no momento.</td></tr>}
+          {pedidosCombustivel.map((p) => {
+            const efetivo = statusEfetivoAbastecimento(p, agora.getTime())
+            const decidir = aguardandoDecisao(p, agora.getTime())
+            const restante = textoRestanteParaConfirmar(restanteParaConfirmar(p, agora.getTime()))
+            return (
+              <tr key={p.id}>
+                <td className="col-responsavel">
+                  <b>{p.clientes?.nome}</b>{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}
+                </td>
+                <td>{p.combustiveis?.nome || '—'}</td>
+                <td>{textoQuantidade(p)}</td>
+                <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
+                <td>
+                  <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>
+                  {/* Contagem regressiva ao lado do selo: sem ela a equipe
+                      não teria como saber que aquela linha tem prazo. */}
+                  {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
+                </td>
+                <td>
+                  {decidir ? (
+                    <div className="fila-tabela-acoes">
+                      <button type="button" onClick={() => confirmarPedidoAbastecimento(p.id)}>Confirmar abastecimento</button>
+                      <button type="button" className="cancelar" onClick={() => cancelarPedidoAbastecimento(p)}>Cancelar</button>
+                    </div>
+                  ) : '—'}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
 
@@ -880,15 +807,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         marinaId={marinaId}
         historicoManobras={historicoManobras}
         tipoAgendamentoLabel={TIPO_AGENDAMENTO_LABEL}
-        formMensalidade={formMensalidade}
-        onMudarMensalidade={setFormMensalidade}
-        onSalvarMensalidade={salvarValorMensalidade}
-        salvandoMensalidade={salvandoMensalidade}
-        combustiveis={combustiveis}
-        formCombustivel={formCombustivel}
-        onMudarFormCombustivel={setFormCombustivel}
-        onSalvarNovoCombustivel={salvarNovoCombustivel}
-        onAtualizarCampoCombustivel={atualizarCampoCombustivel}
         sonsAtivados={sonsAtivados}
         onAlternarSons={alternarAvisoSonoro}
         salvandoAvisoSonoro={salvandoAvisoSonoro}
@@ -896,9 +814,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         onMudarApitos={setFormApitos}
         onSalvarApitos={salvarConfigApitos}
         salvandoApitos={salvandoApitos}
-        apitoCombustivelAtivado={apitoCombustivelAtivado}
-        onAlternarApitoCombustivel={alternarApitoCombustivel}
-        salvandoApitoCombustivel={salvandoApitoCombustivel}
         emailRelatorio={emailRelatorio}
         onMudarEmailRelatorio={setEmailRelatorio}
         onSalvarEmailRelatorio={salvarEmailRelatorio}

@@ -1,0 +1,348 @@
+<title>Reestruturação RV Invictus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* Paleta do manual da marca RV Invictus, aplicada aos dois temas.
+     Claro é o padrão; escuro redefine só os tokens. */
+  :root{
+    --petroleo:#0D1B2A;
+    --ground:#F2F6F8;          /* neutro com viés do petróleo, não cinza puro */
+    --surface:#FFFFFF;
+    --surface-2:#E9F0F4;
+    --ink:#12222E;
+    --ink-2:#415A6A;
+    --ink-3:#6B8494;
+    --linha:#D2E0E7;
+    --ouro:#8C6B1E;            /* dourado legível sobre claro */
+    --ouro-fio:rgba(140,107,30,.34);
+    --feito:#4A6B28;
+    --atencao:#8A6D00;
+    --aberto:#A23B2E;
+    --sombra:0 1px 2px rgba(13,27,42,.06), 0 8px 24px rgba(13,27,42,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0A141E;
+      --surface:#0F1E2B;
+      --surface-2:#16293A;
+      --ink:#EAF1F5;
+      --ink-2:#A9BECC;
+      --ink-3:#7B93A4;
+      --linha:#20374A;
+      --ouro:#D4AF37;
+      --ouro-fio:rgba(212,175,55,.36);
+      --feito:#9BC77A;
+      --atencao:#E0A25E;
+      --aberto:#E98B7B;
+      --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0A141E;
+    --surface:#0F1E2B;
+    --surface-2:#16293A;
+    --ink:#EAF1F5;
+    --ink-2:#A9BECC;
+    --ink-3:#7B93A4;
+    --linha:#20374A;
+    --ouro:#D4AF37;
+    --ouro-fio:rgba(212,175,55,.36);
+    --feito:#9BC77A;
+    --atencao:#E0A25E;
+    --aberto:#E98B7B;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px;margin:0 auto;padding:56px 22px 96px}
+  .col{max-width:68ch}
+
+  .eyebrow{
+    font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--ouro);margin:0 0 14px;
+  }
+  h1{
+    font-family:'Cinzel',Georgia,serif;font-weight:700;
+    font-size:clamp(30px,5.2vw,44px);line-height:1.12;letter-spacing:.01em;
+    margin:0 0 16px;text-wrap:balance;color:var(--ink);
+  }
+  .lede{font-size:17px;color:var(--ink-2);margin:0}
+
+  .resumo{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+    gap:1px;background:var(--linha);border:1px solid var(--linha);
+    border-radius:10px;overflow:hidden;margin:38px 0 8px;
+  }
+  .resumo div{background:var(--surface);padding:16px 18px}
+  .resumo b{
+    display:block;font-family:'Cinzel',Georgia,serif;font-size:26px;font-weight:700;
+    color:var(--ouro);font-variant-numeric:tabular-nums;line-height:1.1;
+  }
+  .resumo span{
+    display:block;margin-top:4px;font-family:'Montserrat',sans-serif;font-size:10.5px;
+    font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+  }
+
+  h2{
+    font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:22px;
+    margin:56px 0 6px;color:var(--ink);letter-spacing:.01em;
+  }
+  h2 + .sub{margin:0 0 22px;color:var(--ink-3);font-size:14.5px}
+
+  /* Etapas: a numeração carrega informação real — o roteiro era uma
+     sequência com dependências, executada nesta ordem. */
+  ol.etapas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  ol.etapas li{
+    display:grid;grid-template-columns:38px 1fr;gap:14px;align-items:start;
+    padding:13px 16px 13px 8px;border-radius:8px;
+  }
+  ol.etapas li:nth-child(odd){background:var(--surface)}
+  .num{
+    font-family:'Cinzel',Georgia,serif;font-size:15px;font-weight:700;
+    color:var(--ouro);font-variant-numeric:tabular-nums;text-align:right;
+    padding-top:1px;
+  }
+  .etapa-t{font-weight:600;color:var(--ink)}
+  .etapa-d{color:var(--ink-2);font-size:14.5px;margin-top:2px}
+
+  .bloco{
+    background:var(--surface);border:1px solid var(--linha);border-radius:10px;
+    padding:20px 22px;box-shadow:var(--sombra);margin-bottom:14px;
+  }
+  .bloco h3{
+    font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;
+    letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;color:var(--ink);
+  }
+  .bloco p{margin:0 0 10px;color:var(--ink-2);font-size:14.5px}
+  .bloco p:last-child{margin-bottom:0}
+
+  .tag{
+    display:inline-block;font-family:'Montserrat',sans-serif;font-size:10px;
+    font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    padding:3px 9px;border-radius:999px;margin-left:8px;vertical-align:2px;
+  }
+  .t-feito{background:color-mix(in srgb,var(--feito) 16%,transparent);color:var(--feito)}
+  .t-atencao{background:color-mix(in srgb,var(--atencao) 18%,transparent);color:var(--atencao)}
+  .t-aberto{background:color-mix(in srgb,var(--aberto) 16%,transparent);color:var(--aberto)}
+
+  .tabela-wrap{overflow-x:auto;border:1px solid var(--linha);border-radius:10px;background:var(--surface)}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:14.5px}
+  th,td{padding:11px 16px;text-align:left;border-bottom:1px solid var(--linha);vertical-align:top}
+  th{
+    font-family:'Montserrat',sans-serif;font-size:10.5px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
+    background:var(--surface-2);
+  }
+  tr:last-child td{border-bottom:none}
+  td code,p code,li code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    background:var(--surface-2);padding:1.5px 6px;border-radius:4px;color:var(--ink);
+  }
+
+  ul.lista{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px}
+  ul.lista li{
+    padding-left:17px;position:relative;color:var(--ink-2);font-size:14.5px;
+  }
+  ul.lista li::before{
+    content:'';position:absolute;left:0;top:.62em;width:6px;height:6px;
+    border-radius:50%;background:var(--ouro-fio);
+  }
+  ul.lista li b{color:var(--ink);font-weight:600}
+
+  .destaque{
+    border-left:2px solid var(--ouro);padding:2px 0 2px 20px;margin:26px 0;
+    color:var(--ink-2);font-size:15px;
+  }
+  .destaque b{color:var(--ink)}
+
+  footer{
+    margin-top:64px;padding-top:22px;border-top:1px solid var(--linha);
+    font-family:'Montserrat',sans-serif;font-size:10.5px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  }
+  a{color:var(--ouro)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--ouro);outline-offset:3px;border-radius:3px}
+  @media print{
+    /* Impressão sempre no tema claro, em A4, sem quebrar blocos ao meio. */
+    body{background:#fff;color:#111}
+    .wrap{max-width:none;padding:0}
+    .bloco,ol.etapas li,.destaque,.tabela-wrap{break-inside:avoid;page-break-inside:avoid}
+    /* No papel não existe rolagem lateral: a tabela precisa poder encolher,
+       senão a última coluna é simplesmente cortada na margem. */
+    .tabela-wrap{overflow:visible}
+    table{min-width:0;font-size:12px}
+    th,td{padding:8px 10px}
+    tr{break-inside:avoid}
+    h2{break-after:avoid;page-break-after:avoid;margin-top:26px}
+    .bloco{box-shadow:none}
+    .resumo{margin-top:24px}
+    a{text-decoration:none}
+  }
+  @media (max-width:560px){
+    .wrap{padding:38px 16px 70px}
+    ol.etapas li{grid-template-columns:26px 1fr;gap:10px;padding:11px 10px 11px 4px}
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Relatório de execução</p>
+  <h1>Reestruturação da plataforma RV Invictus</h1>
+  <p class="lede col">As onze etapas do roteiro, executadas na ordem exigida e validadas uma a uma. Este documento registra o que mudou, o que foi ao banco, o que foi testado e o que ainda depende de decisão ou de intervenção manual.</p>
+
+  <div class="resumo">
+    <div><b>11</b><span>etapas concluídas</span></div>
+    <div><b>2</b><span>migrações aplicadas</span></div>
+    <div><b>9</b><span>problemas corrigidos</span></div>
+    <div><b>6</b><span>pontos em aberto</span></div>
+  </div>
+
+  <h2>Etapas</h2>
+  <p class="sub">A numeração é a do roteiro: a ordem importava, porque havia dependências reais entre elas.</p>
+  <ol class="etapas">
+    <li><span class="num">1</span><div><div class="etapa-t">Seleção de aplicações</div><div class="etapa-d">O cliente passa por uma tela de escolha entre as sete aplicações antes de entrar em qualquer uma. Reaproveita a linguagem do login; <code>lib/apps.js</code> virou a fonte única consumida também pelo menu do administrador.</div></div></li>
+    <li><span class="num">2</span><div><div class="etapa-t">Cadastro inicial simplificado</div><div class="etapa-d">Passou a pedir só nome, CPF, e-mail com confirmação e senha com confirmação. Telefone, RG, endereço e embarcações saíram: são dados do RV Marine, completados dentro dele.</div></div></li>
+    <li><span class="num">3</span><div><div class="etapa-t">Aplicações no menu do administrador</div><div class="etapa-d">Atendida pela fonte única — o menu lê a mesma lista da tela do cliente. Confirmado que não existe segunda lista no código.</div></div></li>
+    <li><span class="num">4</span><div><div class="etapa-t">Complementação de cadastro no RV Marine</div><div class="etapa-d">Descida, subida e serviços exigem telefone e ao menos uma embarcação. Falta algum: aviso curto, ação não prossegue e halo dourado pulsante na engrenagem, que some ao completar.</div></div></li>
+    <li><span class="num">5</span><div><div class="etapa-t">Diário de Bordo por um dia</div><div class="etapa-d">Registro concluído permanece um dia no Diário antes de seguir só no Histórico. Nenhuma alteração de banco foi necessária: todos os registros já vinham de colunas de data reais.</div></div></li>
+    <li><span class="num">6</span><div><div class="etapa-t">Menu Serviço em lista</div><div class="etapa-d">Os quadros viraram lista vertical de botões com ícone e texto centralizados, área de clique na linha inteira. Só a apresentação mudou.</div></div></li>
+    <li><span class="num">7</span><div><div class="etapa-t">Meus dados → Minha conta</div><div class="etapa-d">Renomeado em todos os pontos visíveis ao usuário, e os comentários do código atualizados para não ficarem desencontrados.</div></div></li>
+    <li><span class="num">8</span><div><div class="etapa-t">Rodapé do Painel de Controle</div><div class="etapa-d">"RV Marine by RVinvictus.com.br", na mesma cor dourada do rótulo TORRES/TS e um degrau maior. Estendido também ao painel do cliente.</div></div></li>
+    <li><span class="num">9</span><div><div class="etapa-t">Densidade do Painel de Controle</div><div class="etapa-d">19% mais compacto, 209px a menos de altura, uma linha a mais visível sem rolar. O ganho maior veio das margens dos títulos de seção, não das células.</div></div></li>
+    <li><span class="num">10</span><div><div class="etapa-t">RV Finance e RV Manut criados</div><div class="etapa-d">As duas aplicações passaram a existir e funcionar reaproveitando <code>TelaFinanceiro.jsx</code> e <code>TelaManutencao.jsx</code> inteiras — com os módulos ainda presentes no RV Marine, como a dependência exigia.</div></div></li>
+    <li><span class="num">11</span><div><div class="etapa-t">Migração dos módulos</div><div class="etapa-d">Só então Financeiro e Manutenção saíram do menu do RV Marine. Nenhuma tabela, relacionamento, histórico ou policy foi tocado: mudou apenas em qual aplicação o item aparece.</div></div></li>
+  </ol>
+
+  <h2>Depois do roteiro</h2>
+  <p class="sub">Quatro mudanças pedidas após a conclusão das onze etapas.</p>
+  <div class="bloco">
+    <h3>Login exigido a cada carregamento</h3>
+    <p>A sessão deixou de ser guardada no navegador (<code>persistSession: false</code>), para permitir conferir as telas de entrada sem precisar sair da conta a cada vez. Dentro da mesma aba a sessão continua valendo: navegar e trocar de aplicação não pedem senha de novo — só recarregar ou reabrir.</p>
+  </div>
+  <div class="bloco">
+    <h3>"Serviços" passou a ser "Abastecimento"</h3>
+    <p>Das quatro opções do painel antigo, três migraram para os outros SaaS: Manutenção para o RV Manut, Regularização para o RV NautDoc e Pagamentos para o RV Finance. Sobrou o abastecimento, e o botão passou a abrir o pedido direto — um seletor para uma opção só não se justificava.</p>
+    <p>Saíram junto 130 linhas do painel, 65 de funções e oito estados que ficaram sem uso. As funções de banco <code>criarOrdemServico</code> e <code>criarDespacho</code> seguem intactas: são elas que as novas aplicações vão usar.</p>
+  </div>
+  <div class="bloco">
+    <h3>Pagamento, cobrança e abastecimento saíram por completo do RV Marine</h3>
+    <p>Decisão tomada logo depois: o botão "Abastecimento", criado poucas horas antes, saiu junto com todo o resto do financeiro. O RV Marine ficou com Descida, Subida e S.O.S. — nada mais.</p>
+    <p>No <b>painel do cliente</b>: o botão e o modal de pedido de combustível, o QR Pix da mensalidade e o do pedido, as ações "Realizar pagamento" e "Pagamento efetuado", a lista consolidada de "Pagamentos" e as entradas de abastecimento no Diário de Bordo. No <b>Painel de Controle</b>: a coluna Abastecimento da Fila de Rampa (que passou de sete para seis colunas) e a seção Combustível. Em <b>Configurações</b>: a categoria Financeiro inteira — cadastro de combustíveis, valor da mensalidade, exportação de arrecadação — e o apito de combustível. Na tela <b>Clientes</b>: o cartão "Total arrecadado", a chave de pagamento e o selo de liberação manual.</p>
+    <p>O rótulo "Acesso à Agenda" era o último ponto em que a tela ainda derivava de <code>pagamento_confirmado</code> e podia mostrar "Aguardando pagamento" a um cliente que já tinha acesso liberado. Passou a depender só de <code>acesso_suspenso</code>, exatamente o que a policy do banco exige — tela e banco voltaram a dizer a mesma coisa.</p>
+    <p><b>Nada foi apagado do banco.</b> As tabelas <code>pedidos_abastecimento</code>, <code>cobrancas</code> e <code>combustiveis</code> continuam com todos os registros, e as colunas de pagamento seguem na tabela de clientes. Os componentes <code>TelaAbastecimento.jsx</code> e as funções de banco também continuam no projeto, apenas desligados da interface — o mesmo tratamento dado ao Despachos, que espera o RV NautDoc.</p>
+  </div>
+  <div class="bloco">
+    <h3>O pedido de abastecimento voltou — só o pedido</h3>
+    <p>Ter tirado a cobrança tinha levado embora também o pedido de combustível, que não é cobrança. Ele voltou sem nenhuma parte financeira: <b>não existe preço, valor, QR nem confirmação de pagamento em lugar nenhum do RV Marine</b>. O acerto é feito fora, com a administração — ou pelo RV Finance, quando ele tiver esse escopo.</p>
+    <p>No <b>painel do cliente</b>, o botão Abastecimento abre um pedido com embarcação, tipo de combustível e a quantidade em litros — ou "Completar tanque", para quem só descobre quantos litros faltam depois de encher. No <b>Painel de Controle</b>, a seção "Solicitações de combustível" fica abaixo da Fila de Rampa, com dois botões por linha: <b>Confirmar abastecimento</b> e <b>Cancelar</b>. Em <b>Configurações</b> voltou a categoria "Combustível", agora só com nome e ligar/desligar — o que a marina desliga some da lista do cliente sem apagar nada.</p>
+    <p><b>A regra dos 15 minutos.</b> Um pedido não decidido em 15 minutos vale como confirmado. Essa confirmação não é gravada por ninguém: é calculada a partir do horário do pedido, sempre que a tela desenha. A escolha importa — ela não depende de alguém estar com o painel aberto (o pedido feito de madrugada se confirma igual), não precisa de rotina agendada, e dá o mesmo resultado nas três telas e no banco, porque os três fazem a mesma conta sobre o mesmo campo. A policy de cancelamento no Supabase repete a janela em SQL, então uma tentativa fora do prazo é recusada pelo banco mesmo que alguém contorne a tela.</p>
+    <p>Um detalhe merece a sua atenção: <b>depois dos 15 minutos não há mais como cancelar, nem pela equipe</b> — foi assim que a regra foi pedida. Se na prática a marina precisar desfazer um pedido confirmado por engano, é um botão a acrescentar.</p>
+  </div>
+
+  <h2>Alterações no Supabase</h2>
+  <p class="sub">Três migrações aplicadas em produção. Todas idempotentes e versionadas em <code>supabase/sql/</code>.</p>
+  <div class="tabela-wrap">
+    <table>
+      <thead><tr><th>Migração</th><th>O que mudou</th><th>O que foi preservado</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>rv_marine_sem_bloqueio_pagamento</code></td>
+          <td>A policy <code>cliente_cria_agendamento</code> deixou de exigir <code>pagamento_confirmado</code> ou liberação manual.</td>
+          <td>A posse do agendamento, a suspensão administrativa e o alinhamento do horário à grade da rampa. As colunas financeiras seguem gravadas, com todo o histórico.</td>
+        </tr>
+        <tr>
+          <td><code>cliente_cadastra_propria_embarcacao</code></td>
+          <td>Duas policies novas permitem ao cliente inserir e editar apenas as próprias embarcações, na própria marina.</td>
+          <td>A policy da marina (<code>admin_marina_embarcacoes</code>) intacta — os dois caminhos convivem. Sem permissão de exclusão, para não desfazer vínculos com agendamentos e despachos antigos.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bloco">
+    <h3><code>abastecimento_sem_financeiro</code></h3>
+    <p>Preço e valor do pedido deixaram de ser obrigatórios — o pedido novo não carrega valor nenhum, e a coluna fica em NULL ("não se aplica") em vez de zero, que alguém leria depois como "de graça". O mesmo para o preço no cadastro de combustível. Entrou uma coluna para registrar quando a equipe confirmou na mão; ficando vazia num pedido confirmado, a confirmação foi a automática dos 15 minutos.</p>
+    <p>Duas policies mudaram: o "informe de pagamento" do cliente foi removido (não há o que informar), e a de cancelamento passou a exigir pedido ainda aguardando decisão <b>e</b> dentro dos 15 minutos — a mesma condição da tela, agora também no banco. Os 53 pedidos antigos seguem intactos, com preço e valor gravados.</p>
+  </div>
+
+  <div class="destaque">
+    <b>Verificação de integridade após a migração dos módulos:</b> cobranças com 3 registros, 2 policies e 4 relacionamentos; ordens de serviço com 5 registros, 3 policies e 3 relacionamentos; pedidos de abastecimento com 51 registros, 5 policies e 5 relacionamentos. Todos intactos, porque nenhuma tabela foi movida.
+  </div>
+
+  <h2>O que foi testado</h2>
+  <p class="sub">E, com igual importância, o que não foi.</p>
+  <div class="bloco">
+    <h3>Verificado</h3>
+    <p><b>Regras de negócio</b> executadas como código em cenários montados: validação do cadastro (5 casos), acesso à agenda sem o bloqueio financeiro (6), cadastro completo do RV Marine (5), Diário de Bordo contra Histórico (8), e a estrutura das aplicações antes e depois da migração (18).</p>
+    <p><b>Renderização e medidas</b> com navegador real, em várias larguras de tela — posição e largura da logo, densidade do painel, alinhamento dos cartões. Foi a medição, e não a inspeção visual, que revelou três dos nove problemas.</p>
+    <p><b>Banco de dados</b> consultado diretamente: existência de colunas, policies, gatilhos e contagem de registros.</p>
+  </div>
+  <div class="bloco">
+    <h3>Não verificado</h3>
+    <p>Nada foi exercitado contra a aplicação em execução com usuário autenticado de verdade. As policies novas foram conferidas pela definição no banco, não por uma tentativa real de gravação com uma conta de cliente. <b>Um teste de ponta a ponta com uma conta real ainda é necessário</b>, sobretudo para o cadastro de embarcação e o agendamento sem confirmação de pagamento.</p>
+    <p>A saída e a volta do abastecimento foram conferidas de outra forma: as telas foram montadas em um navegador real, com o banco substituído por dados de mentira, e verificou-se que renderizam sem erro e que nenhuma delas exibe qualquer texto de preço, valor ou pagamento. É um teste de execução de verdade — foi ele que apanhou uma função apagada por engano que a compilação não acusava, porque o Vite não faz checagem de tipos.</p>
+    <p>A regra dos 15 minutos foi executada como código, em 38 cenários montados: pedido recém-feito, pedido a um segundo do prazo, pedido nos 15 minutos exatos, pedido cancelado que o relógio não pode "desconfirmar", pedidos do fluxo antigo que não podem ser reinterpretados, e a contagem regressiva. Um desses casos apanhou um defeito real: um pedido sem horário gravado nasceria <b>confirmado</b>, porque a conversão de um campo vazio para data resulta em 1970 — um número perfeitamente válido, e muito além de 15 minutos atrás. Agora, sem saber quando o pedido nasceu, o sistema espera decisão de gente.</p>
+  </div>
+
+  <h2>Problemas encontrados e corrigidos</h2>
+  <p class="sub">Nenhum destes estava no roteiro. Apareceram durante a execução.</p>
+  <ul class="lista">
+    <li><b>O cliente ficou sem como cadastrar embarcação.</b> Consequência direta da Etapa 2, que tirou as embarcações do cadastro — e sem embarcação não existe agendamento. Fechado na Etapa 4, com a área em "Minha conta" e a policy correspondente.</li>
+    <li><b>Trocar o e-mail em "Minha conta" não trocava o e-mail de login.</b> Editava só a coluna da tabela; a pessoa seguia entrando com o antigo. Agora passa pelo Supabase Auth, com aviso de que só vale após confirmar o link.</li>
+    <li><b>A logo do painel do cliente aparecia com 190px e 188px fora do centro no celular.</b> Uma regra de mídia fixava a largura, mas não anulava as margens negativas. Só apareceu na medição.</li>
+    <li><b>A logo do login estava limitada a 248px</b> por uma regra <code>@media (min-width: 421px)</code>, enquanto o campo tem 340px — daí parecer sempre estreita demais.</li>
+    <li><b>O ícone do Diário de Bordo ficava acima do título.</b> O estilo inline definia <code>display:flex</code> sem a direção, e o cartão já era uma coluna — então o ícone virava a primeira linha.</li>
+    <li><b>Os campos de embarcação apareciam lado a lado</b> em "Minha conta": a seção era um <code>div</code> comum e os elementos são inline-block por padrão.</li>
+    <li><b>O nome do perfil nunca era gravado.</b> Existe um gatilho que lê o nome dos metadados do cadastro, mas o formulário não os enviava.</li>
+    <li><b>Lixo versionado no repositório:</b> arquivos de lock vazios e um temporário do Vite. Removidos, com regra no <code>.gitignore</code> para não voltarem.</li>
+    <li><b>Uma migração antiga nunca aplicada</b> — detalhada abaixo, porque continua em aberto por decisão.</li>
+  </ul>
+
+  <h2>Em aberto</h2>
+  <p class="sub">Cinco pontos: dois dependem de decisão sua, dois precisam de verificação em ambiente real e um é consequência assumida.</p>
+
+  <div class="bloco">
+    <h3>Funcionário não consegue salvar a configuração de apitos <span class="tag t-atencao">decisão</span></h3>
+    <p>A policy <code>staff_atualiza_propria_marina</code> nunca foi aplicada ao banco. Admin e operador conseguem gravar por outras policies; o papel de <b>funcionário</b> recebe erro de permissão. Você optou por deixar como está. O arquivo de migração segue no repositório, pronto para rodar.</p>
+  </div>
+
+  <div class="bloco">
+    <h3>Confirmação de e-mail no cadastro <span class="tag t-aberto">verificar</span></h3>
+    <p>Se estiver ligada no Supabase, quem se cadastra precisa clicar no link antes de entrar; se estiver desligada, cai direto na seleção de aplicações. O código trata os dois casos, mas <b>qual deles acontece hoje não foi verificado</b>. Um cadastro real responde em um minuto.</p>
+  </div>
+
+  <div class="bloco">
+    <h3>Listas suspensas nos painéis escuros, no iPhone <span class="tag t-aberto">verificar</span></h3>
+    <p>A cor das opções foi forçada e resolve na maioria dos navegadores, mas no Safari do iOS o menu é desenhado pelo sistema e pode ignorar isso — o que deixaria texto claro sobre fundo claro. Vale conferir num aparelho.</p>
+  </div>
+
+  <div class="bloco">
+    <h3>Cliente sem como pedir manutenção pelo sistema <span class="tag t-aberto">previsto</span></h3>
+    <p>Consequência aceita ao remover o painel "Serviços": RV Manut e RV NautDoc existem só para a equipe da marina, então o pedido de manutenção e de regularização volta a ser por telefone ou WhatsApp até essas aplicações ganharem a parte do cliente. No código, o campo <code>clientePronto</code> marca quais já têm.</p>
+    <p>Com a saída do financeiro, o pedido de abastecimento entrou na mesma situação: enquanto o RV Finance não tiver a parte do cliente, combustível também se pede presencialmente.</p>
+  </div>
+
+  <div class="bloco">
+    <h3>Login sempre exigido precisa ser revisto antes do lançamento <span class="tag t-atencao">decisão</span></h3>
+    <p>É o comportamento certo para a fase de verificação, mas no uso diário — sobretudo no celular — digitar a senha a cada abertura pesa bastante. O aviso está registrado em <code>lib/supabase.js</code>, na única linha que precisa mudar para religar a sessão.</p>
+  </div>
+
+  <h2>Para fechar</h2>
+  <ul class="lista">
+    <li><b>Nada foi commitado ainda</b> no repositório — as Etapas 10 e 11, a retirada do financeiro e a volta do pedido de abastecimento estão todas em arquivos modificados: <code>App.jsx</code>, <code>Layout.jsx</code>, <code>TelaVagas.jsx</code>, <code>TelaClientes.jsx</code>, <code>TelaClienteDashboard.jsx</code>, <code>ConfiguracoesPainel.jsx</code>, <code>TelaAbastecimento.jsx</code>, <code>SonsPainelAdmin.jsx</code>, <code>lib/apps.js</code>, <code>lib/db.js</code>, <code>lib/statusPagamento.js</code>, <code>lib/statusAbastecimento.js</code> e <code>index.css</code>, mais a migração nova em <code>supabase/sql/</code>.</li>
+    <li><b><code>TelaAbastecimento.jsx</code> ficou para trás.</b> Era a antiga aba do fluxo com pagamento; hoje nada a importa, e ela não compila mais contra a versão atual da biblioteca de status. Ficou no projeto com um aviso no topo, porque o conteúdo pode servir de base para a tela equivalente no RV Finance. Se preferir, dá para removê-la.</li>
+    <li><b>Nenhuma migração pendente de execução.</b> As duas desta sessão já estão aplicadas em produção; as anteriores foram conferidas uma a uma.</li>
+    <li><b>Ao desenvolver uma aplicação nova</b>, o único lugar a mexer é a lista <code>telas</code> em <code>lib/apps.js</code>. Menu do administrador, seleção do cliente e roteamento acompanham sozinhos.</li>
+  </ul>
+
+  <footer>RV Invictus · Relatório de execução · 27 de agosto de 2026</footer>
+
+</div>

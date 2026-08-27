@@ -14,7 +14,6 @@ import TelaVagas from './components/TelaVagas'
 import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
-import TelaAbastecimento from './components/TelaAbastecimento'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
 // Catálogo de telas da área administrativa: chave → componente e título.
@@ -32,7 +31,6 @@ const TELAS = {
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
-  abastecimento: { titulo: 'Abastecimento', Componente: TelaAbastecimento },
 }
 
 const PAPEIS_INTERNOS = ['admin', 'funcionario', 'operador']

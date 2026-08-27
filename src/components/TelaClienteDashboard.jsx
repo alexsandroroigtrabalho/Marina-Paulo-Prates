@@ -1,24 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAnchor, IconLogout, IconGasStation, IconTools, IconFileCertificate,
-  IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock, IconId,
+  IconUsers, IconTrash, IconSettings, IconLifebuoy, IconLock, IconId,
   IconHistory, IconBell, IconBellOff,
 } from '@tabler/icons-react'
-import { QRCodeSVG } from 'qrcode.react'
+// qrcode.react não é mais importado aqui: o pedido de abastecimento voltou,
+// mas SEM nenhuma parte financeira — não há QR, valor nem cobrança em lugar
+// nenhum do RV Marine. Isso é do RV Finance, o SaaS paralelo.
 import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
-  solicitarAbastecimento, atualizarStatusAbastecimento, informarPagamentoAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
+  solicitarAbastecimento, cancelarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
   salvarCliente, listarHorariosOcupados, salvarEmbarcacao,
 } from '../lib/db'
 import { destravarAudioNaProximaInteracao, tocarApitoRespostaDiario } from '../lib/sons'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
-import { STATUS_ABASTECIMENTO_LABEL, STATUS_ABASTECIMENTO_CANCELAVEIS, OBSERVACAO_COMPLETAR_TANQUE, aguardandoLitrosCompletarTanque } from '../lib/statusAbastecimento'
+import {
+  statusEfetivoAbastecimento, aguardandoDecisao, labelStatusAbastecimento,
+  OBSERVACAO_COMPLETAR_TANQUE, textoQuantidade,
+} from '../lib/statusAbastecimento'
 import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
-import { TEMA_PADRAO } from '../lib/tema'
+// TEMA_PADRAO era usado só pelo link de pagamento (TEMA_PADRAO.linkPagamento)
+// dos modais de QR/Pix, que saíram daqui junto com a cobrança.
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 
 // Janela de visibilidade do Histórico de Solicitações (engrenagem →
@@ -48,12 +54,9 @@ function lerMudoDiario() {
   }
 }
 
-// QR "Pix copia e cola" de demonstração com o pagamento da marina (matrícula/
-// acesso), no mesmo espírito do QR de abastecimento — sem valor fixo (quem
-// paga digita o valor combinado com a administração). O pagamento real via
-// Pix ainda não está conectado; a confirmação, por enquanto, é manual (a
-// administração confirma na tela "Clientes").
-const QR_PAGAMENTO_DEMO = '00020126DEMO-PIX-MARINA5204000053039865802BR5913MARINA-MANAGER6009DEMO-QR'
+// O QR "Pix copia e cola" de demonstração (mensalidade/acesso) saiu daqui:
+// não existe mais nenhuma cobrança no RV Marine — pagamento e liberação são
+// assunto do RV Finance, o SaaS paralelo.
 
 // Mensagens de status da Agenda (retirada/retorno), derivadas de
 // Dentro do RV Marine o cliente tem liberdade de acesso: a Agenda NÃO
@@ -123,17 +126,8 @@ function IconTimao({ size = 20, style }) {
   )
 }
 
-function IconVeleiro({ size = 20, style }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="currentColor" style={style}>
-      <rect x="49" y="8" width="2" height="58" />
-      <path d="M52,6 L52,64 L82,60 Z" />
-      <path d="M48,18 C40,30 32,45 22,56 L48,64 Z" />
-      <path d="M12,62 Q50,80 88,62 L84,68 Q50,84 16,68 Z" />
-      <path d="M10,84 Q20,80 30,84 T50,84 T70,84 T90,84 L90,87 Q70,91 50,87 T10,87 Z" />
-    </svg>
-  )
-}
+// IconVeleiro (a caravela que ficava antes do nome da marina) foi removido
+// a pedido — o painel do cliente ficou só com a tipografia da marca.
 
 // Tipos de ordem de serviço que o cliente pode pedir pelo botão "Manutenção"
 // — os mesmos tipos que a equipe usa na tela de Manutenção internamente
@@ -161,9 +155,8 @@ const STATUS_LABEL = {
   exigencia: 'Exigência pendente',
   aprovado: 'Aprovado',
   indeferido: 'Indeferido',
-  aguardando_pagamento: 'Aguardando pagamento',
-  pago: 'Pago',
-  entregue: 'Entregue',
+  // 'aguardando_pagamento', 'pago' e 'entregue' saíram: eram status de
+  // pedido de abastecimento, que não existe mais no painel do cliente.
   // Status de ordens_servico (marina.ordens_servico) agora vem de
   // lib/statusManutencao (labelStatusManutencao), não daqui — era a única
   // origem que usava "aberta"/"concluida"/"cancelada" (grafia feminina).
@@ -269,94 +262,27 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
   return { statusLabel: STATUS_LABEL[a.status] || a.status, statusClasse: classeStatusDiario(a.status) }
 }
 
-// Rótulo/cor de um pedido de abastecimento no Diário de Bordo — mesmo
-// espírito de statusAgendamentoDiario acima: a maioria dos status já cai
-// certo em STATUS_LABEL/classeStatusDiario, só alguns valores do fluxo
-// simplificado (ver <select> em TelaAbastecimento.jsx) precisam de
-// tratamento especial:
-//   - 'solicitado'/'aguardando_pagamento': mesmo rótulo "Aguardando
-//     pagamento" pros dois (ver STATUS_ABASTECIMENTO_LABEL em
-//     lib/statusAbastecimento.js, fonte única também usada aqui) — desde
-//     que o pedido é feito, antes mesmo de a marina revisar, o cliente já
-//     pode Realizar Pagamento ou avisar Pagamento efetuado (ver
-//     pedidoParaPagar/SeletorAcaoPagamento abaixo), então pro cliente os
-//     dois status contam a mesma história: fica "Aguardando pagamento" até
-//     o administrador mudar isso de vez escolhendo uma das 4 opções reais
-//     no seletor de ação da aba Abastecimento.
-//   - 'indisponivel': a marina não tem esse combustível disponível agora —
-//     mesmo tom visual ("cancelado", cinza) de uma solicitação que não vai
-//     seguir adiante, com o texto certo.
-//   - 'cancelado': classeStatusDiario('cancelado') sozinho devolveria
-//     'cancelado' (fica parado no Diário de Bordo ativo pra sempre, com um
-//     badge cinza) — aqui força 'em-dia' igual a 'pago'/'entregue' abaixo,
-//     porque um pedido cancelado (pelo administrador na aba Abastecimento
-//     ou pelo próprio cliente, ver cancelarAbastecimentoCliente) também é
-//     terminal: não sobra ação nenhuma, então some do Diário de Bordo ativo
-//     do mesmo jeito (ver abastecimentoConcluido em
-//     lib/statusAbastecimento.js, mesmo critério usado nas duas telas
-//     administrativas). Continua no Histórico de Solicitações normalmente.
-// 'pago'/'entregue' não precisam de um "if" próprio aqui: já caem certo no
-// fallback (classeStatusDiario devolve 'em-dia' pros dois), e o pedido já
-// sai do Diário de Bordo ativo (ver filtro em diarioAtivo abaixo), do mesmo
-// jeito que já sai das telas do administrador.
-function statusAbastecimentoDiario(p) {
-  if (p.status === 'solicitado' || p.status === 'aguardando_pagamento') {
-    return { statusLabel: STATUS_ABASTECIMENTO_LABEL.aguardando_pagamento, statusClasse: 'pendente' }
+// SeletorAcaoPagamento não existe mais: "Realizar pagamento" e "Pagamento
+// efetuado" saíram com o financeiro. O que voltou foi só o pedido.
+//
+// Rótulo/cor de um pedido de abastecimento no Diário de Bordo. O status
+// mostrado é o EFETIVO (ver statusEfetivoAbastecimento em
+// lib/statusAbastecimento.js), não o que está gravado: um pedido que
+// completou 15 minutos sem cancelamento já aparece como "Confirmado" para o
+// cliente, exatamente como aparece para a equipe no Painel de Controle —
+// mesma função nos dois lados, então nunca divergem.
+//
+// 'cancelado' vira classe 'em-dia' de propósito: classeStatusDiario
+// devolveria 'cancelado', e um item dessa classe fica parado no Diário de
+// Bordo ativo para sempre (ver diarioAtivo). Como cancelar é terminal —
+// não sobra ação nenhuma —, ele precisa envelhecer e sair igual a um
+// pedido confirmado. Continua inteiro no Histórico de Solicitações.
+function statusAbastecimentoDiario(pedido, agoraMs) {
+  const efetivo = statusEfetivoAbastecimento(pedido, agoraMs)
+  return {
+    statusLabel: labelStatusAbastecimento(efetivo),
+    statusClasse: efetivo === 'cancelado' ? 'em-dia' : classeStatusDiario(efetivo),
   }
-  if (p.status === 'indisponivel') return { statusLabel: 'Indisponível', statusClasse: 'cancelado' }
-  if (p.status === 'cancelado') return { statusLabel: 'Cancelado', statusClasse: 'em-dia' }
-  return { statusLabel: STATUS_ABASTECIMENTO_LABEL[p.status] || p.status, statusClasse: classeStatusDiario(p.status) }
-}
-
-// Caixa seletora de ações de pagamento de um pedido de abastecimento
-// "Aguardando pagamento" — aparece tanto no card do Diário de Bordo quanto
-// na lista "Pedidos aguardando pagamento" do modal "Pedir abastecimento"
-// (mesmo componente nos dois lugares, pra nunca ficarem com comportamentos
-// diferentes). Mesmo padrão de <select> de ação usado nas telas
-// administrativas (ver TelaAbastecimento.jsx/TelaVagas.jsx): sempre volta
-// pro placeholder depois de cada escolha, não é um <select> "de estado".
-//   - "Realizar Pagamento": abre o mesmo QR/link já gerado no pedido (ver
-//     pedidoGerado mais abaixo) — usa o que já está cadastrado na
-//     plataforma (qr_code do pedido e TEMA_PADRAO.linkPagamento), nada
-//     novo é gerado aqui.
-//   - "Pagamento efetuado" (value="informar", ver onChange abaixo — o
-//     rótulo mudou, mas continua sendo só um AVISO do cliente, não uma
-//     confirmação de verdade): liga a bolinha vermelho/verde ao lado do
-//     Status na aba Abastecimento do administrador (ver
-//     informarPagamentoAbastecimento em lib/db.js) — quem confirma de
-//     verdade continua sendo a equipe, marcando "Pagamento efetuado" dela
-//     mesma (esse sim grava pago_em) no seletor da aba Abastecimento.
-// O travessão ("-") é só o placeholder da caixa (sempre volta pra ele
-// depois de cada escolha, ver onChange abaixo) — as opções em si não
-// levam travessão nenhum na frente, só o texto puro.
-// Uma vez informado (pedido.informado_pagamento_em já gravado), some a
-// opção "Pagamento efetuado" da lista — não tem mais o que informar de
-// novo — e mostra um "✓ Informado" ao lado da caixa, pra ficar claro que
-// aquele clique já funcionou (antes disso ficava só desabilitada, sem
-// nenhum aviso — parecia travada). "Realizar pagamento" continua
-// disponível, o cliente pode querer ver o QR/link de novo mesmo depois de
-// avisar que já pagou.
-function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento }) {
-  const jaInformou = !!pedido.informado_pagamento_em
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      {jaInformou && <span className="pagamento-ja-informado">✓ Informado</span>}
-      <select
-        value=""
-        className="selecao-acao-pagamento"
-        onChange={(e) => {
-          const acao = e.target.value
-          e.target.value = ''
-          if (acao === 'pagar') onRealizarPagamento(pedido)
-          if (acao === 'informar') onInformarPagamento(pedido)
-        }}
-      >
-        <option value="">-</option>
-        <option value="pagar">Realizar pagamento</option>
-        {!jaInformou && <option value="informar">Pagamento efetuado</option>}
-      </select>
-    </span>
-  )
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
@@ -431,6 +357,8 @@ export default function TelaClienteDashboard({ perfil }) {
   const [laudos, setLaudos] = useState([])
   const [despachos, setDespachos] = useState([])
   const [ordensServico, setOrdensServico] = useState([])
+  // Tipos de combustível que a marina deixou ativos (Painel de Controle ->
+  // Configurações -> Combustível) e os pedidos já feitos por este cliente.
   const [combustiveis, setCombustiveis] = useState([])
   const [abastecimentos, setAbastecimentos] = useState([])
   const [autorizados, setAutorizados] = useState([])
@@ -485,14 +413,18 @@ export default function TelaClienteDashboard({ perfil }) {
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
   const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '', completarTanque: false })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
-  const [pedidoGerado, setPedidoGerado] = useState(null) // pedido com "Realizar Pagamento" escolhido — mostra QR/link direto
-  // Pedido recém-registrado (enviarAbastecimento), aguardando o cliente
-  // escolher entre "Realizar Pagamento" e "Informe de Pagamento" na mesma
-  // caixa seletora usada no resto do Diário de Bordo (ver
-  // SeletorAcaoPagamento) — só existe entre o momento do registro e essa
-  // escolha; ao escolher "Realizar Pagamento" vira um pedidoGerado normal.
-  const [pedidoParaEscolherAcao, setPedidoParaEscolherAcao] = useState(null)
-  const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false)
+  // Relógio próprio da tela. O painel do cliente só recarregava a cada 30s,
+  // e a janela de 15 minutos do pedido de abastecimento precisa fechar na
+  // hora certa: sem isto, o botão "Cancelar" de um pedido continuaria à
+  // vista por até meio minuto depois do prazo — e o banco recusaria o
+  // clique, porque a policy conta o mesmo tempo (ver
+  // migration_abastecimento_sem_financeiro.sql). Também é ele que faz o
+  // rótulo virar "Confirmado" sozinho, sem ninguém tocar na tela.
+  const [agoraMs, setAgoraMs] = useState(() => Date.now())
+  useEffect(() => {
+    const relogio = setInterval(() => setAgoraMs(Date.now()), 10000)
+    return () => clearInterval(relogio)
+  }, [])
   const [enviandoResgate, setEnviandoResgate] = useState(false)
   // Aviso temporário do rodapé (ver mostrarAviso abaixo).
   const [aviso, setAviso] = useState(null)
@@ -557,6 +489,7 @@ export default function TelaClienteDashboard({ perfil }) {
       setLaudos(laudosCarregados)
       setDespachos(despachosCarregados)
       setOrdensServico(ordensServicoCarregadas)
+      // Só os tipos ativos: o que a marina desligou não pode ser pedido.
       setCombustiveis(combustiveisCarregados.filter((c) => c.ativo))
       setAbastecimentos(abastecimentosCarregados)
       setAutorizados(autorizadosCarregados)
@@ -756,54 +689,24 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
-  // Cancelar um pedido de abastecimento direto pelo Diário de Bordo — só
-  // aparece enquanto o pedido ainda está "Aguardando pagamento" ou
-  // "Indisponível" (ver abastecimentoParaCancelar em diarioDeBordo abaixo);
-  // uma vez "Pagamento efetuado" o pedido já não aparece mais aqui (filtrado
-  // antes de entrar no Diário de Bordo). Mesmo padrão de confirmação de
-  // cancelarAgendamentoCliente acima. atualizarStatusAbastecimento é a
-  // mesma função usada pelo Painel de Controle (TelaAbastecimento.jsx) — o
-  // status 'cancelado' propaga pra lá via Realtime (ver assinatura de
-  // pedidos_abastecimento logo abaixo, no useEffect de carregamento).
+  // Cancelar um pedido de abastecimento direto pelo Diário de Bordo. Só
+  // aparece enquanto o pedido ainda espera decisão — ou seja, em
+  // 'solicitado' e dentro dos 15 minutos (ver aguardandoDecisao em
+  // lib/statusAbastecimento.js e abastecimentoParaCancelar no Diário, mais
+  // abaixo). Mesmo padrão de confirmação de cancelarAgendamentoCliente.
+  //
+  // A policy do banco conta o mesmo tempo, então uma tentativa que chegue
+  // atrasada (o relógio virou entre o clique e a resposta) é recusada lá —
+  // e a mensagem abaixo explica isso em português, em vez de mostrar o erro
+  // cru do Postgres.
   async function cancelarAbastecimentoCliente(p) {
     if (!confirm(`Cancelar o pedido de abastecimento de ${p.combustiveis?.nome || 'combustível'}${p.embarcacoes?.nome ? ` (${p.embarcacoes.nome})` : ''}?`)) return
     try {
-      await atualizarStatusAbastecimento(p.id, 'cancelado')
+      await cancelarAbastecimento(p.id)
       await carregar()
-    } catch (err) {
-      alert('Não foi possível cancelar: ' + err.message)
-    }
-  }
-
-  // Ações da SeletorAcaoPagamento (Diário de Bordo e modal "Pedir
-  // abastecimento" — ver componente acima). "Realizar Pagamento" só abre o
-  // mesmo modal de QR/link que já existia (pedidoGerado); "Informe de
-  // Pagamento" grava o carimbo que liga a bolinha verde do administrador —
-  // propaga pra aba Abastecimento dele via Realtime, mesma assinatura de
-  // pedidos_abastecimento já usada pro resto da sincronização.
-  function abrirPagamentoAbastecimento(p) {
-    // Fecha qualquer modal de onde a ação "Realizar Pagamento" possa ter
-    // partido (ver SeletorAcaoPagamento, usado no card do Diário de Bordo,
-    // no modal "Pedir abastecimento", no modal "Pagamentos" e no
-    // "Pedido registrado" logo após uma nova solicitação) antes de abrir o
-    // modal do QR/link — os que já estiverem fechados, fechar de novo não
-    // tem efeito nenhum.
-    setModalAbastecimentoAberto(false)
-    setModalPagamentosAberto(false)
-    setPedidoParaEscolherAcao(null)
-    setPedidoGerado({ ...p, combustivelNome: p.combustiveis?.nome })
-  }
-
-  // aoConcluir (opcional): só roda se o informe deu certo — usado pelo
-  // "Pedido registrado" (ver pedidoParaEscolherAcao) pra fechar aquele
-  // modal só depois de confirmar que a gravação funcionou.
-  async function informarPagamentoCliente(p, aoConcluir) {
-    try {
-      await informarPagamentoAbastecimento(p.id)
+    } catch {
+      mostrarAviso('Este pedido já passou dos 15 minutos e foi confirmado. Fale com a marina para cancelar.')
       await carregar()
-      aoConcluir?.()
-    } catch (err) {
-      alert('Não foi possível informar o pagamento: ' + err.message)
     }
   }
 
@@ -1038,38 +941,22 @@ export default function TelaClienteDashboard({ perfil }) {
       // Painel de Controle, não mais um botão aqui. Ver cancelarAgendamentoCliente.
       agendamentoParaCancelar: (a.status === 'solicitado' || a.status === 'confirmado') ? a : null,
     })),
-    // TODO pedido entra aqui, mesmo já 'pago'/'entregue' (entregue é valor
-    // legado) — é o que garante que "Pagamento efetuado" continue visível no
-    // Histórico de Solicitações da engrenagem depois de sumir do Diário de
-    // Bordo ativo e da própria tela do administrador (ver diarioAtivo/
-    // historicoSolicitacoes abaixo e pedidosVisiveis em TelaAbastecimento.jsx).
+    // TODO pedido entra aqui, inclusive os já confirmados e cancelados — é
+    // o que mantém a linha visível no Histórico de Solicitações depois de
+    // envelhecer e sair do Diário de Bordo ativo (ver diarioAtivo abaixo).
+    // Os pedidos antigos, do tempo em que abastecimento tinha cobrança,
+    // aparecem com o rótulo legado (ver STATUS_ABASTECIMENTO_LABEL) — sem
+    // valor nem QR, que não existem mais em lugar nenhum desta tela.
     ...abastecimentos.map((p) => ({
       id: `ab-${p.id}`,
       icone: IconGasStation,
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
-      // "Completar tanque" não tem litros/valor reais (ver enviarAbastecimento)
-      // — enquanto 'solicitado' (aguardando resposta da marina) mostra só o
-      // nome da opção; uma vez confirmado "Aguardando pagamento", mostra o
-      // aviso de ir pagar presencialmente. Pedido normal sempre mostra
-      // litros/valor, em qualquer status — esses dois já são conhecidos
-      // desde o momento do pedido.
-      detalhe: aguardandoLitrosCompletarTanque(p)
-        ? (p.status === 'aguardando_pagamento' ? 'Procurar a marina para efetuar o pagamento' : 'Completar tanque')
-        : `${Number(p.quantidade_litros).toFixed(2)} L · R$ ${Number(p.valor_total).toFixed(2)}`,
-      ...statusAbastecimentoDiario(p),
+      detalhe: textoQuantidade(p),
+      ...statusAbastecimentoDiario(p, agoraMs),
       quando: p.created_at,
-      // Só dá pra cancelar enquanto o pedido ainda está "Aguardando
-      // pagamento" ou "Indisponível" — ver cancelarAbastecimentoCliente.
-      abastecimentoParaCancelar: STATUS_ABASTECIMENTO_CANCELAVEIS.includes(p.status) ? p : null,
-      // Caixa de ações de pagamento (Realizar Pagamento/Informe de
-      // Pagamento) — mesmo critério de pedidosAguardandoPagamento acima
-      // ('solicitado' incluído, não só 'aguardando_pagamento': o QR já
-      // existe desde a solicitação). Um "Completar tanque" só entra aqui
-      // depois que a marina registra os litros reais (ver
-      // aguardandoLitrosCompletarTanque em lib/statusAbastecimento.js e
-      // completarTanqueComLitros em lib/db.js) — até lá não tem QR nenhum,
-      // paga presencialmente na marina (ver detalhe acima).
-      pedidoParaPagar: ((p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !aguardandoLitrosCompletarTanque(p)) ? p : null,
+      // O botão sai no mesmo instante em que os botões da equipe saem, no
+      // Painel de Controle: as duas telas chamam aguardandoDecisao.
+      abastecimentoParaCancelar: aguardandoDecisao(p, agoraMs) ? p : null,
     })),
     ...ordensServico.map((os) => ({
       id: `os-${os.id}`,
@@ -1169,7 +1056,7 @@ export default function TelaClienteDashboard({ perfil }) {
   // em tempo real (Realtime já assina marina.marinas mais abaixo), sem
   // precisar de F5.
   const limpoEm = marina?.config_json?.diarioBordoLimpoEm ? new Date(marina.config_json.diarioBordoLimpoEm) : null
-  const agora = Date.now()
+  const agora = agoraMs
   // Regra do Diário de Bordo: Registro → Diário de Bordo → após 1 dia →
   // Histórico.
   //
@@ -1206,107 +1093,69 @@ export default function TelaClienteDashboard({ perfil }) {
     agora - new Date(item.quando).getTime() <= HISTORICO_JANELA_MS
   )
 
-  // Pedidos de abastecimento já registrados mas ainda não pagos — o QR/link
-  // de pagamento continua acessível pra eles na área de Abastecimento (ver
-  // modal "Pedir abastecimento" abaixo), já que pagar não é mais exigido no
-  // momento do pedido. Inclui 'solicitado' (não só 'aguardando_pagamento'):
-  // o QR já é gerado desde o instante da solicitação, antes mesmo da
-  // marina revisar (ver enviarAbastecimento) — sem isso a caixa de
-  // Realizar Pagamento/Informe de Pagamento só reaparecia depois que um
-  // administrador entrasse na aba Abastecimento e avançasse o status, o
-  // que podia levar horas; a policy cliente_informa_pagamento_abastecimento
-  // no banco já permite o "Informe de Pagamento" nos dois status por esse
-  // mesmo motivo. Fica de fora um pedido "Completar tanque" enquanto os
-  // litros ainda não foram registrados pela marina (ver
-  // aguardandoLitrosCompletarTanque em lib/statusAbastecimento.js): não
-  // tem QR nenhum pra mostrar (paga presencialmente na marina, ver
-  // enviarAbastecimento) — aparece só como aviso no Diário de Bordo
-  // ("Procurar a marina para efetuar o pagamento"). Assim que a marina
-  // registra os litros reais (ver completarTanqueComLitros em lib/db.js),
-  // passa a entrar aqui normalmente, com a mesma integração completa do
-  // fluxo geral de abastecimento.
-  const pedidosAguardandoPagamento = abastecimentos.filter((p) => (p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !aguardandoLitrosCompletarTanque(p))
-
+  // Abre o pedido de abastecimento. A checagem de cadastro do RV Marine
+  // (telefone + pelo menos uma embarcação) é a mesma da descida e da subida:
+  // sem embarcação não há o que abastecer, e sem telefone a marina não tem
+  // como responder.
   function abrirModalAbastecimento() {
-    // Passou a ser a porta do botão principal do painel (antes o
-    // abastecimento era uma opção dentro de "Serviços"), então a checagem de
-    // cadastro do RV Marine, que ficava lá, vem junto pra cá.
     if (!cadastroRvMarineOk()) return
+    if (combustiveis.length === 0) {
+      mostrarAviso('A marina ainda não cadastrou os tipos de combustível disponíveis.')
+      return
+    }
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '', completarTanque: false })
     setModalAbastecimentoAberto(true)
   }
 
-  // Encontra o agendamento (retirada/retorno) em aberto mais próximo para essa
-  // embarcação, pra já vincular o pedido de abastecimento à linha certa no
-  // Painel de Controle — sem precisar perguntar isso ao cliente. "solicitado"
-  // é o único status de espera hoje: a notificação vira direto "concluído"
-  // (Navegando) quando o operador confirma a saída ou o retorno.
+  // Encontra o agendamento (descida/subida) em aberto mais próximo dessa
+  // embarcação, pra já vincular o pedido à linha certa da Fila de Rampa —
+  // sem precisar perguntar isso ao cliente.
   function agendamentoRelevante(embarcacaoId) {
     const ativos = agendamentos.filter((a) => a.embarcacao_id === embarcacaoId && a.status === 'solicitado')
     if (ativos.length === 0) return null
     return ativos.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))[0]
   }
 
-  // "Completar tanque": o cliente não informa litros (só se sabe depois de
-  // encher), então não dá pra gerar um QR Pix com valor fechado como no
-  // pedido normal — vai sem quantidade/valor (0, só placeholder pras
-  // colunas NOT NULL) e sem QR nenhum; observacoes marca o pedido pra ser
-  // reconhecido nas outras telas (ver ehCompletarTanque em
-  // lib/statusAbastecimento.js). O pagamento é combinado presencialmente
-  // na marina — ver o aviso no Diário de Bordo (statusAbastecimentoDiario)
-  // e o "Tanque cheio" da seção Combustível do Painel de Controle
-  // (TelaVagas.jsx).
+  // Registra o pedido. Sem preço, sem valor total, sem QR: as colunas
+  // financeiras da tabela ficam em NULL (passaram a aceitar isso na
+  // migration_abastecimento_sem_financeiro.sql) em vez de receberem um zero
+  // que depois alguém leria como "de graça".
+  //
+  // "Completar tanque" é o caso de quem não sabe quantos litros faltam — só
+  // se sabe depois de encher. Vai com quantidade_litros = 0 (a coluna
+  // continua NOT NULL) e o marcador de sempre em observacoes, a mesma
+  // convenção dos pedidos que já estavam no banco.
+  //
+  // Todo pedido nasce em 'solicitado' e a partir daí o relógio corre: 15
+  // minutos sem cancelamento e ele vale como confirmado (ver
+  // lib/statusAbastecimento.js).
   async function enviarAbastecimento(e) {
     e.preventDefault()
     if (!cliente) return
-    const combustivel = combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)
-    if (!combustivel) return
     const completarTanque = formAbastecimento.completarTanque
     const litros = completarTanque ? 0 : Number(formAbastecimento.quantidade_litros)
-    const valorTotal = completarTanque ? 0 : litros * Number(combustivel.preco_litro)
+    if (!completarTanque && !(litros > 0)) {
+      mostrarAviso('Informe quantos litros, ou marque "Completar tanque".')
+      return
+    }
     setEnviandoAbastecimento(true)
     try {
-      // QR "Pix copia e cola" de demonstração — o pagamento real será conectado
-      // quando a marina configurar sua própria conta Mercado Pago.
-      const qrDemo = `00020126DEMO-PIX-MARINA5204000053039865406${valorTotal.toFixed(2)}5802BR5913Marina Manager6009DEMO-QR`
       const agendamento = agendamentoRelevante(formAbastecimento.embarcacao_id)
-      const pedido = await solicitarAbastecimento({
+      await solicitarAbastecimento({
         marina_id: cliente.marina_id,
         cliente_id: cliente.id,
         embarcacao_id: formAbastecimento.embarcacao_id || null,
         agendamento_id: agendamento?.id || null,
-        combustivel_id: combustivel.id,
+        combustivel_id: formAbastecimento.combustivel_id,
         quantidade_litros: litros,
-        preco_litro_no_pedido: combustivel.preco_litro,
-        valor_total: valorTotal,
-        // Todo pedido novo começa em 'solicitado', "Completar tanque"
-        // incluído — ninguém da marina decidiu nada ainda, mostra
-        // "Aguardando resposta da solicitação" no Diário de Bordo e "—"
-        // nas telas administrativas (ver statusAbastecimentoDiario acima e
-        // STATUS_ABASTECIMENTO_LABEL em lib/statusAbastecimento.js). Só
-        // muda quando o administrador escolhe uma das 4 opções reais no
-        // seletor de ação da aba Abastecimento — pra "Completar tanque",
-        // escolher "Aguardando pagamento" é o que faz aparecer o "Tanque
-        // cheio" em verde na seção Combustível do Painel de Controle (ver
-        // ehCompletarTanque em lib/statusAbastecimento.js e TelaVagas.jsx).
         status: 'solicitado',
-        qr_code: completarTanque ? null : qrDemo,
-        qr_code_demo: !completarTanque,
         observacoes: completarTanque ? OBSERVACAO_COMPLETAR_TANQUE : null,
       })
       setModalAbastecimentoAberto(false)
-      if (completarTanque) {
-        alert('Pedido registrado! Aguarde a resposta da marina no seu Diário de Bordo.')
-      } else {
-        // Em vez de já abrir o QR direto, deixa o cliente escolher entre
-        // "Realizar Pagamento" e "Informe de Pagamento" primeiro — ver
-        // pedidoParaEscolherAcao acima e o modal "Pedido registrado" mais
-        // abaixo.
-        setPedidoParaEscolherAcao({ ...pedido, combustivelNome: combustivel.nome })
-      }
+      mostrarAviso('Pedido enviado. A marina tem 15 minutos para confirmar ou cancelar.')
       await carregar()
     } catch (err) {
-      alert(err.message)
+      alert('Não foi possível enviar o pedido: ' + err.message)
     } finally {
       setEnviandoAbastecimento(false)
     }
@@ -1397,12 +1246,12 @@ export default function TelaClienteDashboard({ perfil }) {
                   : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. · Solicitar resgate'}
             </button>
 
-            {/* Era "Serviços" e abria um seletor com quatro opções. Três
-                delas migraram para os outros SaaS (Manutenção → RV Manut,
-                Regularização → RV NautDoc, Pagamentos → RV Finance), então o
-                botão passou a ser o próprio abastecimento e abre o pedido
-                direto. A checagem de cadastro do RV Marine continua valendo
-                (abrirModalAbastecimento). */}
+            {/* O antigo botão "Serviços" abria um seletor com quatro
+                opções; três migraram para os outros SaaS (Manutenção → RV
+                Manut, Regularização → RV NautDoc, Pagamentos → RV Finance).
+                Sobrou o abastecimento, que virou botão direto — e sem nada
+                de financeiro: o cliente pede, a marina confirma, e o valor
+                se acerta fora do RV Marine. */}
             <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalAbastecimento}>
               <IconGasStation size={20} /> Abastecimento
             </button>
@@ -1433,11 +1282,6 @@ export default function TelaClienteDashboard({ perfil }) {
                       onClick={() => cancelarAgendamentoCliente(item.agendamentoParaCancelar)}>
                       Cancelar
                     </button>
-                  )}
-                  {item.pedidoParaPagar && (
-                    <SeletorAcaoPagamento pedido={item.pedidoParaPagar}
-                      onRealizarPagamento={abrirPagamentoAbastecimento}
-                      onInformarPagamento={informarPagamentoCliente} />
                   )}
                   {item.abastecimentoParaCancelar && (
                     <button type="button" className="cancelar" style={{ flexShrink: 0 }}
@@ -1528,14 +1372,17 @@ export default function TelaClienteDashboard({ perfil }) {
       )}
 
       {/* O painel "Serviços" foi removido: Manutenção passou ao RV Manut,
-          Regularização ao RV NautDoc e Pagamentos ao RV Finance. Sobrou o
-          abastecimento, que virou botão direto no painel — sem um seletor
-          intermediário para uma opção só. */}
+          Regularização ao RV NautDoc e Pagamentos ao RV Finance. O
+          abastecimento voltou como botão direto, e o modal abaixo é todo
+          ele — o pedido e nada mais. Os modais "Pedido registrado", o QR de
+          pagamento e a lista "Pagamentos" não voltaram: cobrança não existe
+          dentro do RV Marine. Nada foi apagado do banco. */}
 
       {modalAbastecimentoAberto && (
         <div className="modal-fundo" onClick={() => setModalAbastecimentoAberto(false)}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarAbastecimento}>
             <h3>Pedir abastecimento</h3>
+
             {embarcacoes.length > 0 ? (
               <select required value={formAbastecimento.embarcacao_id}
                 onChange={(e) => setFormAbastecimento({ ...formAbastecimento, embarcacao_id: e.target.value })}>
@@ -1545,176 +1392,44 @@ export default function TelaClienteDashboard({ perfil }) {
             ) : (
               <p className="dica">Você ainda não tem embarcações cadastradas.</p>
             )}
+
             <select required value={formAbastecimento.combustivel_id}
               onChange={(e) => setFormAbastecimento({ ...formAbastecimento, combustivel_id: e.target.value })}>
               <option value="">Selecione o combustível</option>
-              {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome} · R$ {Number(c.preco_litro).toFixed(2)}/L</option>)}
+              {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
+
+            {/* "Completar tanque" para quem não sabe quantos litros faltam —
+                marcando aqui, o campo de litros some, porque não haveria o
+                que preencher. */}
             <label className="opcao-checkbox">
               <input type="checkbox" checked={formAbastecimento.completarTanque}
                 onChange={(e) => setFormAbastecimento({ ...formAbastecimento, completarTanque: e.target.checked, quantidade_litros: '' })} />
-              Completar tanque (quantidade a definir)
+              Completar tanque
             </label>
+
             {formAbastecimento.completarTanque ? (
               <p className="dica">
-                Sem quantidade fechada — a marina completa o tanque e o valor é acertado presencialmente, sem pagamento pelo app.
+                Sem quantidade fechada — a marina completa o tanque e o acerto é feito com a administração.
               </p>
             ) : (
-              <>
-                <input type="number" min="1" step="0.5" required placeholder="Quantidade (litros)"
-                  value={formAbastecimento.quantidade_litros}
-                  onChange={(e) => setFormAbastecimento({ ...formAbastecimento, quantidade_litros: e.target.value })} />
-                {formAbastecimento.combustivel_id && formAbastecimento.quantidade_litros > 0 && (
-                  <p className="dica">
-                    Total estimado: <b>R$ {(Number(formAbastecimento.quantidade_litros) * Number(combustiveis.find((c) => c.id === formAbastecimento.combustivel_id)?.preco_litro || 0)).toFixed(2)}</b>
-                  </p>
-                )}
-              </>
+              <input type="number" required min="1" step="1" placeholder="Litros"
+                value={formAbastecimento.quantidade_litros}
+                onChange={(e) => setFormAbastecimento({ ...formAbastecimento, quantidade_litros: e.target.value })} />
             )}
+
+            <p className="dica">
+              A marina tem 15 minutos para confirmar ou cancelar. Passado esse prazo, o pedido é
+              confirmado automaticamente. Você pode cancelar dentro dessa janela pelo Diário de Bordo.
+            </p>
+
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalAbastecimentoAberto(false)}>Cancelar</button>
               <button type="submit" disabled={enviandoAbastecimento}>{enviandoAbastecimento ? 'Enviando...' : 'Confirmar pedido'}</button>
             </div>
-
-            {/* Pedidos já feitos e ainda não pagos — o QR/link de pagamento
-                continua acessível aqui pra pagar quando quiser (pagamento não
-                é mais exigido no momento do pedido, ver enviarAbastecimento:
-                o pedido já é registrado pra marina assim que confirmado). */}
-            {pedidosAguardandoPagamento.length > 0 && (
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--cor-borda)' }}>
-                <p className="dica" style={{ marginBottom: 8 }}>Pedidos aguardando pagamento</p>
-                {pedidosAguardandoPagamento.map((p) => (
-                  <div key={p.id} className="linha-pedido-pendente" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 13 }}>
-                      {p.combustiveis?.nome}{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''} — {Number(p.quantidade_litros).toFixed(2)} L · R$ {Number(p.valor_total).toFixed(2)}
-                    </span>
-                    <SeletorAcaoPagamento pedido={p}
-                      onRealizarPagamento={abrirPagamentoAbastecimento}
-                      onInformarPagamento={informarPagamentoCliente} />
-                  </div>
-                ))}
-              </div>
-            )}
           </form>
         </div>
       )}
-
-      {pedidoParaEscolherAcao && (
-        <div className="modal-fundo" onClick={() => setPedidoParaEscolherAcao(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
-            <h3>Pedido registrado</h3>
-            <p className="dica">{pedidoParaEscolherAcao.combustivelNome} · {Number(pedidoParaEscolherAcao.quantidade_litros).toFixed(2)} L</p>
-            <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--cor-primaria)', margin: '4px 0' }}>
-              R$ {Number(pedidoParaEscolherAcao.valor_total).toFixed(2)}
-            </p>
-            <p className="dica">Seu pedido já foi registrado para a marina. Escolha como deseja prosseguir com o pagamento:</p>
-            <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0 4px' }}>
-              <SeletorAcaoPagamento pedido={pedidoParaEscolherAcao}
-                onRealizarPagamento={abrirPagamentoAbastecimento}
-                onInformarPagamento={(p) => informarPagamentoCliente(p, () => setPedidoParaEscolherAcao(null))} />
-            </div>
-            <button className="btn-primario" style={{ width: '100%' }} onClick={() => setPedidoParaEscolherAcao(null)}>Fechar</button>
-          </div>
-        </div>
-      )}
-
-      {pedidoGerado && (
-        <div className="modal-fundo" onClick={() => setPedidoGerado(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
-            <h3>Pedido registrado</h3>
-            <p className="dica">{pedidoGerado.combustivelNome} · {Number(pedidoGerado.quantidade_litros).toFixed(2)} L</p>
-            <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
-              <QRCodeSVG value={pedidoGerado.qr_code} size={200} />
-            </div>
-            <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--cor-primaria)', margin: '4px 0' }}>
-              R$ {Number(pedidoGerado.valor_total).toFixed(2)}
-            </p>
-            {TEMA_PADRAO.linkPagamento && (
-              <p>
-                <a className="btn-primario" style={{ display: 'inline-block', textDecoration: 'none' }}
-                  href={TEMA_PADRAO.linkPagamento} target="_blank" rel="noopener noreferrer">
-                  Abrir link de pagamento
-                </a>
-              </p>
-            )}
-            <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
-              QR de demonstração. O pagamento real via Pix ainda não está conectado.
-            </p>
-            <p className="dica">
-              Seu pedido já foi registrado para a marina — não é preciso pagar agora. Pague quando quiser com o QR acima; ele continua disponível em Serviços → Abastecimento.
-            </p>
-            <button className="btn-primario" style={{ width: '100%' }} onClick={() => setPedidoGerado(null)}>Fechar</button>
-          </div>
-        </div>
-      )}
-
-      {modalPagamentosAberto && cliente && (() => {
-        const statusAgenda = statusAgendaCliente(cliente)
-        // "Pagamentos" agora é uma lista de pendências, não mais só a
-        // mensalidade fixa: junta a mensalidade (quando não liberada) com
-        // todo pedido de combustível "Aguardando pagamento" (mesma lista de
-        // pedidosAguardandoPagamento já usada na aba Abastecimento — ver
-        // acima). Cada item some sozinho da lista assim que deixa de ser
-        // pendência (mensalidade liberada, ou pedido marcado "Pagamento
-        // efetuado" pelo administrador): nenhum código novo de
-        // sincronização foi preciso pra isso, é a mesma leitura filtrada de
-        // sempre reagindo ao Realtime que já existia (ver assinatura de
-        // 'clientes'/'pedidos_abastecimento' no useEffect de carregamento).
-        const pendenciaMensalidade = !statusAgenda.liberado
-        const semPendencias = !pendenciaMensalidade && pedidosAguardandoPagamento.length === 0
-        return (
-          <div className="modal-fundo" onClick={() => setModalPagamentosAberto(false)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', maxHeight: '85vh', overflowY: 'auto' }}>
-              <h3>Pagamentos</h3>
-
-              {semPendencias && <p className="dica">Nenhum pagamento pendente no momento.</p>}
-
-              {pendenciaMensalidade && (
-                <div style={{ paddingBottom: pedidosAguardandoPagamento.length > 0 ? 16 : 0, marginBottom: pedidosAguardandoPagamento.length > 0 ? 16 : 0, borderBottom: pedidosAguardandoPagamento.length > 0 ? '1px solid var(--cor-borda)' : 'none' }}>
-                  <p className={`status-texto ${statusAgenda.classe}`}>{statusAgenda.texto}</p>
-                  <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
-                    <QRCodeSVG value={QR_PAGAMENTO_DEMO} size={200} />
-                  </div>
-                  <p className="dica" style={{ color: 'var(--cor-alerta)' }}>
-                    QR de demonstração. O pagamento real via Pix ainda não está conectado.
-                  </p>
-                  {TEMA_PADRAO.linkPagamento ? (
-                    <p>
-                      <a className="btn-primario" style={{ display: 'inline-block', textDecoration: 'none' }}
-                        href={TEMA_PADRAO.linkPagamento} target="_blank" rel="noopener noreferrer">
-                        Abrir link de pagamento
-                      </a>
-                    </p>
-                  ) : (
-                    <p className="dica">Link de pagamento ainda não configurado pela marina. Fale com a administração.</p>
-                  )}
-                  <p className="dica">
-                    Depois de pagar, a administração confirma o recebimento e sua Agenda (Descida/Subida) é liberada automaticamente, não é preciso fazer mais nada aqui.
-                  </p>
-                </div>
-              )}
-
-              {pedidosAguardandoPagamento.length > 0 && (
-                <div style={{ textAlign: 'left' }}>
-                  <p className="dica" style={{ marginBottom: 8 }}>Combustível aguardando pagamento</p>
-                  {pedidosAguardandoPagamento.map((p) => (
-                    <div key={p.id} className="linha-pedido-pendente" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <span style={{ fontSize: 13 }}>
-                        {p.combustiveis?.nome}{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''} — {Number(p.quantidade_litros).toFixed(2)} L · R$ {Number(p.valor_total).toFixed(2)}
-                      </span>
-                      <SeletorAcaoPagamento pedido={p}
-                        onRealizarPagamento={abrirPagamentoAbastecimento}
-                        onInformarPagamento={informarPagamentoCliente} />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button className="btn-primario" style={{ width: '100%', marginTop: 12 }} onClick={() => setModalPagamentosAberto(false)}>Fechar</button>
-            </div>
-          </div>
-        )
-      })()}
 
       {modalAutorizadosAberto && (
         <div className="modal-fundo" onClick={() => setModalAutorizadosAberto(false)}>
@@ -1850,7 +1565,7 @@ export default function TelaClienteDashboard({ perfil }) {
       )}
 
       {/* Histórico de Solicitações: TODA solicitação já feita pelo cliente
-          (descida/subida, combustível, S.O.S., manutenção, regularização,
+          (descida/subida, S.O.S., manutenção, regularização,
           laudos, cancelamentos e afins — ver historicoSolicitacoes acima),
           com o status atual de cada uma, disponíveis aqui por até 5 dias.
           Passado esse prazo elas somem tanto da lista quanto da exportação

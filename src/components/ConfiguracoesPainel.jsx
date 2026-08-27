@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv, exportarArrecadacaoCsv } from '../lib/exportarPlanilha'
-import { buscarMarina, atualizarConfigMarina } from '../lib/db'
+import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv } from '../lib/exportarPlanilha'
+import { buscarMarina, atualizarConfigMarina, listarCombustiveis, salvarCombustivel } from '../lib/db'
 import { lerConfigRampa, RAMPA_PADRAO, MENSAGENS_INDISPONIBILIDADE } from '../lib/agendaRampa'
 import { geocodePorCidade } from '../lib/clima'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
-// sonoro, apitos, combustíveis — e um bloco fixo na aba Despachos —
+// sonoro e apitos — e um bloco fixo na aba Despachos —
 // relatório automático de documentos). Organizadas por categoria, igual
 // pedido pela administração. Toda a alteração é gravada em
 // marinas.config_json — inclusive o aviso sonoro (chave `avisoSonoroAtivado`,
@@ -20,9 +20,16 @@ import { geocodePorCidade } from '../lib/clima'
 // espelha a restrição já aplicada no banco (policy "admin_atualiza_propria_marina",
 // FOR UPDATE, só libera pra role = 'admin') — mesmo que alguém tentasse
 // contornar a tela, o banco recusaria a escrita.
+// A categoria "Financeiro" saiu inteira: valor da mensalidade e exportação
+// de arrecadação eram configuração de cobrança, que passou para o RV Finance
+// (SaaS separado). Nada foi apagado do banco.
+//
+// "Combustível" é outra coisa e por isso ficou: são os tipos que o cliente
+// pode escolher ao pedir abastecimento — nome e ativo/inativo, sem preço nem
+// estoque, que seriam financeiro.
 const CATEGORIAS = [
-  { chave: 'financeiro', label: 'Financeiro' },
   { chave: 'notificacoes', label: 'Notificações' },
+  { chave: 'combustivel', label: 'Combustível' },
   { chave: 'despacho', label: 'Despacho' },
   { chave: 'clientes', label: 'Clientes' },
   { chave: 'manutencao', label: 'Manutenção' },
@@ -35,13 +42,8 @@ const LOCALIZACAO_CLIMA_VAZIA = { cidade: '', latitude: null, longitude: null, l
 
 export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
-  // Financeiro — mensalidade
-  formMensalidade, onMudarMensalidade, onSalvarMensalidade, salvandoMensalidade,
-  // Financeiro — combustíveis
-  combustiveis, formCombustivel, onMudarFormCombustivel, onSalvarNovoCombustivel, onAtualizarCampoCombustivel,
   // Notificações — aviso sonoro + apitos
   sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
-  apitoCombustivelAtivado, onAlternarApitoCombustivel, salvandoApitoCombustivel,
   // Despacho — relatório automático de documentos
   emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
@@ -50,7 +52,7 @@ export default function ConfiguracoesPainel({
   // planilha.
   historicoManobras = [], tipoAgendamentoLabel = {},
 }) {
-  const [categoria, setCategoria] = useState('financeiro')
+  const [categoria, setCategoria] = useState('notificacoes')
   const [exportando, setExportando] = useState('')
   const [mensagemExportacao, setMensagemExportacao] = useState('')
 
@@ -75,6 +77,19 @@ export default function ConfiguracoesPainel({
   const [salvandoRampa, setSalvandoRampa] = useState(false)
   const [mensagemRampa, setMensagemRampa] = useState('')
   const [manutencoes, setManutencoes] = useState([])
+
+  // Combustível — mesma escolha da Agenda da rampa acima: carrega e salva
+  // aqui dentro, sem passar por TelaVagas.jsx. São os tipos que aparecem pro
+  // cliente escolher no pedido de abastecimento. Só nome e ativo/inativo:
+  // preço e estoque saíram com o financeiro (as colunas continuam na tabela,
+  // com os valores antigos, e preco_litro passou a aceitar NULL — ver
+  // migration_abastecimento_sem_financeiro.sql).
+  //
+  // Desligar um tipo não apaga nada: ele some da lista do cliente e os
+  // pedidos antigos continuam mostrando o nome normalmente.
+  const [combustiveis, setCombustiveis] = useState([])
+  const [novoCombustivel, setNovoCombustivel] = useState('')
+  const [salvandoCombustivel, setSalvandoCombustivel] = useState(false)
   const [formNovaManutencao, setFormNovaManutencao] = useState({ inicio: '', fim: '', motivo: '' })
   const [salvandoManutencao, setSalvandoManutencao] = useState(false)
 
@@ -94,6 +109,44 @@ export default function ConfiguracoesPainel({
     })
   }
   useEffect(() => { if (aberto) carregarConfigRampa() }, [aberto, marinaId])
+
+  async function carregarCombustiveis() {
+    if (!marinaId) return
+    try {
+      setCombustiveis(await listarCombustiveis(marinaId))
+    } catch (err) {
+      alert('Não foi possível carregar os combustíveis: ' + err.message)
+    }
+  }
+  useEffect(() => { if (aberto) carregarCombustiveis() }, [aberto, marinaId])
+
+  async function adicionarCombustivel(e) {
+    e.preventDefault()
+    const nome = novoCombustivel.trim()
+    if (!nome || salvandoCombustivel) return
+    setSalvandoCombustivel(true)
+    try {
+      await salvarCombustivel({ marina_id: marinaId, nome, ativo: true })
+      setNovoCombustivel('')
+      await carregarCombustiveis()
+    } catch (err) {
+      alert('Não foi possível salvar o combustível: ' + err.message)
+    } finally {
+      setSalvandoCombustivel(false)
+    }
+  }
+
+  // Só o campo `ativo` muda por aqui — o resto da linha vai junto no upsert
+  // pra não zerar o que já estava gravado (inclusive o preço antigo, que
+  // esta tela não mostra mais mas continua no banco).
+  async function alternarCombustivel(c) {
+    try {
+      await salvarCombustivel({ ...c, ativo: !c.ativo })
+      await carregarCombustiveis()
+    } catch (err) {
+      alert('Não foi possível alterar o combustível: ' + err.message)
+    }
+  }
 
   // Busca a cidade digitada na API de geocoding (ver lib/clima.js) e só
   // preenche latitude/longitude/local no formulário — ainda não salva
@@ -223,82 +276,39 @@ export default function ConfiguracoesPainel({
           ))}
         </div>
 
-        {categoria === 'financeiro' && (
+        {categoria === 'combustivel' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <strong>Valor da mensalidade</strong>
+              <strong>Tipos de combustível</strong>
               <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Valor de referência da mensalidade da marina, usado como padrão em todo o sistema.
+                O que o cliente pode escolher ao pedir abastecimento pelo painel dele. Só nome e
+                ligar/desligar — preço, valor e cobrança não existem no RV Marine (são do RV Finance).
+                Desligar um tipo tira ele da lista do cliente sem apagar nada: os pedidos antigos
+                continuam mostrando o nome normalmente.
               </p>
-              <form className="form-inline" onSubmit={onSalvarMensalidade}>
+
+              <form className="form-inline" onSubmit={adicionarCombustivel} style={{ marginBottom: 12 }}>
                 <input
-                  type="number" min="0" step="0.01" required placeholder="Valor (R$)" style={{ maxWidth: 160 }}
-                  value={formMensalidade} onChange={(e) => onMudarMensalidade(e.target.value)}
-                  disabled={!ehAdmin}
+                  placeholder="Ex: Gasolina comum" style={{ minWidth: 220 }} disabled={!ehAdmin}
+                  value={novoCombustivel} onChange={(e) => setNovoCombustivel(e.target.value)}
                 />
-                <button type="submit" disabled={!ehAdmin || salvandoMensalidade}>
-                  {salvandoMensalidade ? 'Salvando…' : 'Salvar'}
+                <button type="submit" disabled={!ehAdmin || salvandoCombustivel || !novoCombustivel.trim()}>
+                  {salvandoCombustivel ? 'Salvando…' : 'Adicionar'}
                 </button>
               </form>
-            </div>
 
-            <div>
-              <strong>Combustíveis (preço e estoque)</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Usados no pedido de abastecimento feito pelo cliente pelo app — mesmos valores da aba Abastecimento.
-              </p>
-              <form className="form-inline" onSubmit={onSalvarNovoCombustivel} style={{ marginBottom: 10 }}>
-                <input required placeholder="Nome (ex: Gasolina, Diesel Marítimo)" value={formCombustivel.nome}
-                  disabled={!ehAdmin}
-                  onChange={(e) => onMudarFormCombustivel({ ...formCombustivel, nome: e.target.value })} />
-                <input required type="number" step="0.01" placeholder="Preço por litro (R$)" value={formCombustivel.preco_litro}
-                  disabled={!ehAdmin}
-                  onChange={(e) => onMudarFormCombustivel({ ...formCombustivel, preco_litro: e.target.value })} />
-                <input required type="number" step="0.01" placeholder="Estoque (litros)" value={formCombustivel.estoque_litros}
-                  disabled={!ehAdmin}
-                  onChange={(e) => onMudarFormCombustivel({ ...formCombustivel, estoque_litros: e.target.value })} />
-                <button type="submit" disabled={!ehAdmin}>+ Adicionar combustível</button>
-              </form>
-              <table className="tabela">
-                <thead><tr><th>Combustível</th><th>Preço/litro</th><th>Estoque (L)</th><th>Ativo</th></tr></thead>
-                <tbody>
-                  {combustiveis.length === 0 && <tr><td colSpan={4}>Nenhum combustível cadastrado ainda.</td></tr>}
-                  {combustiveis.map((c) => (
-                    <tr key={c.id}>
-                      <td>{c.nome}</td>
-                      <td>
-                        <input type="number" step="0.01" defaultValue={c.preco_litro} style={{ width: 90 }} disabled={!ehAdmin}
-                          onBlur={(e) => Number(e.target.value) !== Number(c.preco_litro) && onAtualizarCampoCombustivel(c, 'preco_litro', e.target.value)} />
-                      </td>
-                      <td>
-                        <input type="number" step="0.01" defaultValue={c.estoque_litros} style={{ width: 90 }} disabled={!ehAdmin}
-                          onBlur={(e) => Number(e.target.value) !== Number(c.estoque_litros) && onAtualizarCampoCombustivel(c, 'estoque_litros', e.target.value)} />
-                      </td>
-                      <td>
-                        <label className="toggle">
-                          <input type="checkbox" checked={c.ativo} disabled={!ehAdmin}
-                            onChange={(e) => onAtualizarCampoCombustivel(c, 'ativo', e.target.checked)} />
-                          <span className="trilho" />
-                        </label>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div>
-              <strong>Exportar arrecadação detalhada</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Baixa uma planilha com todo o período de arrecadação (mensalidades confirmadas e consumo de
-                combustível pago/entregue) — não só o que estiver filtrado na tela Financeiro no momento.
-              </p>
-              <button type="button" onClick={() => exportar(exportarArrecadacaoCsv, 'arrecadacao', 'arrecadação detalhada')} disabled={exportando === 'arrecadacao'}>
-                {exportando === 'arrecadacao' ? 'Exportando…' : 'Exportar arrecadação detalhada'}
-              </button>
-              {mensagemExportacao && exportando === '' && (
-                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-              )}
+              <div className="lista-cards">
+                {combustiveis.length === 0 && <p className="dica">Nenhum tipo cadastrado ainda. Sem pelo menos um, o cliente não consegue pedir abastecimento.</p>}
+                {combustiveis.map((c) => (
+                  <div key={c.id} className="cliente-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div className="linha"><b>{c.nome}</b></div>
+                    <label className="opcao-checkbox">
+                      <input type="checkbox" checked={!!c.ativo} disabled={!ehAdmin} onChange={() => alternarCombustivel(c)} />
+                      {c.ativo ? 'Disponível' : 'Indisponível'}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -340,17 +350,6 @@ export default function ConfiguracoesPainel({
               </form>
             </div>
 
-            <div>
-              <strong>Apito de combustível</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Apito próprio (diferente dos de manobra) ao chegar um novo pedido de abastecimento pelo Diário de
-                Bordo do cliente — também toca em qualquer tela, independente do aviso sonoro acima (dá pra manter
-                um ligado e o outro desligado). Vem <b>ligado por padrão</b>.
-              </p>
-              <button type="button" onClick={onAlternarApitoCombustivel} disabled={!ehAdmin || salvandoApitoCombustivel}>
-                {salvandoApitoCombustivel ? 'Salvando…' : apitoCombustivelAtivado ? '🔕 Desabilitar apito de combustível' : '🔔 Habilitar apito de combustível'}
-              </button>
-            </div>
           </div>
         )}
 

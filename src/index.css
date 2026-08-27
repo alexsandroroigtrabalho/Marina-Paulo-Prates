@@ -971,6 +971,18 @@ button.badge:hover { filter: brightness(0.95); }
 .status-valido { background: var(--cor-primaria-tint); color: var(--cor-secundaria); }
 
 /* ---------- Abastecimento ---------- */
+/* Planilha de solicitações de combustível (Painel de Controle). Classes
+   próprias, com prefixo "abast-": .status-solicitado e .status-confirmado
+   já existem acima querendo dizer outra coisa na Fila de Rampa. */
+.status-abast-aguardando { background: #F1E3D6; color: #8B5A2B; }
+.status-abast-confirmado { background: #E4EBDD; color: #55702F; }
+/* Tempo que falta pra confirmação automática, ao lado do selo de status. */
+.prazo-confirmacao {
+  display: block; margin-top: 4px;
+  font-family: 'Montserrat', sans-serif; font-size: 10.5px; letter-spacing: 0.02em;
+  color: var(--cor-texto-suave);
+}
+
 .status-aguardando_pagamento, .status-confirmado { background: #FCE6DA; color: var(--cor-alerta); }
 .status-entregue { background: var(--cor-primaria-tint); color: var(--cor-secundaria); }
 /* "Indisponível" — combustível fora de estoque/indisponível no momento do
@@ -1444,6 +1456,43 @@ button.badge:hover { filter: brightness(0.95); }
    ============================================================ */
 .painel-cliente .modal-fundo { background: rgba(13,27,42,0.55); }
 
+/* ---------- Geometria dos painéis do cliente ----------
+   Três coisas de uma vez:
+
+   1) A logo RV Invictus continua VISÍVEL com o painel aberto. O painel
+      deixa de ser centralizado na tela e passa a começar logo abaixo dela,
+      com respiro. --topo-painel calcula essa altura sozinho: 24px do padding
+      do painel + a altura real da logo (largura × 0,3989, a proporção do
+      arquivo 900×359) + 22px de folga. Como a largura da logo é responsiva,
+      a conta acompanha qualquer tamanho de tela.
+
+   2) ALTURA IGUAL em todos os painéis, curtos ou longos, pra que abrir um e
+      outro não faça a caixa saltar de tamanho. O teto de 620px evita que
+      vire uma faixa esticada em telas grandes.
+
+   3) ROLAGEM INTERNA. Era o problema real no celular: "Minha conta" é mais
+      alto que a tela e ficava cortado, sem nenhuma forma de alcançar os
+      campos de baixo nem os botões. */
+.painel-cliente .modal-fundo {
+  --topo-painel: calc(24px + min(332px, 86vw) * 0.3989 + 22px);
+  align-items: flex-start;
+  padding: var(--topo-painel) 16px 20px;
+  overflow-y: auto;
+}
+.painel-cliente .modal-card {
+  height: min(calc(100vh - var(--topo-painel) - 20px), 620px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+/* A rolagem do painel escuro com a barra clara do sistema fica destoante. */
+.painel-cliente .modal-card { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.45) transparent; }
+.painel-cliente .modal-card::-webkit-scrollbar { width: 8px; }
+.painel-cliente .modal-card::-webkit-scrollbar-thumb {
+  background: rgba(212,175,55,0.4); border-radius: 999px;
+}
+.painel-cliente .modal-card::-webkit-scrollbar-track { background: transparent; }
+
 .painel-cliente .modal-card {
   background-color: #0D1B2A;
   background-image:
@@ -1510,6 +1559,33 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .painel-cliente .modal-card .embarcacao-item .embarcacao-tipo,
 .painel-cliente .modal-card .embarcacao-vazia { color: rgba(245,245,240,0.55); }
+
+/* Caixa de marcar ("Completar tanque"). A caixa nativa é desenhada pelo
+   sistema — branca e quadrada — e destoava do painel escuro, onde tudo tem
+   contorno dourado fino. Aqui ela é redesenhada com o mesmo contorno dos
+   campos de texto ao lado, e o dourado só entra quando está marcada. */
+.painel-cliente .modal-card .opcao-checkbox {
+  color: rgba(245,245,240,0.85);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+}
+.painel-cliente .modal-card .opcao-checkbox input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 17px; height: 17px; flex-shrink: 0;
+  background: rgba(245,245,240,0.05);
+  border: 1px solid rgba(212,175,55,0.45);
+  border-radius: 5px;
+  display: grid; place-content: center;
+  cursor: pointer;
+}
+.painel-cliente .modal-card .opcao-checkbox input[type="checkbox"]::before {
+  content: ''; width: 9px; height: 9px; border-radius: 2px;
+  transform: scale(0); transition: transform 120ms ease-in-out;
+  background: #D4AF37;
+}
+.painel-cliente .modal-card .opcao-checkbox input[type="checkbox"]:checked { border-color: #D4AF37; }
+.painel-cliente .modal-card .opcao-checkbox input[type="checkbox"]:checked::before { transform: scale(1); }
+.painel-cliente .modal-card .opcao-checkbox input[type="checkbox"]:focus-visible { outline: 2px solid #D4AF37; outline-offset: 2px; }
 
 /* Divisórias e rótulos de seção. */
 .painel-cliente .modal-card .minha-conta-secao { border-top-color: rgba(212,175,55,0.22); }

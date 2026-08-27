@@ -1,62 +1,107 @@
-// Status do fluxo simplificado de solicitações de combustível — fonte
-// única dos rótulos usada pela aba "Abastecimento" (TelaAbastecimento.jsx,
-// único lugar com o <select> editável de status), pela seção "Combustível"
-// do Painel de Controle (TelaVagas.jsx, só consulta — sem controle nenhum
-// de alteração ali) e pelo Diário de Bordo do cliente
-// (TelaClienteDashboard.jsx). Antes deste arquivo, cada tela tinha sua
-// própria cópia dessas informações — bastava mexer numa e esquecer a
-// outra pra elas mostrarem status diferentes pro mesmo pedido.
+// Fonte ÚNICA do fluxo de pedido de abastecimento — usada pelo painel do
+// cliente (TelaClienteDashboard.jsx), pela planilha de solicitações do
+// Painel de Controle (TelaVagas.jsx) e pela aba Abastecimento
+// (TelaAbastecimento.jsx, hoje fora do menu). Antes deste arquivo cada tela
+// tinha sua própria cópia dessas regras — bastava mexer numa e esquecer a
+// outra pra elas mostrarem coisas diferentes sobre o mesmo pedido.
 //
-// O operador só escolhe entre estas 4 opções, e só pela aba Abastecimento
-// (ver STATUS_ABASTECIMENTO_OPCOES/<select> em TelaAbastecimento.jsx):
-//   'aguardando_pagamento' — a marina confirmou o pedido, falta o cliente
-//                             pagar. Continua visível nas duas telas
-//                             administrativas e no Diário de Bordo.
-//   'pago'                 — pagamento efetuado: conclui a solicitação —
-//                             some das duas telas administrativas (ver
-//                             abastecimentoConcluido abaixo) e do Diário de
-//                             Bordo do cliente, mas continua contando
-//                             normalmente na Arrecadação detalhada
-//                             (TelaFinanceiro.jsx lê a tabela por fora
-//                             dessas telas, sem esse filtro).
-//   'cancelado'             — pedido cancelado (pela marina ou pelo
-//                             próprio cliente, direto no Diário de Bordo)
-//                             — some das duas telas administrativas (ver
-//                             abastecimentoConcluido abaixo) e do Diário de
-//                             Bordo ativo do cliente, mesmo tratamento
-//                             terminal de 'pago'/'entregue'.
-//   'indisponivel'          — a marina não tem esse combustível disponível
-//                             agora.
-// 'solicitado' é o valor inicial de todo pedido novo (ver
-// enviarAbastecimento em TelaClienteDashboard.jsx). Mostra o mesmo rótulo
-// "Aguardando pagamento" de 'aguardando_pagamento' (não mais um travessão
-// "—"): o cliente já pode Realizar Pagamento/informar Pagamento efetuado
-// desde a hora da solicitação, antes mesmo de a marina revisar (ver
-// pedidosAguardandoPagamento/pedidoParaPagar em TelaClienteDashboard.jsx e
-// a policy cliente_informa_pagamento_abastecimento no banco) — então, pro
-// cliente e pra quem olha as telas administrativas, os dois status contam
-// a mesma história: "aguardando o cliente pagar", até o administrador
-// mudar isso de vez escolhendo uma das 4 opções reais no seletor de ação
-// da aba Abastecimento (marcar Pagamento efetuado, Cancelar, Indisponível,
-// ou simplesmente confirmar Aguardando pagamento). 'confirmado'/'entregue'
-// são valores legados (pedidos de antes desse fluxo simplificado) — só têm
-// rótulo aqui pra não mostrar o código cru se algum pedido velho ainda
-// estiver com um desses ('entregue' também é tratado como concluído, ver
-// abastecimentoConcluido).
-export const STATUS_ABASTECIMENTO_OPCOES = [
-  { valor: 'indisponivel', label: 'Indisponível' },
-  { valor: 'aguardando_pagamento', label: 'Aguardando pagamento' },
-  { valor: 'pago', label: 'Pagamento efetuado' },
-  { valor: 'cancelado', label: 'Cancelar' },
-]
+// O fluxo tem três estados e nada de financeiro:
+//
+//   solicitado  o cliente pediu. Aparece na planilha do Painel de Controle
+//               com dois botões: "Confirmar abastecimento" e "Cancelar".
+//   confirmado  a equipe confirmou — OU o pedido completou 15 minutos sem
+//               ninguém cancelar, e vale como confirmado sozinho.
+//   cancelado   cancelado pela equipe ou pelo próprio cliente, dentro
+//               daqueles mesmos 15 minutos.
+//
+// Não existe preço, valor, cobrança, QR nem confirmação de pagamento: isso
+// tudo passou para o RV Finance, o SaaS paralelo.
 
+// Quanto tempo o pedido fica esperando uma decisão da equipe antes de valer
+// como confirmado sozinho.
+export const JANELA_CONFIRMACAO_MS = 15 * 60 * 1000
+
+// A confirmação automática é DERIVADA de created_at, não gravada por
+// ninguém. Essa escolha é o que faz a regra valer de verdade:
+//
+//   - não depende de alguém estar com o Painel de Controle aberto (o
+//     pedido feito às 3h da manhã se confirma igual);
+//   - não precisa de rotina agendada, fila nem serviço externo;
+//   - dá exatamente o mesmo resultado no painel da equipe, no painel do
+//     cliente e na policy do banco, porque os três calculam a mesma conta
+//     sobre o mesmo created_at.
+//
+// Quando alguém da equipe clica em "Confirmar abastecimento" antes dos 15
+// minutos, aí sim o status vira 'confirmado' no banco (e confirmado_em
+// guarda o momento). Um pedido confirmado com confirmado_em em NULL foi
+// confirmado pelo relógio, e o momento dele é sempre
+// created_at + JANELA_CONFIRMACAO_MS.
+//
+// `agoraMs` entra como parâmetro (em vez de Date.now() aqui dentro) porque
+// as telas já têm o próprio relógio que avança de segundo em segundo — e
+// porque assim a função é testável sem depender do horário real.
+export function statusEfetivoAbastecimento(pedido, agoraMs = Date.now()) {
+  if (!pedido) return null
+  if (pedido.status !== 'solicitado') return pedido.status
+  const criadoEm = momentoDoPedido(pedido)
+  // Sem saber quando o pedido nasceu, o seguro é continuar esperando uma
+  // decisão de gente — nunca confirmar sozinho. (Cuidado com o atalho
+  // `new Date(null)`: ele dá 1970, um número perfeitamente finito, e faria
+  // qualquer pedido sem created_at nascer "confirmado".)
+  if (criadoEm === null) return 'solicitado'
+  return agoraMs - criadoEm >= JANELA_CONFIRMACAO_MS ? 'confirmado' : 'solicitado'
+}
+
+// created_at em milissegundos, ou null se o campo estiver faltando/ilegível.
+function momentoDoPedido(pedido) {
+  if (!pedido?.created_at) return null
+  const ms = new Date(pedido.created_at).getTime()
+  return Number.isFinite(ms) ? ms : null
+}
+
+// Ainda dá pra confirmar ou cancelar? Só enquanto o pedido não tiver
+// virado confirmado — nem por decisão da equipe, nem pelo relógio. Vale
+// para os dois lados: os botões da planilha do Painel de Controle e o
+// "Cancelar" do Diário de Bordo do cliente saem juntos, no mesmo instante,
+// porque saem da mesma função. A policy
+// "cliente_cancela_proprio_pedido_abastecimento" no banco repete essa
+// condição em SQL (ver migration_abastecimento_sem_financeiro.sql), então
+// nem por fora da aplicação dá pra cancelar depois do prazo.
+export function aguardandoDecisao(pedido, agoraMs = Date.now()) {
+  return statusEfetivoAbastecimento(pedido, agoraMs) === 'solicitado'
+}
+
+// Quanto falta (em ms) para a confirmação automática — 0 quando já passou.
+// Usado só para mostrar o tempo restante ao lado dos botões, para a equipe
+// saber que aquela linha tem prazo.
+export function restanteParaConfirmar(pedido, agoraMs = Date.now()) {
+  if (!pedido || pedido.status !== 'solicitado') return 0
+  const criadoEm = momentoDoPedido(pedido)
+  if (criadoEm === null) return 0
+  return Math.max(0, criadoEm + JANELA_CONFIRMACAO_MS - agoraMs)
+}
+
+// "faltam 7 min" / "faltam 40 s" — abaixo de um minuto conta em segundos,
+// senão a contagem ficaria parada em "1 min" pelo minuto inteiro final.
+export function textoRestanteParaConfirmar(restanteMs) {
+  if (restanteMs <= 0) return ''
+  const segundos = Math.ceil(restanteMs / 1000)
+  if (segundos < 60) return `${segundos} s`
+  return `${Math.ceil(segundos / 60)} min`
+}
+
+// Rótulos. Os quatro primeiros são o fluxo de hoje; os demais são valores
+// LEGADOS, de pedidos feitos quando o abastecimento ainda tinha cobrança —
+// continuam no banco e precisam de rótulo aqui para não aparecer o código
+// cru numa linha antiga do Histórico de Solicitações.
 export const STATUS_ABASTECIMENTO_LABEL = {
-  solicitado: 'Aguardando pagamento',
+  solicitado: 'Aguardando confirmação',
   confirmado: 'Confirmado',
-  aguardando_pagamento: 'Aguardando pagamento',
-  pago: 'Pago',
-  entregue: 'Entregue',
   cancelado: 'Cancelado',
+  // Legados do fluxo com pagamento (nada é reescrito no banco):
+  aguardando_pagamento: 'Confirmado (fluxo antigo)',
+  pago: 'Concluído (fluxo antigo)',
+  entregue: 'Concluído (fluxo antigo)',
   indisponivel: 'Indisponível',
 }
 
@@ -64,81 +109,54 @@ export function labelStatusAbastecimento(status) {
   return STATUS_ABASTECIMENTO_LABEL[status] || status
 }
 
-// Classe CSS do badge de status (TelaAbastecimento.jsx/TelaVagas.jsx —
-// `badge status-${classeStatusAbastecimento(p.status)}`): 'solicitado'
-// pinta igual a 'aguardando_pagamento' (mesmo laranja de "aguardando o
-// cliente pagar", ver .status-aguardando_pagamento em index.css) — os dois
-// já mostram o mesmo rótulo "Aguardando pagamento" (ver
-// STATUS_ABASTECIMENTO_LABEL acima), então a cor do selo tem que
-// acompanhar, senão dois pedidos com o texto igual ficavam com cores
-// diferentes lado a lado na tabela.
-export function classeStatusAbastecimento(status) {
-  return status === 'solicitado' ? 'aguardando_pagamento' : status
-}
-
-// Pedido finalizado — não sobra nenhuma ação pendente pra marina, então
-// some das duas telas administrativas (pedidosVisiveis em
-// TelaAbastecimento.jsx e pedidosCombustivel em TelaVagas.jsx) e do Diário
-// de Bordo ativo do cliente (ver statusAbastecimentoDiario em
-// TelaClienteDashboard.jsx). Cobre tanto uma conclusão de verdade
-// ('pago'/'entregue' — continua contando normalmente na Arrecadação
-// detalhada) quanto um cancelamento ('cancelado', seja pelo administrador
-// na aba Abastecimento ou pelo próprio cliente no Diário de Bordo — ver
-// cancelarAbastecimentoCliente): as duas situações são terminais do mesmo
-// jeito. Nada é apagado do banco — o pedido continua aparecendo
-// normalmente no Histórico de Solicitações do cliente, só sai dessas
-// listas ativas.
-export function abastecimentoConcluido(status) {
-  return status === 'pago' || status === 'entregue' || status === 'cancelado'
-}
-
-// Enquanto o pedido estiver num destes status, o cliente ainda pode
-// cancelá-lo direto pelo Diário de Bordo (ver cancelarAbastecimentoCliente
-// em TelaClienteDashboard.jsx e a policy "cliente_cancela_proprio_pedido_
-// abastecimento" em supabase/sql/migration_cliente_cancela_pedido_abastecimento.sql).
-export const STATUS_ABASTECIMENTO_CANCELAVEIS = ['aguardando_pagamento', 'indisponivel']
-
-// "Completar tanque" — opção do pedido de abastecimento pra quando o
-// cliente não sabe quantos litros faltam (só se sabe depois de encher):
-// pede pra completar o tanque, sem quantidade/valor fechado no momento do
-// pedido (ver enviarAbastecimento em TelaClienteDashboard.jsx — vai com
-// quantidade_litros/valor_total = 0 e sem QR de pagamento, já que o valor
-// só é acertado presencialmente na marina). Usa o campo observacoes já
-// existente como marcador, sem precisar de coluna nova no banco.
+// Classe do selo de status (`badge status-${...}` na planilha do Painel de
+// Controle). Os nomes levam o prefixo "abast-" de propósito: '.status-solicitado'
+// e '.status-confirmado' já existem no index.css com OUTRO significado (a
+// Fila de Rampa, onde "Confirmado" quer dizer "recebido, ainda por fazer", e
+// por isso é laranja de espera). Aqui "Confirmado" é o oposto: está
+// resolvido. Reaproveitar a classe pintaria os dois com a mesma cor dizendo
+// coisas contrárias.
 //
-// Segue exatamente a mesma lógica de qualquer outro pedido — começa em
-// 'solicitado' (rótulo "Aguardando pagamento" aqui e no Diário de Bordo,
-// ver STATUS_ABASTECIMENTO_LABEL acima) e só muda quando o administrador
-// escolhe uma das 4 opções no seletor de ação da aba Abastecimento. A
-// diferença aparece só enquanto os litros ainda não foram registrados (ver
-// aguardandoLitrosCompletarTanque abaixo): a seção "Combustível" do Painel
-// de Controle mostra "completar" na quantidade e, uma vez o operador
-// escolher "Aguardando pagamento" sem litros ainda, "Tanque cheio" em verde
-// no lugar do rótulo padrão (ver TelaVagas.jsx); o Diário de Bordo do
-// cliente mostra "Procurar a marina para efetuar o pagamento" nesse mesmo
-// caso (ver statusAbastecimentoDiario em TelaClienteDashboard.jsx) — mas o
-// status gravado continua sendo o mesmo 'aguardando_pagamento' de sempre, e
-// some das telas do mesmo jeito assim que o operador marcar "Pagamento
-// efetuado" na aba Abastecimento (ver abastecimentoConcluido acima).
+// Os legados de conclusão entram no mesmo verde de confirmado — não vale uma
+// cor nova só por causa de linha antiga.
+export function classeStatusAbastecimento(status) {
+  if (status === 'solicitado') return 'abast-aguardando'
+  if (status === 'confirmado' || status === 'pago' || status === 'entregue' || status === 'aguardando_pagamento') return 'abast-confirmado'
+  return status
+}
+
+// Pedido que não pede mais nada de ninguém — sai das listas ativas (a
+// planilha do Painel de Controle e o Diário de Bordo do cliente), mas
+// continua inteiro no banco e no Histórico de Solicitações.
+//
+// 'confirmado' NÃO entra aqui: um pedido confirmado é justamente o que a
+// equipe precisa ver para ir abastecer. Ele sai da planilha pelo tempo
+// (ver JANELA_PLANILHA_MS abaixo), não pelo status.
+export function abastecimentoConcluido(status) {
+  return status === 'cancelado' || status === 'pago' || status === 'entregue'
+}
+
+// Por quanto tempo um pedido já confirmado continua na planilha do Painel
+// de Controle. Como não existe "entregue" neste fluxo, é o relógio que
+// limpa a lista — senão ela cresceria para sempre. Um dia cobre com folga
+// a rotina da marina, e nada some do banco: o pedido segue no Histórico de
+// Solicitações do cliente e na exportação.
+export const JANELA_PLANILHA_MS = 24 * 60 * 60 * 1000
+
+// "Completar tanque" — para quando o cliente não sabe quantos litros faltam
+// (só se sabe depois de encher). Vai sem quantidade fechada; usa o campo
+// observacoes já existente como marcador, sem coluna nova no banco. A
+// coluna quantidade_litros continua NOT NULL, então grava 0 — o mesmo
+// placeholder que os pedidos antigos já usam, o que mantém a convenção
+// legível para os 53 registros que já estavam lá.
 export const OBSERVACAO_COMPLETAR_TANQUE = 'Completar tanque'
+
 export function ehCompletarTanque(pedido) {
   return pedido?.observacoes === OBSERVACAO_COMPLETAR_TANQUE
 }
 
-// Uma vez que a marina sabe quantos litros entraram de verdade — registrado
-// pela aba Abastecimento assim que o tanque é enchido (ver
-// completarTanqueComLitros em lib/db.js e o formulário "Registrar litros"
-// em TelaAbastecimento.jsx) — o pedido "Completar tanque" passa a se
-// comportar EXATAMENTE como um pedido normal em todo lugar que mostra
-// quantidade/valor/QR e a caixa Realizar Pagamento/Informe de Pagamento
-// (mesma integração completa de cliente/embarcação/combustível/litros/
-// valor/pagamento do fluxo geral, ver TelaClienteDashboard.jsx). Continua
-// tratado como "Completar tanque" ("completar" na quantidade, "Tanque
-// cheio"/aviso "ir pagar presencialmente" — o rótulo de status em si já é
-// "Aguardando pagamento" desde 'solicitado', ver STATUS_ABASTECIMENTO_LABEL
-// acima) só enquanto os litros ainda não foram informados — ou seja,
-// enquanto quantidade_litros continuar no
-// placeholder 0 de sempre (ver enviarAbastecimento).
-export function aguardandoLitrosCompletarTanque(pedido) {
-  return ehCompletarTanque(pedido) && Number(pedido?.quantidade_litros) === 0
+// Quantidade para mostrar na planilha e no Diário de Bordo.
+export function textoQuantidade(pedido) {
+  if (ehCompletarTanque(pedido)) return 'Completar tanque'
+  return `${Number(pedido?.quantidade_litros || 0).toFixed(0)} L`
 }

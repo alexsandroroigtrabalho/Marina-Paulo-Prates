@@ -15,7 +15,7 @@ const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Op
 // cargo normalmente. Financeiro e Manutenção seguem na lista depois de
 // migrarem pro RV Finance e pro RV Manut: a regra é da TELA, não da
 // aplicação onde ela mora.
-const TELAS_SEM_CARGO = ['financeiro', 'manutencao', 'abastecimento', 'clientes']
+const TELAS_SEM_CARGO = ['financeiro', 'manutencao', 'clientes']
 
 // Botão de engrenagem no cabeçalho, do lado do nome do usuário — abre direto
 // a tela única "Configurações do sistema" (Painel de Controle). Só aparece
