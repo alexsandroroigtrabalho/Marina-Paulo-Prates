@@ -86,10 +86,9 @@ export default function Home({ onCadastro }) {
             </>
           ) : (
             <>
-              <label className="login-rotulo" htmlFor="email-recuperar">E-mail</label>
               <div className="login-campo">
                 <IconMail size={18} />
-                <input id="email-recuperar" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input id="email-recuperar" type="email" placeholder="E-mail" aria-label="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               {erro && <div className="erro">{erro}</div>}
               <button type="submit" className="login-botao-entrar" disabled={carregando}>
@@ -101,19 +100,20 @@ export default function Home({ onCadastro }) {
         </form>
       ) : (
         <form className="card-login login-sem-painel login-card-centralizado" onSubmit={entrar}>
-          <label className="login-rotulo" htmlFor="email-login">E-mail</label>
+          {/* Os rótulos "E-MAIL" e "SENHA" saíram de cima dos campos e viraram
+              o próprio placeholder de cada um — menos linhas de texto na
+              tela, mesmo entendimento. `aria-label` mantém o campo nomeado
+              pra leitor de tela, que não lê placeholder de forma confiável.
+              "Esqueci minha senha" desceu pra baixo do campo de senha (antes
+              dividia a linha com o rótulo, que não existe mais). */}
           <div className="login-campo">
             <IconMail size={18} />
-            <input id="email-login" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input id="email-login" type="email" placeholder="E-mail" aria-label="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
 
-          <div className="login-linha-rotulo">
-            <label className="login-rotulo" htmlFor="senha-login">Senha</label>
-            <button type="button" className="login-esqueci" onClick={() => { setErro(null); setModo('recuperar') }}>Esqueci minha senha</button>
-          </div>
           <div className="login-campo login-campo-senha">
             <IconLock size={18} />
-            <input id="senha-login" type={mostrarSenha ? 'text' : 'password'} placeholder="Digite sua senha" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+            <input id="senha-login" type={mostrarSenha ? 'text' : 'password'} placeholder="Senha" aria-label="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} required />
             <button
               type="button"
               className="login-botao-olho"
@@ -124,14 +124,22 @@ export default function Home({ onCadastro }) {
             </button>
           </div>
 
+          <div className="login-linha-esqueci">
+            <button type="button" className="login-esqueci" onClick={() => { setErro(null); setModo('recuperar') }}>Esqueci minha senha</button>
+          </div>
+
           {erro && <div className="erro">{erro}</div>}
 
           <button type="submit" className="login-botao-entrar" disabled={carregando}>
             <IconLogin2 size={18} /> {carregando ? 'Entrando...' : 'Entrar'}
           </button>
 
-          <div className="login-divisor">Novo por aqui?</div>
-          <button type="button" className="btn-outline login-botao-cadastro" onClick={onCadastro}>Realizar cadastro</button>
+          {/* "Realizar cadastro" é a própria linha divisória (antes dizia
+              "Novo por aqui?" e havia um botão contornado logo abaixo, com
+              esse mesmo texto). Vira um só elemento clicável: a ação de
+              cadastro continua idêntica, só deixa de competir visualmente
+              com o "Entrar" — que agora é a única ação em destaque da tela. */}
+          <button type="button" className="login-divisor" onClick={onCadastro}>Realizar cadastro</button>
         </form>
       )}
 

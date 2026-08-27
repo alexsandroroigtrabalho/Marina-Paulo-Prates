@@ -56,13 +56,12 @@ export default function RedefinirSenha({ onConcluido }) {
           <>
             <p className="login-subtitulo">Escolha uma nova senha para sua conta.</p>
 
-            <label className="login-rotulo" htmlFor="nova-senha">Nova senha</label>
             <div className="login-campo login-campo-senha">
               <IconLock size={18} />
               <input
                 id="nova-senha"
                 type={mostrarSenha ? 'text' : 'password'}
-                placeholder="Digite a nova senha"
+                placeholder="Nova senha" aria-label="Nova senha"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 minLength={6}
@@ -78,13 +77,12 @@ export default function RedefinirSenha({ onConcluido }) {
               </button>
             </div>
 
-            <label className="login-rotulo" htmlFor="confirmar-senha">Confirmar senha</label>
             <div className="login-campo">
               <IconLock size={18} />
               <input
                 id="confirmar-senha"
                 type={mostrarSenha ? 'text' : 'password'}
-                placeholder="Repita a nova senha"
+                placeholder="Confirmar senha" aria-label="Confirmar senha"
                 value={confirmar}
                 onChange={(e) => setConfirmar(e.target.value)}
                 minLength={6}

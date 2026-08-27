@@ -10,7 +10,7 @@ import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, atualizarStatusAbastecimento, informarPagamentoAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
-  salvarCliente, listarHorariosOcupados,
+  salvarCliente, listarHorariosOcupados, salvarEmbarcacao,
 } from '../lib/db'
 import { destravarAudioNaProximaInteracao, tocarApitoRespostaDiario } from '../lib/sons'
 import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
@@ -27,6 +27,11 @@ import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 // concluída), não só por 5 dias depois de sair do Diário de Bordo ativo —
 // ver diarioAtivo/historicoSolicitacoes mais abaixo.
 const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
+// Quanto tempo uma solicitação JÁ CONCLUÍDA ainda fica à vista no Diário de
+// Bordo antes de passar a viver só no Histórico de Solicitações. Antes ela
+// saía no instante em que era concluída, o que fazia o registro sumir da
+// tela do cliente antes mesmo de ele perceber que tinha terminado.
+const DIARIO_JANELA_MS = 24 * 60 * 60 * 1000
 
 // "Silenciar notificações" (engrenagem → Diário de Bordo): preferência só
 // deste navegador/aparelho, não do cadastro do cliente — por isso fica em
@@ -52,25 +57,44 @@ function lerMudoDiario() {
 const QR_PAGAMENTO_DEMO = '00020126DEMO-PIX-MARINA5204000053039865802BR5913MARINA-MANAGER6009DEMO-QR'
 
 // Mensagens de status da Agenda (retirada/retorno), derivadas de
-// pagamento_confirmado + acesso_suspenso + acesso_liberado_manual — os
-// mesmos 3 campos que a policy "cliente_cria_agendamento" do banco usa pra
-// travar/liberar de verdade, então a mensagem na tela nunca destoa do que o
-// banco permite. acesso_liberado_manual é a liberação manual da
-// administração (Painel de Controle → Clientes → "Liberar acesso sem
-// confirmação de pagamento") — libera a Agenda sem mexer no status
-// financeiro, então o pagamento continua "pendente" mesmo com liberado=true.
+// Dentro do RV Marine o cliente tem liberdade de acesso: a Agenda NÃO
+// depende mais de confirmação de pagamento. O controle financeiro e de
+// liberação saiu daqui e passa a ser feito no RV Finance, o SaaS paralelo;
+// quem entra na plataforma é controlado pela forma de cadastro (sublink
+// próprio da marina), não por um bloqueio dentro do aplicativo.
+//
+// Sobrou uma única condição, e ela não é financeira: `acesso_suspenso`, a
+// suspensão administrativa que a marina aplica a um cliente específico.
+// Espelha exatamente o que a policy "cliente_cria_agendamento" do banco
+// ainda exige (ver migration_rv_marine_sem_bloqueio_pagamento.sql), então a
+// mensagem na tela nunca destoa do que o banco permite.
+//
+// pagamento_confirmado / acesso_liberado_manual continuam existindo na
+// tabela — os dados históricos são preservados para a migração do módulo
+// financeiro —, só deixaram de valer como condição de acesso.
 function statusAgendaCliente(cliente) {
   if (!cliente) return null
   if (cliente.acesso_suspenso) {
     return { texto: 'Acesso suspenso pela administração da marina.', classe: 'cancelado', liberado: false }
   }
-  if (cliente.pagamento_confirmado) {
-    return { texto: 'Pagamento confirmado. Agenda liberada.', classe: 'em-dia', liberado: true }
-  }
-  if (cliente.acesso_liberado_manual) {
-    return { texto: 'Acesso liberado manualmente pela administração da marina.', classe: 'em-dia', liberado: true }
-  }
-  return { texto: 'Aguardando pagamento. A Agenda é liberada automaticamente assim que a marina confirma.', classe: 'pendente', liberado: false }
+  return { texto: null, classe: 'em-dia', liberado: true }
+}
+
+// Cadastro específico do RV MARINE — o que o cadastro inicial (conta da
+// plataforma: nome, CPF, e-mail, senha) não cobre e sem o qual a descida/
+// subida não funciona de verdade:
+//   - telefone: é por onde a marina fala com o cliente durante a manobra
+//   - ao menos uma embarcação: não existe agendamento sem barco pra descer
+// RG, endereço e complemento continuam disponíveis em "Minha conta", porém
+// como dados opcionais — não travam a operação, então não entram aqui.
+const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
+const EMBARCACAO_NOVA = { tipo: 'Barco', nome: '', registro: '' }
+
+function faltandoParaRvMarine(cliente, embarcacoes) {
+  const faltando = []
+  if (!cliente?.telefone?.trim()) faltando.push('telefone')
+  if (!embarcacoes || embarcacoes.length === 0) faltando.push('embarcação')
+  return faltando
 }
 
 const PARENTESCOS = ['filho(a)', 'conjuge', 'socio', 'funcionario', 'outro']
@@ -337,12 +361,12 @@ function SeletorAcaoPagamento({ pedido, onRealizarPagamento, onInformarPagamento
 }
 
 // Menu de engrenagem no cabeçalho do cliente, do lado do "Sair" — reúne as
-// configurações da conta ("Pessoas autorizadas", "Meus dados" e "Histórico
+// configurações da conta ("Pessoas autorizadas", "Minha conta" e "Histórico
 // de solicitações"). Mesmo padrão visual do menu de ações do Painel de
 // Controle da equipe (classes .menu-acoes* já existentes). "Minhas
-// cobranças" saiu daqui (removida a pedido) — "Meus dados" entrou no
+// cobranças" saiu daqui (removida a pedido) — "Minha conta" entrou no
 // lugar, editável, sempre sincronizado com o banco (tabela clientes).
-function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDados, onAbrirHistorico, notificacoesSilenciadas, onAlternarNotificacoes }) {
+function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMinhaConta, onAbrirHistorico, notificacoesSilenciadas, onAlternarNotificacoes, cadastroPendente }) {
   const [aberto, setAberto] = useState(false)
   const ref = useRef(null)
 
@@ -362,7 +386,17 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDa
 
   return (
     <div className="menu-acoes" ref={ref}>
-      <button type="button" className="menu-acoes-botao" onClick={() => setAberto(!aberto)} title="Configurações">
+      {/* Com cadastro incompleto pro RV Marine, a engrenagem ganha um halo
+          dourado em pulsação discreta (.menu-acoes-botao-pendente) — é o
+          caminho pra "Minha conta", onde os dados que faltam são
+          preenchidos. O halo some sozinho assim que o cadastro fica
+          completo, porque `cadastroPendente` deixa de ser true. */}
+      <button
+        type="button"
+        className={`menu-acoes-botao ${cadastroPendente ? 'menu-acoes-botao-pendente' : ''}`}
+        onClick={() => setAberto(!aberto)}
+        title={cadastroPendente ? 'Configurações — há dados a completar' : 'Configurações'}
+      >
         <IconSettings size={18} />
       </button>
       {aberto && (
@@ -370,8 +404,9 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMeusDa
           <button type="button" onClick={() => executar(onAbrirAutorizados)}>
             <IconUsers size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Pessoas autorizadas ({autorizadosCount})
           </button>
-          <button type="button" onClick={() => executar(onAbrirMeusDados)}>
-            <IconId size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Meus dados
+          <button type="button" onClick={() => executar(onAbrirMinhaConta)}>
+            <IconId size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Minha conta
+            {cadastroPendente && <span className="ponto-pendencia" aria-hidden="true" />}
           </button>
           <button type="button" onClick={() => executar(onAbrirHistorico)}>
             <IconHistory size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Histórico de solicitações
@@ -404,6 +439,15 @@ export default function TelaClienteDashboard({ perfil }) {
   const [modalDadosAberto, setModalDadosAberto] = useState(false)
   const [formDados, setFormDados] = useState(null)
   const [salvandoDados, setSalvandoDados] = useState(false)
+  // Cadastro de embarcação dentro de "Minha conta" (ver bloco Embarcações no
+  // modal). Salva sozinho, sem depender do "Salvar" dos dados pessoais —
+  // são tabelas diferentes (marina.embarcacoes x marina.clientes).
+  // Troca de senha dentro de "Minha conta" — opcional: em branco, o salvar
+  // não mexe na senha. Não fica no formDados porque senha não é coluna de
+  // marina.clientes; vai pro Supabase Auth (supabase.auth.updateUser).
+  const [novaSenha, setNovaSenha] = useState({ senha: '', confirmar: '' })
+  const [novaEmbarcacao, setNovaEmbarcacao] = useState({ ...EMBARCACAO_NOVA })
+  const [salvandoEmbarcacao, setSalvandoEmbarcacao] = useState(false)
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
@@ -463,6 +507,9 @@ export default function TelaClienteDashboard({ perfil }) {
   const [pedidoParaEscolherAcao, setPedidoParaEscolherAcao] = useState(null)
   const [modalPagamentosAberto, setModalPagamentosAberto] = useState(false)
   const [enviandoResgate, setEnviandoResgate] = useState(false)
+  // Aviso temporário do rodapé (ver mostrarAviso abaixo).
+  const [aviso, setAviso] = useState(null)
+  const avisoRef = useRef(null)
 
   const [erroCarregamento, setErroCarregamento] = useState(null)
   // "Silenciar notificações" — ver CHAVE_MUDO_DIARIO acima.
@@ -610,14 +657,19 @@ export default function TelaClienteDashboard({ perfil }) {
 
   function abrirModal(tipo) {
     // Guarda de segurança: os botões já ficam desabilitados quando o acesso
-    // não está liberado, mas a checagem que realmente vale é a policy do
-    // banco (agendamentos só aceita INSERT com pagamento confirmado e sem
-    // suspensão) — isto aqui só evita abrir o formulário à toa.
+    // está suspenso, mas a checagem que realmente vale é a policy do banco
+    // (agendamentos recusa INSERT de cliente suspenso) — isto aqui só evita
+    // abrir o formulário à toa.
     const statusAgenda = statusAgendaCliente(cliente)
     if (!statusAgenda?.liberado) {
-      alert(statusAgenda?.texto || 'Aguardando pagamento. Fale com a administração da marina.')
+      alert(statusAgenda?.texto || 'Acesso suspenso. Fale com a administração da marina.')
       return
     }
+    // Primeira descida/subida com o cadastro do RV Marine incompleto: avisa
+    // e não abre o formulário. O aviso é curto e some sozinho; quem indica
+    // ONDE resolver é o halo dourado na engrenagem, que leva a "Minha
+    // conta". Assim que os dados entram, os dois somem juntos.
+    if (!cadastroRvMarineOk()) return
     // Mesma ideia pra Agenda da rampa: o botão já fica desabilitado
     // enquanto ainda não carregou a configuração real da marina, mas essa
     // checagem aqui garante que o formulário nunca abre com o horário
@@ -773,7 +825,7 @@ export default function TelaClienteDashboard({ perfil }) {
     setModalAutorizadosAberto(true)
   }
 
-  // "Meus dados" agora é editável (era só leitura) — o cliente pode
+  // "Minha conta" agora é editável (era só leitura) — o cliente pode
   // corrigir o próprio cadastro. Pré-preenche o form com o que já está no
   // banco (cliente, sempre atualizado via carregar()); campos
   // administrativos/financeiros (pagamento, acesso, marina_id etc.) não
@@ -791,17 +843,83 @@ export default function TelaClienteDashboard({ perfil }) {
       numero_casa: cliente.numero_casa || '',
       complemento: cliente.complemento || '',
     })
+    setNovaSenha({ senha: '', confirmar: '' })
     setModalDadosAberto(true)
   }
 
+  // Porta única da checagem de cadastro do RV Marine. Vale pra descida e
+  // subida (abrirModal) e pros serviços — Abastecimento, Manutenção e
+  // Regularização entram todos por abrirModalServicos, então uma checagem
+  // ali cobre os três. Todos precisam de embarcação pra existir, e de um
+  // telefone pra marina responder. Devolve true quando pode seguir.
+  function cadastroRvMarineOk() {
+    const faltando = faltandoParaRvMarine(cliente, embarcacoes)
+    if (faltando.length === 0) return true
+    mostrarAviso(`Para utilizar este serviço, complete os dados da sua conta: ${faltando.join(' e ')}.`)
+    return false
+  }
+
+  async function adicionarEmbarcacao() {
+    if (!cliente || !novaEmbarcacao.nome.trim()) return
+    setSalvandoEmbarcacao(true)
+    try {
+      await salvarEmbarcacao({
+        marina_id: cliente.marina_id,
+        cliente_id: cliente.id,
+        nome: novaEmbarcacao.nome.trim(),
+        tipo: novaEmbarcacao.tipo,
+        registro: novaEmbarcacao.registro.trim() || null,
+      })
+      setNovaEmbarcacao({ ...EMBARCACAO_NOVA })
+      await carregar()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSalvandoEmbarcacao(false)
+    }
+  }
+
+  // "Minha conta" salva em DOIS lugares, porque os dados moram em dois
+  // lugares: os cadastrais em marina.clientes (salvarCliente) e os de acesso
+  // — e-mail de login e senha — no Supabase Auth. Editar só a coluna
+  // `clientes.email` mudava o e-mail exibido sem mudar o e-mail com que a
+  // pessoa entra no sistema; agora os dois andam juntos.
+  //
+  // Trocar o e-mail de login não vale na hora: o Supabase manda um link de
+  // confirmação pro endereço novo e só efetiva depois do clique. Por isso o
+  // aviso ao final — sem ele o cliente sairia achando que o login já mudou.
   async function enviarMeusDados(e) {
     e.preventDefault()
     if (!cliente) return
+
+    if (novaSenha.senha || novaSenha.confirmar) {
+      if (novaSenha.senha !== novaSenha.confirmar) { alert('As senhas não coincidem.'); return }
+      if (novaSenha.senha.length < 6) { alert('A senha precisa ter pelo menos 6 caracteres.'); return }
+    }
+
+    const emailAtual = (cliente.email || '').trim().toLowerCase()
+    const emailNovo = (formDados.email || '').trim().toLowerCase()
+    const trocouEmail = emailNovo && emailNovo !== emailAtual
+
     setSalvandoDados(true)
     try {
       await salvarCliente({ id: cliente.id, ...formDados })
+
+      if (novaSenha.senha) {
+        const { error } = await supabase.auth.updateUser({ password: novaSenha.senha })
+        if (error) throw error
+      }
+      if (trocouEmail) {
+        const { error } = await supabase.auth.updateUser({ email: emailNovo })
+        if (error) throw error
+      }
+
+      setNovaSenha({ senha: '', confirmar: '' })
       setModalDadosAberto(false)
       await carregar()
+
+      if (trocouEmail) mostrarAviso('Confirme o link enviado ao novo e-mail para passar a entrar com ele.')
+      else if (novaSenha.senha) mostrarAviso('Senha atualizada.')
     } catch (err) {
       alert(err.message)
     } finally {
@@ -844,6 +962,7 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   function abrirModalServicos() {
+    if (!cadastroRvMarineOk()) return
     setModoServicos(null)
     setCategoriaAtiva(null)
     setServicoAtivo(null)
@@ -921,8 +1040,26 @@ export default function TelaClienteDashboard({ perfil }) {
   // É essa linha que o botão S.O.S. atualiza com resgate_status = 'solicitado'.
   const agendamentoNavegando = Object.values(ultimaMovimentacaoPorEmbarcacao(agendamentos)).find((a) => a.tipo === 'retirada') || null
 
+  // Aviso curto e temporário no rodapé da tela (some sozinho). Criado pro
+  // S.O.S. acionado sem nenhuma embarcação no mar: em vez de um botão
+  // desativado com um texto explicativo permanente ocupando o painel, o
+  // botão fica sempre clicável e a explicação aparece só no momento em que
+  // faz falta. `avisoRef` guarda o timer pra um segundo clique reiniciar a
+  // contagem em vez de acumular timers.
+  function mostrarAviso(texto) {
+    if (avisoRef.current) clearTimeout(avisoRef.current)
+    setAviso(texto)
+    avisoRef.current = setTimeout(() => setAviso(null), 4000)
+  }
+
+  useEffect(() => () => { if (avisoRef.current) clearTimeout(avisoRef.current) }, [])
+
   async function solicitarResgate() {
-    if (!agendamentoNavegando || enviandoResgate) return
+    if (enviandoResgate) return
+    if (!agendamentoNavegando) {
+      mostrarAviso('Nenhuma embarcação no mar. O S.O.S. fica disponível após a descida.')
+      return
+    }
     if (!confirm('Confirma que deseja solicitar resgate para sua embarcação? A equipe da marina será avisada imediatamente no Painel de Controle.')) return
     setEnviandoResgate(true)
     try {
@@ -1113,10 +1250,29 @@ export default function TelaClienteDashboard({ perfil }) {
   // em tempo real (Realtime já assina marina.marinas mais abaixo), sem
   // precisar de F5.
   const limpoEm = marina?.config_json?.diarioBordoLimpoEm ? new Date(marina.config_json.diarioBordoLimpoEm) : null
-  const diarioAtivo = diarioDeBordo.filter((item) =>
-    item.statusClasse !== 'em-dia' && (!limpoEm || new Date(item.quando) > limpoEm)
-  )
   const agora = Date.now()
+  // Regra do Diário de Bordo: Registro → Diário de Bordo → após 1 dia →
+  // Histórico.
+  //
+  // Uma solicitação concluída não sai mais na hora: ela ainda fica 1 dia no
+  // Diário (DIARIO_JANELA_MS, contado a partir do registro — `item.quando`,
+  // que vem sempre de uma data real do banco: data_hora, created_at,
+  // data_abertura ou data_solicitacao, conforme o tipo). Passado o prazo,
+  // deixa de aparecer aqui e segue no Histórico de Solicitações.
+  //
+  // Uma solicitação AINDA EM ABERTO continua no Diário sem prazo, como
+  // sempre foi — some daqui só depois de concluída e cumprido o dia. Sem
+  // isso, um pedido pendente há mais de um dia (uma descida não atendida,
+  // um S.O.S. em andamento) desapareceria da tela do cliente justamente
+  // enquanto ainda precisa de atenção.
+  //
+  // Nada é apagado nem copiado: é o mesmo registro, deixando de ser listado
+  // aqui e seguindo visível no Histórico.
+  const diarioAtivo = diarioDeBordo.filter((item) => {
+    if (limpoEm && new Date(item.quando) <= limpoEm) return false
+    if (item.statusClasse !== 'em-dia') return true
+    return agora - new Date(item.quando).getTime() <= DIARIO_JANELA_MS
+  })
   // Histórico de Solicitações: registro de TODA solicitação já feita pelo
   // cliente — descida/subida, combustível, S.O.S., manutenção, regularização,
   // laudos, cancelamentos e afins — não só as concluídas com sucesso, ao
@@ -1234,28 +1390,30 @@ export default function TelaClienteDashboard({ perfil }) {
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
+    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
       <img
         src="/rv-invictus-logo.png"
         alt="RV Invictus · Consultoria e Gestão de Processos"
         className="pagina-cliente-logo"
       />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cor-primaria)' }}>
-          <IconVeleiro size={22} /> <strong style={{ fontSize: 17 }}>Marina Paulo Prates</strong>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <strong className="painel-cliente-marina">Marina Paulo Prates</strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} onClick={() => supabase.auth.signOut()}>
-            <IconLogout size={16} /> Sair
+          <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair"
+            onClick={() => supabase.auth.signOut()}>
+            <IconLogout size={16} />
           </button>
           {cliente && (
             <MenuConfigCliente
               autorizadosCount={autorizados.filter((a) => a.ativo).length}
               onAbrirAutorizados={abrirModalAutorizados}
-              onAbrirMeusDados={abrirModalDados}
+              onAbrirMinhaConta={abrirModalDados}
               onAbrirHistorico={() => setModalHistoricoAberto(true)}
               notificacoesSilenciadas={notificacoesSilenciadas}
               onAlternarNotificacoes={alternarNotificacoes}
+              cadastroPendente={faltandoParaRvMarine(cliente, embarcacoes).length > 0}
             />
           )}
         </div>
@@ -1271,11 +1429,16 @@ export default function TelaClienteDashboard({ perfil }) {
 
       {cliente && (
         <>
+          {/* A faixa de status só aparece quando há algo que IMPEDE o cliente
+              de usar a Agenda — hoje isso significa apenas suspensão
+              administrativa. Em situação normal ela não existe: o painel do
+              cliente não carrega aviso permanente de que está tudo certo. */}
           {(() => {
             const statusAgenda = statusAgendaCliente(cliente)
+            if (statusAgenda.liberado || !statusAgenda.texto) return null
             return (
               <p className={`status-texto ${statusAgenda.classe}`} style={{ textAlign: 'center', display: 'block', marginBottom: 12 }}>
-                {!statusAgenda.liberado && <IconLock size={13} style={{ verticalAlign: -2, marginRight: 4 }} />}
+                <IconLock size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
                 {statusAgenda.texto}
               </p>
             )
@@ -1300,12 +1463,12 @@ export default function TelaClienteDashboard({ perfil }) {
             <button
               type="button"
               className={`painel-cliente-btn painel-cliente-btn-sos ${agendamentoNavegando && STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status) ? 'enviado' : ''}`}
-              disabled={!agendamentoNavegando || enviandoResgate || (agendamentoNavegando && STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status))}
+              disabled={enviandoResgate || (agendamentoNavegando && STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status))}
               onClick={solicitarResgate}
             >
               <IconLifebuoy size={20} />
               {!agendamentoNavegando
-                ? 'S.O.S. · nenhuma embarcação no mar'
+                ? 'S.O.S.'
                 : enviandoResgate
                   ? 'Enviando...'
                   : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. · Solicitar resgate'}
@@ -1314,10 +1477,9 @@ export default function TelaClienteDashboard({ perfil }) {
             <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
               <IconClipboardList size={20} /> Serviços
             </button>
-            <p className="painel-cliente-nota">Abastecimento, Manutenção e Regularização</p>
           </div>
 
-          <h3 style={{ textAlign: 'center' }}>Diário de Bordo</h3>
+          <h3 className="diario-titulo">Diário de Bordo</h3>
           <div className="lista-cards diario-lista">
             {diarioAtivo.length === 0 && <p className="dica">Nenhum registro ainda.</p>}
             {diarioAtivo.map((item) => {
@@ -1789,7 +1951,7 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {/* "Meus dados": editável, a pedido explícito — o cliente corrige o
+      {/* "Minha conta": editável, a pedido explícito — o cliente corrige o
           próprio cadastro por aqui (mesmos campos de FichaCadastro.jsx). O
           salvamento passa por salvarCliente() (lib/db.js, faz um UPDATE
           parcial só com os campos deste form), e o banco tem uma policy de
@@ -1801,7 +1963,7 @@ export default function TelaClienteDashboard({ perfil }) {
       {modalDadosAberto && cliente && formDados && (
         <div className="modal-fundo" onClick={() => setModalDadosAberto(false)}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarMeusDados}>
-            <h3>Meus dados</h3>
+            <h3>Minha conta</h3>
             <p className="dica">Esses dados também aparecem para a administração da marina.</p>
             <input placeholder="Nome completo" required value={formDados.nome}
               onChange={(e) => setFormDados({ ...formDados, nome: e.target.value })} />
@@ -1809,7 +1971,7 @@ export default function TelaClienteDashboard({ perfil }) {
               onChange={(e) => setFormDados({ ...formDados, cpf_cnpj: e.target.value })} />
             <input placeholder="Documento de identidade (RG)" value={formDados.documento_identidade}
               onChange={(e) => setFormDados({ ...formDados, documento_identidade: e.target.value })} />
-            <input type="email" placeholder="E-mail" value={formDados.email}
+            <input type="email" placeholder="E-mail (login)" value={formDados.email}
               onChange={(e) => setFormDados({ ...formDados, email: e.target.value })} />
             <input placeholder="Telefone" value={formDados.telefone}
               onChange={(e) => setFormDados({ ...formDados, telefone: e.target.value })} />
@@ -1821,6 +1983,54 @@ export default function TelaClienteDashboard({ perfil }) {
               <input placeholder="Complemento" value={formDados.complemento}
                 onChange={(e) => setFormDados({ ...formDados, complemento: e.target.value })} />
             </div>
+
+            {/* Embarcações: saíram do cadastro inicial (que virou só a conta
+                da plataforma) e passaram a ser completadas aqui, já dentro do
+                RV Marine. Salvam separado dos dados pessoais acima, cada uma
+                na hora em que é adicionada — são tabelas diferentes. A marina
+                também pode cadastrar pelo Painel de Controle; os dois
+                caminhos convivem. */}
+            {/* Senha: em branco, o salvar não mexe nela. Fica junto do resto
+                porque "Minha conta" reúne TODOS os dados do cliente,
+                inclusive os que ele usou pra criar a conta. */}
+            <div className="minha-conta-secao">
+              <p className="minha-conta-secao-titulo">Trocar senha</p>
+              <input type="password" placeholder="Nova senha (deixe em branco para manter)"
+                autoComplete="new-password" value={novaSenha.senha}
+                onChange={(e) => setNovaSenha({ ...novaSenha, senha: e.target.value })} />
+              {novaSenha.senha && (
+                <input type="password" placeholder="Confirmar nova senha"
+                  autoComplete="new-password" value={novaSenha.confirmar}
+                  onChange={(e) => setNovaSenha({ ...novaSenha, confirmar: e.target.value })} />
+              )}
+            </div>
+
+            <div className="minha-conta-secao">
+              <p className="minha-conta-secao-titulo">Embarcações</p>
+              {embarcacoes.length === 0 && (
+                <p className="embarcacao-vazia">Nenhuma embarcação cadastrada.</p>
+              )}
+              {embarcacoes.map((emb) => (
+                <div key={emb.id} className="embarcacao-item">
+                  <b>{emb.nome}</b>
+                  <span className="embarcacao-tipo">{emb.tipo}{emb.registro ? ` · ${emb.registro}` : ''}</span>
+                </div>
+              ))}
+              <select value={novaEmbarcacao.tipo}
+                onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, tipo: e.target.value })}>
+                {TIPOS_EMBARCACAO.map((t) => <option key={t}>{t}</option>)}
+              </select>
+              <input placeholder="Nome da embarcação" value={novaEmbarcacao.nome}
+                onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, nome: e.target.value })} />
+              <input placeholder="Número de inscrição (opcional)" value={novaEmbarcacao.registro}
+                onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, registro: e.target.value })} />
+              <button type="button" className="voltar" style={{ alignSelf: 'flex-start' }}
+                disabled={salvandoEmbarcacao || !novaEmbarcacao.nome.trim()}
+                onClick={adicionarEmbarcacao}>
+                {salvandoEmbarcacao ? 'Adicionando...' : '+ Adicionar embarcação'}
+              </button>
+            </div>
+
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalDadosAberto(false)}>Cancelar</button>
               <button type="submit" disabled={salvandoDados}>{salvandoDados ? 'Salvando...' : 'Salvar'}</button>
@@ -1869,6 +2079,10 @@ export default function TelaClienteDashboard({ perfil }) {
           </div>
         </div>
       )}
+
+      {/* Aviso temporário — flutua sobre o painel e some sozinho (ver
+          mostrarAviso). Não empurra nada da tela, então não muda o layout. */}
+      {aviso && <div className="aviso-temporario" role="status">{aviso}</div>}
 
       <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
     </div>

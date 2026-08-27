@@ -723,7 +723,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const IconeClima = clima ? (ICONE_CLIMA[clima.icone] || IconCloud) : null
 
   return (
-    <div>
+    // .painel-controle: escopo da densidade desta tela (ver index.css).
+    // As folgas verticais foram reduzidas só aqui — .tabela, .conteudo e os
+    // <h2> são compartilhados com Clientes/Financeiro/Manutenção/
+    // Abastecimento, que continuam com o respiro de sempre.
+    <div className="painel-controle">
       {/* A logo RV Invictus própria desta tela saiu daqui — agora mora no
           cabeçalho institucional único do Layout.jsx (junto do nome da
           marina, Admin, engrenagem e Sair), pra não duplicar a marca em
@@ -748,7 +752,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         )}
       </div>
 
-      <h2 style={{ margin: '0 0 16px' }}>Fila de Rampa</h2>
+      <h2>Fila de Rampa</h2>
 
       <table className="tabela tabela-fila">
         <thead>
@@ -769,7 +773,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       </table>
 
       <h2>Navegando</h2>
-      <table className="tabela tabela-fila" style={{ marginBottom: 32 }}>
+      <table className="tabela tabela-fila">
         <thead>
           <tr>
             <th className="col-responsavel">Responsável</th>
@@ -796,7 +800,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           Diário de Bordo) aparece aqui imediatamente (ver canal Realtime
           acima). */}
       <h2>Combustível</h2>
-      <table className="tabela" style={{ marginBottom: 32 }}>
+      <table className="tabela">
         <thead>
           <tr>
             <th>Cliente</th>
@@ -861,10 +865,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         </div>
       )}
 
-      {/* Crédito discreto de marca, fechando o Painel de Controle — mesmo
-          gesto minimalista já usado no rodapé da sidebar e do login. */}
+      {/* Assinatura da aplicação, fechando o Painel de Controle: identifica
+          o RV Marine e credita a RV Invictus numa linha só. Mesmo gesto
+          tipográfico dos outros rodapés do sistema (Cinzel, caixa alta,
+          tracking), agora no dourado do rótulo TORRES/TS logo acima. */}
       <a className="painel-controle-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">
-        RVinvictus.com.br
+        RV Marine by RVinvictus.com.br
       </a>
 
       <ConfiguracoesPainel

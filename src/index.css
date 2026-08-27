@@ -169,7 +169,7 @@ body {
    celular o card ganha padding menor (28px/22px, ver @media abaixo), então
    a área útil aumenta — a logo acompanha (proporcionalmente maior que no
    desktop), sem nunca ultrapassá-la. */
-.login-rv-logo { width: min(250px, 72vw); height: auto; margin-top: 4px; }
+.login-rv-logo { width: min(320px, 84vw); height: auto; margin-top: 4px; }
 @media (min-width: 421px) {
   .login-rv-logo { width: min(248px, 58vw); }
 }
@@ -260,14 +260,16 @@ body {
 .tela-login-rv .btn-primario,
 .tela-login-rv .card-login button[type='submit'],
 .tela-login-rv .card-login button.btn-primario {
-  background: #D4AF37;
-  color: #0D1B2A;
+  background: #0B0B0D;
+  color: #D4AF37;
   border: 1px solid #D4AF37;
 }
 .tela-login-rv .btn-primario:hover,
 .tela-login-rv .card-login button[type='submit']:hover,
 .tela-login-rv .card-login button.btn-primario:hover {
-  background: #e2c260;
+  background: #151519;
+  border-color: #e2c260;
+  color: #e2c260;
 }
 .tela-login-rv .btn-outline,
 .tela-login-rv .card-login button.btn-outline {
@@ -287,7 +289,10 @@ body {
    centralizado ao final da página. Mesmo padrão de tamanho/breakpoint da
    logo do Painel de Controle (.topo-logo/.topo-logo abaixo, 260px desktop /
    190px mobile) — a pedido explícito, pra ficar igual nas duas telas. */
-.pagina-cliente-logo { display: block; width: 260px; height: auto; margin: 0 auto 18px; }
+/* Largura maior que a do conteúdo (avança sobre o padding de 24px do
+   painel), com margens negativas iguais dos dois lados pra continuar
+   centrada. */
+.pagina-cliente-logo { display: block; width: calc(100% + 36px); height: auto; margin: 0 -18px 14px; }
 .pagina-cliente-rodape {
   display: block;
   margin: 28px 0 4px;
@@ -457,6 +462,10 @@ body {
   margin: 6px 0 -4px;
 }
 .login-linha-rotulo { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+/* "Esqueci minha senha" agora fica abaixo do campo de senha, alinhado à
+   direita — antes dividia a linha com o rótulo "SENHA", que passou a ser o
+   placeholder do próprio campo (ver Home.jsx). */
+.login-linha-esqueci { display: flex; justify-content: flex-end; margin: -4px 0 2px; }
 /* Especificidade "button.login-esqueci" (não só ".login-esqueci") de
    propósito: precisa vencer a regra genérica ".card-login button" (que
    preenche de azul/999px todo botão dentro do card) sem usar !important. */
@@ -525,6 +534,29 @@ body {
   letter-spacing: 0.06em; text-transform: uppercase; color: rgba(245,245,240,0.55);
 }
 .login-divisor::before, .login-divisor::after { content: ''; flex: 1; height: 1px; background: rgba(212,175,55,0.3); }
+/* O divisor virou o próprio botão "Realizar cadastro" (ver Home.jsx). A
+   especificidade "button.login-divisor" é proposital: precisa vencer a
+   regra genérica ".card-login button", que preencheria de azul e
+   arredondaria qualquer botão dentro do cartão. */
+.card-login button.login-divisor {
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 8px 0;
+  cursor: pointer;
+  /* Repete a cor de .login-divisor de propósito: a regra genérica
+     ".card-login button" (que pinta de branco todo botão do cartão) tem
+     especificidade maior que ".login-divisor" sozinha, então sem esta linha
+     o texto sairia branco em vez do cinza do divisor original. */
+  color: rgba(245,245,240,0.55);
+}
+/* Hover só clareia o MESMO cinza (não troca de cor) — é a pista de que dá
+   pra clicar, sem virar um segundo elemento dourado competindo com o
+   "Entrar". */
+.card-login button.login-divisor:hover { color: rgba(245,245,240,0.85); }
+.card-login button.login-divisor:hover::before,
+.card-login button.login-divisor:hover::after { background: rgba(212,175,55,0.45); }
 
 /* Erro e "voltar" só dentro do login sem painel (fundo escuro) — a Ficha de
    Cadastro usa as mesmas classes ".erro"/".voltar" em cima do cartão
@@ -547,9 +579,6 @@ body {
 .cadastro-linha-endereco input { min-width: 0; }
 @media (max-width: 360px) {
   .cadastro-linha-endereco { flex-direction: column; }
-}
-@media (max-width: 480px) {
-  .cadastro-embarcacao-titulo { text-align: center; }
 }
 
 /* ---------- Shell interno (área administrativa) ---------- */
@@ -812,7 +841,6 @@ body {
   .topo-logo-area { justify-self: center; margin-top: 2px; }
   .topo-logo { width: 190px; }
   .topo-titulo-area h1 { font-size: 19px; }
-  .pagina-cliente-logo { width: 190px; }
 }
 /* Título de página em Cinzel: um dos "poucos momentos de peso simbólico"
    que a análise recomenda pra a fonte de exibição da marca — cada tela é
@@ -832,12 +860,10 @@ body {
    outros controles do cabeçalho (.menu-acoes-botao): sem preenchimento até
    o hover, então ganha o mesmo azul operacional dos ícones do cabeçalho. */
 .botao-sair {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; justify-content: center;
   background: none; border: none; cursor: pointer;
-  padding: 7px 10px; border-radius: 8px;
-  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 12px;
-  letter-spacing: 0.03em; text-transform: uppercase;
-  color: var(--cor-texto-suave); white-space: nowrap;
+  width: 32px; height: 32px; padding: 0; border-radius: 8px;
+  color: var(--cor-texto-suave);
 }
 .botao-sair:hover { background: rgba(13, 27, 42, 0.08); color: var(--cor-primaria); }
 
@@ -995,13 +1021,13 @@ button.badge:hover { filter: brightness(0.95); }
   margin: 36px 0 4px;
   text-align: center;
   font-family: 'Cinzel', serif;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--cor-texto-suave);
+  color: var(--dourado-texto);
   text-decoration: none;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 .painel-controle-rodape:hover, .painel-controle-rodape:focus-visible { opacity: 1; text-decoration: underline; color: var(--dourado-texto); }
 .painel-controle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px; }
@@ -1162,12 +1188,18 @@ button.badge:hover { filter: brightness(0.95); }
   display: flex; align-items: center; justify-content: center; gap: 6px;
 }
 .painel-cliente-btn:disabled { cursor: not-allowed; }
+/* Descida e Subida são as duas ações principais do painel do cliente —
+   ficam um pouco mais altas que S.O.S./Serviços logo abaixo, pra que o par
+   se destaque sem precisar de cor extra nem de nenhum outro recurso. */
+.painel-cliente-btn-primario,
+.painel-cliente-btn-outline {
+  flex: 1; min-height: 74px; padding: 15px 10px;
+  font-size: 13.5px; font-weight: 600; flex-direction: column;
+}
 .painel-cliente-btn-primario {
-  flex: 1; padding: 16px 10px; font-size: 13.5px; font-weight: 600; flex-direction: column;
   background: var(--cor-secundaria); color: #fff;
 }
 .painel-cliente-btn-outline {
-  flex: 1; padding: 16px 10px; font-size: 13.5px; font-weight: 600; flex-direction: column;
   background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-secundaria);
 }
 .painel-cliente-btn-sos {
@@ -1180,7 +1212,6 @@ button.badge:hover { filter: brightness(0.95); }
   width: 100%; padding: 15px; font-size: 14.5px; font-weight: 600;
   background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-primaria);
 }
-.painel-cliente-nota { font-size: 11.5px; color: var(--cor-texto-suave); text-align: center; margin: 6px 0 0; font-family: 'Inter', 'Segoe UI', sans-serif; }
 
 /* Diário de Bordo: fonte um pouco maior só aqui — não mexe em .cliente-card
    nem em .status-texto direto porque essas classes são compartilhadas com
@@ -1188,16 +1219,57 @@ button.badge:hover { filter: brightness(0.95); }
 .diario-lista .linha { font-size: 14px; }
 .diario-lista .status-texto { font-size: 14px; }
 
+/* Título "Diário de Bordo" na tipografia de exibição da marca (Cinzel, a
+   mesma família do logotipo RV Invictus), no lugar da fonte de corpo. Só o
+   título: as linhas dos registros continuam em fonte de leitura, que é
+   texto lido de relance e muitas vezes por dia. */
+/* Mesma formatação do nome da marina no cabeçalho (.painel-cliente-marina):
+   Cinzel, mesmo peso, mesmo tracking e sem caixa alta — só um degrau
+   abaixo no tamanho, porque é um título de seção, não o da tela. */
+.painel-cliente .diario-titulo {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: clamp(15px, 4.2vw, 19px);
+  letter-spacing: 0.02em;
+  color: var(--cor-primaria);
+  text-align: center;
+  margin: 6px 0 12px;
+}
+
+/* ---------- Contorno dourado do painel do cliente ----------
+   Fio de 1px na mesma cor do crédito "Developed by RVinvictus.com.br" do
+   rodapé desta tela (--dourado-texto, o dourado escurecido pra fundo
+   claro), contornando os cartões e os botões brancos. Tudo escopado em
+   .painel-cliente (raiz de TelaClienteDashboard.jsx) de propósito:
+   .cliente-card, .lista-cards e .modal-card também são usados nas telas da
+   equipe (TelaClientes/TelaFinanceiro/TelaVagas), que não devem mudar. */
+.painel-cliente .cliente-card,
+.painel-cliente .modal-card {
+  border: 1px solid var(--dourado-texto);
+}
+.painel-cliente .painel-cliente-btn-outline,
+.painel-cliente .painel-cliente-btn-servicos {
+  border: 1px solid var(--dourado-texto);
+}
+
 /* Seletor de nível 0 dentro do modal "Serviços" (Abastecimento / Manutenção
    / Regularização) — só ícone + nome curto, sem texto descritivo; o
    detalhamento fica pra dentro de cada opção. */
-.servicos-seletor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
+/* Serviços (Abastecer / Manutenção / Regularização / Pagamentos): lista
+   vertical de botões, não mais uma grade de quadros de 3 colunas. Cada item
+   ocupa a largura toda, com ícone e texto lado a lado centralizados como um
+   grupo — área de clique inteira da linha, em vez de três alvos estreitos
+   dividindo a largura. Só a apresentação mudou: os mesmos serviços, na
+   mesma ordem, com as mesmas ações. */
+.servicos-seletor { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 8px; }
 .servicos-seletor button {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
-  min-height: 76px; padding: 12px 4px; border-radius: 14px; border: 1.5px solid var(--cor-secundaria-clara);
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 52px; padding: 14px 16px; text-align: center;
+  border-radius: 12px; border: 1px solid var(--dourado-texto);
   background: #fff; color: var(--cor-primaria); font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
-  font-size: 11.5px; font-weight: 600; line-height: 1.2; cursor: pointer; overflow-wrap: break-word;
+  font-size: 14px; font-weight: 600; line-height: 1.2; cursor: pointer;
 }
+.servicos-seletor button svg { flex-shrink: 0; }
 .servicos-seletor button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Toggle estilo iOS, igual ao app de referência */
@@ -1258,3 +1330,308 @@ button.badge:hover { filter: brightness(0.95); }
 .horario-slot .rotulo { color: var(--cor-texto-suave); font-size: 14px; }
 .horario-slot.ocupado { background: var(--cor-primaria-tint); }
 .horario-slot.ocupado .rotulo { color: var(--cor-primaria); font-weight: 600; }
+
+/* Aviso temporário do painel do cliente (TelaClienteDashboard.jsx) — some
+   sozinho depois de alguns segundos. Fica sobre a tela, preso ao rodapé da
+   janela, pra não empurrar o conteúdo nem deslocar o botão que o disparou.
+   Fundo azul-petróleo com hairline dourada: a mesma dupla das zonas de
+   identidade, aqui em escala mínima. */
+.aviso-temporario {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 11px 18px;
+  border-radius: var(--raio);
+  background: #0D1B2A;
+  border: 1px solid rgba(212,175,55,0.55);
+  box-shadow: 0 10px 30px rgba(13,27,42,0.28);
+  color: #F5F5F0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  animation: aviso-temporario-entra 0.18s ease-out;
+}
+@keyframes aviso-temporario-entra {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aviso-temporario { animation: none; }
+}
+
+/* ---------- Cadastro incompleto no RV Marine (Etapa 4) ----------
+   Halo dourado em volta da engrenagem, pulsando de leve, enquanto faltarem
+   dados obrigatórios do RV Marine (telefone e ao menos uma embarcação).
+   Some sozinho quando o cadastro fica completo.
+
+   Degradê radial em vez de borda sólida: o dourado nasce colado no ícone e
+   se dissolve pra fora, então chama atenção sem virar um segundo botão
+   desenhado na tela. box-shadow (não border/outline) porque não ocupa
+   espaço no layout — a engrenagem não muda de posição ao ficar pendente. */
+.menu-acoes-botao-pendente {
+  position: relative;
+  color: var(--dourado-texto);
+  background: radial-gradient(circle at center, rgba(212,175,55,0.22) 0%, rgba(212,175,55,0.10) 55%, transparent 72%);
+  animation: pulso-pendencia 2.4s ease-in-out infinite;
+}
+.menu-acoes-botao-pendente:hover {
+  color: var(--dourado-texto);
+  background: radial-gradient(circle at center, rgba(212,175,55,0.32) 0%, rgba(212,175,55,0.16) 55%, transparent 72%);
+}
+@keyframes pulso-pendencia {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.30); }
+  50%      { box-shadow: 0 0 0 5px rgba(212,175,55,0.02); }
+}
+
+/* Marcador do item "Minha conta" dentro do menu, enquanto há pendência —
+   um ponto dourado, sem texto: a explicação já veio no aviso disparado ao
+   tentar a descida/subida. */
+.ponto-pendencia {
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--dourado-texto);
+  vertical-align: middle;
+}
+
+/* Quem prefere menos movimento vê o halo parado, sem perder o destaque. */
+@media (prefers-reduced-motion: reduce) {
+  .menu-acoes-botao-pendente { animation: none; box-shadow: 0 0 0 2px rgba(212,175,55,0.28); }
+}
+
+/* Bloco de embarcações dentro de "Minha conta" (painel do cliente). */
+.minha-conta-secao {
+  /* Coluna com espaçamento próprio: os filhos são <select>, <input> e
+     <button>, todos inline-block por padrão — sem isto eles fluiriam lado a
+     lado dentro da seção, em vez de empilhar como o resto do painel. */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cor-secundaria-clara);
+}
+.minha-conta-secao-titulo {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--cor-texto-suave);
+  margin: 0 0 8px;
+}
+.embarcacao-item {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 10px; margin-bottom: 6px;
+  border: 1px solid var(--dourado-texto); border-radius: 8px;
+  font-size: 13.5px;
+}
+.embarcacao-item .embarcacao-tipo { color: var(--cor-texto-suave); font-size: 12px; }
+.embarcacao-vazia { font-size: 13px; color: var(--cor-texto-suave); margin: 0 0 8px; }
+
+
+/* ============================================================
+   PAINÉIS DO CLIENTE NA ESTÉTICA DE ENTRADA
+   ------------------------------------------------------------
+   Os 9 painéis que abrem por botão no painel do cliente (Minha conta,
+   Serviços, Descida/Subida, Pessoas autorizadas, Histórico, Abastecimento,
+   Pagamentos, forma de pagamento e QR do pedido) passam para a linguagem
+   escura das telas de entrada: azul-petróleo com a trama de losangos,
+   título em Cinzel dourado, campos de vidro fosco com fio dourado e botão
+   preto ônix com borda dourada.
+
+   A TELA PRINCIPAL do cliente continua clara — é a área de trabalho do dia
+   a dia. Estes cartões são aberturas pontuais, onde a marca aparece.
+
+   Escopo `.painel-cliente .modal-card` (não `.modal-card` solto) porque
+   .modal-card, .cliente-card, .lista-cards e .dica são compartilhados com
+   as telas da equipe (TelaVagas/TelaClientes/TelaFinanceiro/...), que não
+   mudam. Pelo mesmo motivo o .cliente-card do Diário de Bordo, que fica na
+   tela principal e não dentro de modal, continua claro.
+   ============================================================ */
+.painel-cliente .modal-fundo { background: rgba(13,27,42,0.55); }
+
+.painel-cliente .modal-card {
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 500px 300px at 50% -25%, rgba(212,175,55,0.14), transparent 62%),
+    repeating-linear-gradient(45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px),
+    repeating-linear-gradient(-45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px);
+  border: 1px solid rgba(212,175,55,0.34);
+  box-shadow: 0 22px 54px rgba(0,0,0,0.45);
+  color: #F5F5F0;
+}
+
+/* Título do painel: mesmo gesto de "ENTRAR"/"CRIAR CONTA". */
+.painel-cliente .modal-card h3 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #D4AF37;
+  margin: 0 0 2px;
+}
+.painel-cliente .modal-card h4 { color: #F5F5F0; }
+.painel-cliente .modal-card .dica {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11.5px;
+  color: rgba(245,245,240,0.6);
+}
+
+/* Campos: idênticos aos do login. */
+.painel-cliente .modal-card input,
+.painel-cliente .modal-card select,
+.painel-cliente .modal-card textarea {
+  background: rgba(245,245,240,0.05);
+  border: 1px solid rgba(212,175,55,0.32);
+  border-radius: 10px;
+  color: #F5F5F0;
+  font-family: 'Montserrat', sans-serif;
+}
+.painel-cliente .modal-card input::placeholder,
+.painel-cliente .modal-card textarea::placeholder { color: rgba(245,245,240,0.4); }
+.painel-cliente .modal-card input:focus,
+.painel-cliente .modal-card select:focus,
+.painel-cliente .modal-card textarea:focus {
+  outline: none; border-color: #D4AF37; background: rgba(245,245,240,0.08);
+}
+/* O menu aberto do select é desenhado pelo sistema: sem isto, em vários
+   navegadores as opções saem branco sobre branco. */
+.painel-cliente .modal-card select option { background: #0D1B2A; color: #F5F5F0; }
+
+/* Linhas de lista dentro dos painéis (histórico, autorizados, pedidos). */
+.painel-cliente .modal-card .cliente-card {
+  background: rgba(245,245,240,0.04);
+  border: 1px solid rgba(212,175,55,0.3);
+  box-shadow: none;
+  color: #F5F5F0;
+}
+.painel-cliente .modal-card .cliente-card .linha { color: #F5F5F0; }
+.painel-cliente .modal-card .cliente-card .linha b { color: rgba(245,245,240,0.6); }
+.painel-cliente .modal-card .embarcacao-item {
+  background: rgba(245,245,240,0.04);
+  border-color: rgba(212,175,55,0.32);
+  color: #F5F5F0;
+}
+.painel-cliente .modal-card .embarcacao-item .embarcacao-tipo,
+.painel-cliente .modal-card .embarcacao-vazia { color: rgba(245,245,240,0.55); }
+
+/* Divisórias e rótulos de seção. */
+.painel-cliente .modal-card .minha-conta-secao { border-top-color: rgba(212,175,55,0.22); }
+.painel-cliente .modal-card .minha-conta-secao-titulo { color: rgba(245,245,240,0.62); }
+
+/* Botões de ação: uma ação preenchida por painel (ônix + dourado),
+   a secundária como contorno dourado. */
+.painel-cliente .modal-card .acoes-modal button {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; font-size: 12.5px; letter-spacing: 0.03em;
+  padding: 10px 18px; border-radius: 10px;
+}
+.painel-cliente .modal-card .acoes-modal button:first-child {
+  background: transparent; border: 1.5px solid rgba(212,175,55,0.5); color: #D4AF37;
+}
+.painel-cliente .modal-card .acoes-modal button:last-child,
+.painel-cliente .modal-card button.btn-primario {
+  background: #0B0B0D; border: 1px solid #D4AF37; color: #D4AF37;
+}
+.painel-cliente .modal-card .acoes-modal button:first-child:hover { background: rgba(212,175,55,0.08); }
+.painel-cliente .modal-card .acoes-modal button:last-child:hover,
+.painel-cliente .modal-card button.btn-primario:hover { background: #151519; border-color: #e2c260; color: #e2c260; }
+
+/* Links discretos ("Voltar", "+ Adicionar embarcação"). */
+.painel-cliente .modal-card .voltar,
+.painel-cliente .modal-card button.voltar { color: rgba(245,245,240,0.6); }
+.painel-cliente .modal-card .voltar:hover,
+.painel-cliente .modal-card button.voltar:hover { color: #D4AF37; }
+
+/* Serviços dentro do painel escuro (lista vertical da Etapa 6). */
+.painel-cliente .modal-card .servicos-seletor button {
+  background: rgba(245,245,240,0.05);
+  border: 1px solid rgba(212,175,55,0.4);
+  color: #F5F5F0;
+}
+.painel-cliente .modal-card .servicos-seletor button svg { color: #D4AF37; }
+.painel-cliente .modal-card .servicos-seletor button:hover:not(:disabled) {
+  background: rgba(245,245,240,0.09); border-color: #D4AF37;
+}
+
+/* Selos de status: os tons claros de fundo sumiriam no escuro, então aqui
+   viram texto colorido sobre a mesma superfície de vidro. */
+.painel-cliente .modal-card .status-texto.em-dia { color: #9BC77A; }
+.painel-cliente .modal-card .status-texto.pendente { color: #E0A25E; }
+.painel-cliente .modal-card .status-texto.cancelado { color: rgba(245,245,240,0.5); }
+.painel-cliente .modal-card .status-texto.sos { color: #E98B7B; }
+.painel-cliente .modal-card .opcao-checkbox { color: rgba(245,245,240,0.8); }
+.painel-cliente .modal-card .erro { color: #FF8A80; }
+.painel-cliente .modal-card .pagina-cliente-rodape { color: #D4AF37; }
+
+/* Nome da marina no cabeçalho do cliente: mesma tipografia do título do
+   Painel de Controle do administrador (.topo h1) — Cinzel, o tipo de
+   exibição da marca. Antes era só um <strong> na fonte de corpo, o que
+   deixava a mesma informação com duas caras diferentes nos dois lados do
+   sistema. */
+.painel-cliente-marina {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: clamp(17px, 5vw, 22px);
+  letter-spacing: 0.02em;
+  color: var(--cor-primaria);
+  line-height: 1.15;
+}
+
+/* ============================================================
+   DENSIDADE DO PAINEL DE CONTROLE (RV Marine)
+   ------------------------------------------------------------
+   Objetivo: caber mais notificações na primeira dobra, sem apertar a
+   leitura. As folgas verticais desta tela eram generosas demais — títulos
+   de seção com margem própria do navegador (~20px em cima e embaixo),
+   tabelas com 32px de respiro embaixo e células de 12px.
+
+   Reduzi só o EIXO VERTICAL: o horizontal (padding lateral das células,
+   colunas, largura dos selos) fica igual, porque é ele que separa as
+   informações dentro de cada linha. Tamanho de fonte, cores, pesos e
+   contraste também não mudam — densidade não pode custar legibilidade.
+
+   Tudo escopado em .painel-controle (raiz de TelaVagas.jsx): .tabela,
+   .conteudo e <h2> são compartilhados com Clientes, Financeiro, Manutenção
+   e Abastecimento, que continuam exatamente como estavam.
+   ============================================================ */
+
+/* Cabeçalho (relógio + clima): mesma composição, caixa mais justa. */
+.painel-controle .painel-controle-cabecalho {
+  margin-bottom: 14px;
+  padding: 11px 16px;
+}
+
+/* Títulos de seção ("Fila de Rampa", "Navegando", "Combustível"): a margem
+   padrão do navegador somava ~40px entre uma tabela e o título seguinte. */
+.painel-controle h2 {
+  font-size: 17px;
+  margin: 0 0 10px;
+}
+
+/* Respiro entre uma tabela e o próximo título. */
+.painel-controle .tabela {
+  margin-bottom: 18px;
+}
+.painel-controle .tabela-fila { margin-bottom: 18px; }
+
+/* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
+   continua 14px — apertar o horizontal é que deixaria a tabela confusa. */
+.painel-controle .tabela th,
+.painel-controle .tabela td {
+  padding: 8px 14px;
+}
+
+/* Linha secundária dentro da célula (embarcação sob o nome) e a linha de
+   abastecimento: entrelinha mais curta, mesmo tamanho de fonte. */
+.painel-controle .linha-sub { line-height: 1.25; }
+.painel-controle .fila-abastecimento-linha { margin-bottom: 2px; }
+
+/* Blocos em grade (quando houver) e o crédito final. */
+.painel-controle .painel-controle-grid { gap: 14px; margin-bottom: 20px; }
+.painel-controle .painel-controle-grid h3 { margin: 0 0 8px; }
+.painel-controle .painel-controle-rodape { margin: 22px 0 4px; }

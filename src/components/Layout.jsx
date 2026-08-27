@@ -114,11 +114,13 @@ export default function Layout({
             </button>
           </>
         ) : (
-          // Nenhuma aplicação escolhida ainda: seletor das 4 aplicações RV
-          // Invictus, no lugar da lista de itens. "RV" e o nome da
-          // aplicação em spans separados — o nome tem fonte um pouco maior
-          // (e cresce mais ainda no hover), o "RV" fica do mesmo tamanho
-          // sempre (ver .nav-app-item-prefixo/-nome no index.css).
+          // Nenhuma aplicação escolhida ainda: seletor das aplicações RV
+          // Invictus no lugar da lista de itens — a MESMA lista, na mesma
+          // ordem e com os mesmos nomes que o cliente vê depois do login
+          // (lib/apps.js é a fonte única; ver SelecaoAplicacoes.jsx). "RV" e
+          // o nome da aplicação em spans separados — o nome tem fonte um
+          // pouco maior (e cresce mais ainda no hover), o "RV" fica do mesmo
+          // tamanho sempre (ver .nav-app-item-prefixo/-nome no index.css).
           <nav className="nav-apps">
             {APLICACOES.map(({ chave, prefixo, nome }) => (
               <button
@@ -169,8 +171,9 @@ export default function Layout({
             {/* Sair saiu do menu lateral — agora fica sempre visível aqui,
                 no canto superior direito da página, qualquer que seja a
                 aplicação/tela atual. */}
-            <button type="button" className="botao-sair" onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}>
-              <IconLogout size={16} /> Sair
+            <button type="button" className="botao-sair" title="Sair" aria-label="Sair"
+              onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}>
+              <IconLogout size={18} />
             </button>
           </div>
         </header>
