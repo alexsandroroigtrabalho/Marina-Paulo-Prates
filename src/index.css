@@ -1258,22 +1258,10 @@ button.badge:hover { filter: brightness(0.95); }
 /* Seletor de nível 0 dentro do modal "Serviços" (Abastecimento / Manutenção
    / Regularização) — só ícone + nome curto, sem texto descritivo; o
    detalhamento fica pra dentro de cada opção. */
-/* Serviços (Abastecer / Manutenção / Regularização / Pagamentos): lista
-   vertical de botões, não mais uma grade de quadros de 3 colunas. Cada item
-   ocupa a largura toda, com ícone e texto lado a lado centralizados como um
-   grupo — área de clique inteira da linha, em vez de três alvos estreitos
-   dividindo a largura. Só a apresentação mudou: os mesmos serviços, na
-   mesma ordem, com as mesmas ações. */
-.servicos-seletor { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 8px; }
-.servicos-seletor button {
-  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 10px;
-  width: 100%; min-height: 52px; padding: 14px 16px; text-align: center;
-  border-radius: 12px; border: 1px solid var(--dourado-texto);
-  background: #fff; color: var(--cor-primaria); font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
-  font-size: 14px; font-weight: 600; line-height: 1.2; cursor: pointer;
-}
-.servicos-seletor button svg { flex-shrink: 0; }
-.servicos-seletor button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* O seletor de serviços (.servicos-seletor) foi removido junto com o painel
+   "Serviços": Manutenção passou ao RV Manut, Regularização ao RV NautDoc e
+   Pagamentos ao RV Finance, sobrando só o abastecimento — que virou botão
+   direto no painel do cliente (.painel-cliente-btn-servicos, mantida). */
 
 /* Toggle estilo iOS, igual ao app de referência */
 .toggle { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
@@ -1550,17 +1538,6 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-cliente .modal-card button.voltar { color: rgba(245,245,240,0.6); }
 .painel-cliente .modal-card .voltar:hover,
 .painel-cliente .modal-card button.voltar:hover { color: #D4AF37; }
-
-/* Serviços dentro do painel escuro (lista vertical da Etapa 6). */
-.painel-cliente .modal-card .servicos-seletor button {
-  background: rgba(245,245,240,0.05);
-  border: 1px solid rgba(212,175,55,0.4);
-  color: #F5F5F0;
-}
-.painel-cliente .modal-card .servicos-seletor button svg { color: #D4AF37; }
-.painel-cliente .modal-card .servicos-seletor button:hover:not(:disabled) {
-  background: rgba(245,245,240,0.09); border-color: #D4AF37;
-}
 
 /* Selos de status: os tons claros de fundo sumiriam no escuro, então aqui
    viram texto colorido sobre a mesma superfície de vidro. */

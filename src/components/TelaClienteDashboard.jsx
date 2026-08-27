@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconAnchor, IconLogout, IconClipboardList, IconGasStation, IconTools, IconFileCertificate,
+  IconAnchor, IconLogout, IconGasStation, IconTools, IconFileCertificate,
   IconUsers, IconTrash, IconArrowLeft, IconSettings, IconLifebuoy, IconReceipt2, IconLock, IconId,
   IconHistory, IconBell, IconBellOff,
 } from '@tabler/icons-react'
@@ -8,12 +8,11 @@ import { QRCodeSVG } from 'qrcode.react'
 import { supabase, db } from '../lib/supabase'
 import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
-  criarDespacho, criarOrdemServico, listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
+  listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, atualizarStatusAbastecimento, informarPagamentoAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
   salvarCliente, listarHorariosOcupados, salvarEmbarcacao,
 } from '../lib/db'
 import { destravarAudioNaProximaInteracao, tocarApitoRespostaDiario } from '../lib/sons'
-import { SERVICOS_DESPACHO, CATEGORIAS_SERVICOS } from '../lib/servicosDespacho'
 import { labelStatusManutencao } from '../lib/statusManutencao'
 import { labelStatusResgate } from '../lib/statusResgate'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
@@ -483,18 +482,6 @@ export default function TelaClienteDashboard({ perfil }) {
   // agendado, sem depender de recarregar a página inteira.
   const [horariosOcupados, setHorariosOcupados] = useState([])
   const [carregandoHorarios, setCarregandoHorarios] = useState(false)
-  const [modalServicosAberto, setModalServicosAberto] = useState(false)
-  // Dentro do modal "Serviços": qual dos 3 tipos o cliente escolheu (null =
-  // ainda no seletor inicial), e, se for "regularizacao", qual categoria da
-  // Capitania dos Portos está sendo explorada (null = ainda na lista curta
-  // de categorias, sem descrições longas).
-  const [modoServicos, setModoServicos] = useState(null) // null | 'manutencao' | 'regularizacao'
-  const [categoriaAtiva, setCategoriaAtiva] = useState(null)
-  const [servicoAtivo, setServicoAtivo] = useState(null) // item do catálogo de regularização selecionado
-  const [formServico, setFormServico] = useState({ embarcacao_id: '', observacoes: '' })
-  const [enviandoServico, setEnviandoServico] = useState(false)
-  const [formManutencao, setFormManutencao] = useState({ embarcacao_id: '', tipo_servico: 'limpeza', descricao: '' })
-  const [enviandoManutencao, setEnviandoManutencao] = useState(false)
   const [modalAbastecimentoAberto, setModalAbastecimentoAberto] = useState(false)
   const [formAbastecimento, setFormAbastecimento] = useState({ embarcacao_id: '', combustivel_id: '', quantidade_litros: '', completarTanque: false })
   const [enviandoAbastecimento, setEnviandoAbastecimento] = useState(false)
@@ -847,11 +834,10 @@ export default function TelaClienteDashboard({ perfil }) {
     setModalDadosAberto(true)
   }
 
-  // Porta única da checagem de cadastro do RV Marine. Vale pra descida e
-  // subida (abrirModal) e pros serviços — Abastecimento, Manutenção e
-  // Regularização entram todos por abrirModalServicos, então uma checagem
-  // ali cobre os três. Todos precisam de embarcação pra existir, e de um
-  // telefone pra marina responder. Devolve true quando pode seguir.
+  // Porta única da checagem de cadastro do RV Marine: descida e subida
+  // (abrirModal) e abastecimento (abrirModalAbastecimento). Todos precisam
+  // de embarcação pra existir, e de um telefone pra marina responder.
+  // Devolve true quando pode seguir.
   function cadastroRvMarineOk() {
     const faltando = faltandoParaRvMarine(cliente, embarcacoes)
     if (faltando.length === 0) return true
@@ -961,78 +947,11 @@ export default function TelaClienteDashboard({ perfil }) {
     }
   }
 
-  function abrirModalServicos() {
-    if (!cadastroRvMarineOk()) return
-    setModoServicos(null)
-    setCategoriaAtiva(null)
-    setServicoAtivo(null)
-    setModalServicosAberto(true)
-  }
-
-  // "Voltar" dentro do modal Serviços: sempre um passo de cada vez —
-  // do formulário de um serviço específico volta pra lista da categoria,
-  // da lista de categorias volta pro seletor Abastecimento/Manutenção/
-  // Regularização.
-  function voltarServicos() {
-    if (servicoAtivo) { setServicoAtivo(null); return }
-    if (categoriaAtiva) { setCategoriaAtiva(null); return }
-    setModoServicos(null)
-  }
-
-  function selecionarCategoria(categoria) {
-    setCategoriaAtiva(categoria)
-  }
-
-  function selecionarServico(servico) {
-    setServicoAtivo(servico)
-    setFormServico({ embarcacao_id: embarcacoes[0]?.id || '', observacoes: '' })
-  }
-
-  async function enviarSolicitacaoServico(e) {
-    e.preventDefault()
-    if (!cliente || !servicoAtivo) return
-    setEnviandoServico(true)
-    try {
-      await criarDespacho({
-        marina_id: cliente.marina_id,
-        cliente_id: cliente.id,
-        embarcacao_id: formServico.embarcacao_id || null,
-        tipo: servicoAtivo.key,
-        observacoes: formServico.observacoes
-          ? `${servicoAtivo.titulo} · ${formServico.observacoes}`
-          : servicoAtivo.titulo,
-      })
-      setModalServicosAberto(false)
-      setServicoAtivo(null)
-      await carregar()
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setEnviandoServico(false)
-    }
-  }
-
-  async function enviarSolicitacaoManutencao(e) {
-    e.preventDefault()
-    if (!cliente) return
-    setEnviandoManutencao(true)
-    try {
-      await criarOrdemServico({
-        marina_id: cliente.marina_id,
-        cliente_id: cliente.id,
-        embarcacao_id: formManutencao.embarcacao_id,
-        tipo_servico: formManutencao.tipo_servico,
-        descricao: formManutencao.descricao || null,
-      })
-      setModalServicosAberto(false)
-      setFormManutencao({ embarcacao_id: '', tipo_servico: 'limpeza', descricao: '' })
-      await carregar()
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setEnviandoManutencao(false)
-    }
-  }
+  // As funções do antigo painel "Serviços" (navegação entre categorias,
+  // pedido de manutenção e pedido de regularização) foram removidas junto
+  // com ele: manutenção passou ao RV Manut e regularização ao RV NautDoc.
+  // As funções de banco correspondentes (criarOrdemServico, criarDespacho em
+  // lib/db.js) continuam existindo, intactas, para essas aplicações.
 
   // Embarcação do cliente que está navegando agora — mesma lógica do Painel
   // de Controle da marina (a manobra concluída mais recente de cada
@@ -1309,6 +1228,10 @@ export default function TelaClienteDashboard({ perfil }) {
   const pedidosAguardandoPagamento = abastecimentos.filter((p) => (p.status === 'solicitado' || p.status === 'aguardando_pagamento') && !aguardandoLitrosCompletarTanque(p))
 
   function abrirModalAbastecimento() {
+    // Passou a ser a porta do botão principal do painel (antes o
+    // abastecimento era uma opção dentro de "Serviços"), então a checagem de
+    // cadastro do RV Marine, que ficava lá, vem junto pra cá.
+    if (!cadastroRvMarineOk()) return
     setFormAbastecimento({ embarcacao_id: embarcacoes[0]?.id || '', combustivel_id: combustiveis[0]?.id || '', quantidade_litros: '', completarTanque: false })
     setModalAbastecimentoAberto(true)
   }
@@ -1474,8 +1397,14 @@ export default function TelaClienteDashboard({ perfil }) {
                   : MENSAGEM_BOTAO_RESGATE[agendamentoNavegando.resgate_status] || 'S.O.S. · Solicitar resgate'}
             </button>
 
-            <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalServicos}>
-              <IconClipboardList size={20} /> Serviços
+            {/* Era "Serviços" e abria um seletor com quatro opções. Três
+                delas migraram para os outros SaaS (Manutenção → RV Manut,
+                Regularização → RV NautDoc, Pagamentos → RV Finance), então o
+                botão passou a ser o próprio abastecimento e abre o pedido
+                direto. A checagem de cadastro do RV Marine continua valendo
+                (abrirModalAbastecimento). */}
+            <button type="button" className="painel-cliente-btn painel-cliente-btn-servicos" onClick={abrirModalAbastecimento}>
+              <IconGasStation size={20} /> Abastecimento
             </button>
           </div>
 
@@ -1598,136 +1527,10 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {modalServicosAberto && (
-        <div className="modal-fundo" onClick={() => setModalServicosAberto(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
-            <h3>Serviços</h3>
-
-            {/* Nível 0: seletor curto, sem textos descritivos — escolhe o tipo */}
-            {!modoServicos && (
-              <div className="servicos-seletor">
-                <button type="button" onClick={() => { setModalServicosAberto(false); abrirModalAbastecimento() }} disabled={combustiveis.length === 0}>
-                  <IconGasStation size={22} />
-                  Abastecer
-                </button>
-                <button type="button" onClick={() => setModoServicos('manutencao')}>
-                  <IconTools size={22} />
-                  Manutenção
-                </button>
-                {/* "Regularização" (despacho) — desativada temporariamente a
-                    pedido da administração: continua visível, no mesmo
-                    padrão visual, mas o clique não abre mais o fluxo de
-                    categorias (setModoServicos('regularizacao'), ainda
-                    intacto logo abaixo — é só trocar o onClick de volta pra
-                    reativar), só avisa "Em construção". */}
-                <button type="button" onClick={() => alert('Em construção')}>
-                  <IconFileCertificate size={22} />
-                  Regularização
-                </button>
-                <button type="button" onClick={() => { setModalServicosAberto(false); setModalPagamentosAberto(true) }}>
-                  <IconReceipt2 size={22} />
-                  Pagamentos
-                </button>
-              </div>
-            )}
-
-            {/* Manutenção: formulário direto, sem catálogo */}
-            {modoServicos === 'manutencao' && (
-              <form onSubmit={enviarSolicitacaoManutencao} style={{ marginTop: 12 }}>
-                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }} onClick={voltarServicos}>
-                  <IconArrowLeft size={16} /> Voltar
-                </button>
-                {embarcacoes.length > 0 ? (
-                  <select required value={formManutencao.embarcacao_id}
-                    onChange={(e) => setFormManutencao({ ...formManutencao, embarcacao_id: e.target.value })}>
-                    <option value="">Selecione a embarcação</option>
-                    {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                  </select>
-                ) : (
-                  <p className="dica">Você ainda não tem embarcações cadastradas.</p>
-                )}
-                <select value={formManutencao.tipo_servico}
-                  onChange={(e) => setFormManutencao({ ...formManutencao, tipo_servico: e.target.value })}>
-                  {TIPOS_MANUTENCAO.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-                </select>
-                <input placeholder="Observações (opcional)"
-                  value={formManutencao.descricao}
-                  onChange={(e) => setFormManutencao({ ...formManutencao, descricao: e.target.value })} />
-                <div className="acoes-modal">
-                  <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
-                  <button type="submit" disabled={enviandoManutencao || embarcacoes.length === 0}>
-                    {enviandoManutencao ? 'Enviando...' : 'Solicitar este serviço'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Regularização, nível 1: categorias — só o nome, sem descrição */}
-            {modoServicos === 'regularizacao' && !categoriaAtiva && (
-              <div style={{ marginTop: 12 }}>
-                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }} onClick={voltarServicos}>
-                  <IconArrowLeft size={16} /> Voltar
-                </button>
-                <div className="lista-cards">
-                  {CATEGORIAS_SERVICOS.map((cat) => (
-                    <button key={cat.key} type="button" className="cliente-card"
-                      style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit' }}
-                      onClick={() => selecionarCategoria(cat)}>
-                      <div className="linha"><b>{cat.titulo}</b></div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Regularização, nível 2: serviços da categoria escolhida */}
-            {modoServicos === 'regularizacao' && categoriaAtiva && !servicoAtivo && (
-              <div style={{ marginTop: 12 }}>
-                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }} onClick={voltarServicos}>
-                  <IconArrowLeft size={16} /> Voltar
-                </button>
-                <p className="dica" style={{ marginTop: 0 }}><b>{categoriaAtiva.titulo}</b></p>
-                <div className="lista-cards">
-                  {SERVICOS_DESPACHO.filter((s) => s.categoria === categoriaAtiva.key).map((s) => (
-                    <button key={s.key} type="button" className="cliente-card"
-                      style={{ textAlign: 'left', width: '100%', cursor: 'pointer', border: 'none', font: 'inherit' }}
-                      onClick={() => selecionarServico(s)}>
-                      <div className="linha"><b>{s.titulo}</b></div>
-                      <div className="linha">{s.resumo}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Regularização, nível 3: formulário do serviço escolhido */}
-            {servicoAtivo && (
-              <form onSubmit={enviarSolicitacaoServico} style={{ marginTop: 12 }}>
-                <button type="button" className="voltar" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }} onClick={voltarServicos}>
-                  <IconArrowLeft size={16} /> Voltar
-                </button>
-                <p className="dica"><b>{servicoAtivo.titulo}</b><br />{servicoAtivo.resumo}</p>
-                {embarcacoes.length > 0 ? (
-                  <select value={formServico.embarcacao_id}
-                    onChange={(e) => setFormServico({ ...formServico, embarcacao_id: e.target.value })}>
-                    <option value="">Selecione a embarcação (opcional)</option>
-                    {embarcacoes.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                  </select>
-                ) : (
-                  <p className="dica">Você ainda não tem embarcações cadastradas.</p>
-                )}
-                <input placeholder="Observações (opcional)"
-                  value={formServico.observacoes}
-                  onChange={(e) => setFormServico({ ...formServico, observacoes: e.target.value })} />
-                <div className="acoes-modal">
-                  <button type="button" onClick={() => setModalServicosAberto(false)}>Cancelar</button>
-                  <button type="submit" disabled={enviandoServico}>{enviandoServico ? 'Enviando...' : 'Solicitar este serviço'}</button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {/* O painel "Serviços" foi removido: Manutenção passou ao RV Manut,
+          Regularização ao RV NautDoc e Pagamentos ao RV Finance. Sobrou o
+          abastecimento, que virou botão direto no painel — sem um seletor
+          intermediário para uma opção só. */}
 
       {modalAbastecimentoAberto && (
         <div className="modal-fundo" onClick={() => setModalAbastecimentoAberto(false)}>
