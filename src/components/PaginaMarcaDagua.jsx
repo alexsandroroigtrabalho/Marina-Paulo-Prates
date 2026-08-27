@@ -4,7 +4,7 @@
 // - Sem `texto`: estado ocioso, nenhuma aplicação escolhida ainda no menu
 //   lateral (App.jsx, appSelecionada === null) — só a marca d'água, sem
 //   nenhum texto de apoio.
-// - Com `texto="Em construção"`: RV NautDoc / RV e-Náutica / RV Engenharia,
+// - Com `texto="Em construção"`: as aplicações ainda sem telas próprias,
 //   que ainda não têm telas próprias.
 // Mesma técnica (posição absoluta centralizada, opacidade 0.14) já usada em
 // TelaDocumentacao.jsx (.pagina-marca-dagua-despachos) — aqui generalizada

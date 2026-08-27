@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
 import { buscarMarina } from './lib/db'
-import { APLICACOES } from './lib/apps'
+import { buscarApp, nomeCompleto } from './lib/apps'
 import Home from './components/Home'
 import FichaCadastro from './components/FichaCadastro'
 import RedefinirSenha from './components/RedefinirSenha'
 import Layout from './components/Layout'
 import PaginaMarcaDagua from './components/PaginaMarcaDagua'
+import SelecaoAplicacoes from './components/SelecaoAplicacoes'
+import AplicacaoEmConstrucao from './components/AplicacaoEmConstrucao'
 import TelaVagas from './components/TelaVagas'
 import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
@@ -15,7 +17,7 @@ import TelaManutencao from './components/TelaManutencao'
 import TelaAbastecimento from './components/TelaAbastecimento'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
-// Telas de RV Marine — a única das 4 aplicações RV Invictus (ver
+// Telas de RV Marine — a única das aplicações RV Invictus (ver
 // lib/apps.js) já desenvolvida. "Despachos" saiu daqui (não foi apagado, só
 // desligado do menu — ver TelaDocumentacao.jsx): vai virar a base do RV
 // NautDoc quando essa aplicação for desenvolvida.
@@ -54,10 +56,11 @@ export default function App() {
   // de login. Depois de autenticar, `perfil.role` (abaixo) decide sozinho o
   // ambiente: equipe da marina ou cliente final, ambos já existentes.
   const [entrada, setEntrada] = useState('login')
-  // Qual das 4 aplicações RV Invictus (lib/apps.js) está escolhida no menu
-  // lateral — null é o estado inicial "nenhuma escolhida ainda" (sidebar
-  // mostra o seletor das 4; a área de conteúdo mostra só a marca d'água,
-  // ver PaginaMarcaDagua.jsx). `telaAtiva` abaixo só é relevante quando
+  // Qual aplicação RV Invictus (lib/apps.js) está escolhida — null é o
+  // estado inicial "nenhuma escolhida ainda". Vale pros dois públicos: o
+  // cliente vê a tela de seleção (SelecaoAplicacoes.jsx) e o administrador
+  // vê o seletor na sidebar com a marca d'água no conteúdo
+  // (PaginaMarcaDagua.jsx). `telaAtiva` abaixo só é relevante quando
   // appSelecionada === 'marine'.
   const [appSelecionada, setAppSelecionada] = useState(null)
   const [telaAtiva, setTelaAtiva] = useState('vagas')
@@ -106,16 +109,33 @@ export default function App() {
   // Logado, aguardando perfil carregar
   if (!perfil) return <div className="tela-central">Carregando perfil...</div>
 
-  // Cliente final ("clientes dos nossos clientes" — os clientes da marina):
-  // painel simplificado, somente leitura dos próprios dados.
+  // Cliente final ("clientes dos nossos clientes" — os clientes da marina).
+  // O caminho agora é Login → Seleção de aplicações → Aplicação escolhida:
+  // o cliente escolhe entre as aplicações da RV Invictus (lib/apps.js, a
+  // mesma lista do menu do administrador) antes de entrar em qualquer uma.
+  // Só o RV Marine tem tela hoje (o painel do cliente que já existia, sem
+  // nenhuma alteração); as demais mostram "Em construção", com volta pra
+  // seleção. A sessão do Supabase não é tocada em nenhum desses passos —
+  // trocar de aplicação é só estado de tela, o usuário segue logado.
   if (!PAPEIS_INTERNOS.includes(perfil.role)) {
+    if (!appSelecionada) {
+      return <SelecaoAplicacoes onSelecionar={setAppSelecionada} />
+    }
+    if (appSelecionada !== 'marine') {
+      return (
+        <AplicacaoEmConstrucao
+          app={buscarApp(appSelecionada)}
+          onVoltar={() => setAppSelecionada(null)}
+        />
+      )
+    }
     return <TelaClienteDashboard perfil={perfil} />
   }
 
   // Admin / funcionário / operador ("nossos clientes" — a equipe da
   // marina): shell interno com sidebar.
 
-  // Nenhuma das 4 aplicações escolhida ainda: sidebar mostra o seletor,
+  // Nenhuma aplicação escolhida ainda: sidebar mostra o seletor,
   // conteúdo mostra só a marca d'água convidando a escolher uma. Sem
   // título nenhum no cabeçalho aqui (antes era "RV Invictus", redundante
   // com a própria logo já centralizada no cabeçalho) — só a logo.
@@ -127,12 +147,12 @@ export default function App() {
     )
   }
 
-  // RV NautDoc / RV e-Náutica / RV Engenharia: ainda não têm telas próprias
-  // — mostram só o título escolhido na sidebar e "Em construção" com a
-  // marca d'água na área de conteúdo, até serem desenvolvidas.
+  // Demais aplicações (NautDoc, e-Náutica, Enge, Manut, Stock, Finance):
+  // ainda não têm telas próprias — mostram só o título escolhido na sidebar
+  // e "Em construção" com a marca d'água no conteúdo, até serem
+  // desenvolvidas.
   if (appSelecionada !== 'marine') {
-    const app = APLICACOES.find((a) => a.chave === appSelecionada)
-    const nomeApp = app ? `${app.prefixo} ${app.nome}` : ''
+    const nomeApp = nomeCompleto(buscarApp(appSelecionada))
     return (
       <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo={nomeApp}>
         <PaginaMarcaDagua texto="Em construção" />

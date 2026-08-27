@@ -1,6 +1,6 @@
 import { IconSettings, IconArrowLeft, IconLogout } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
-import { APLICACOES } from '../lib/apps'
+import { APLICACOES, buscarApp } from '../lib/apps'
 import SonsPainelAdmin from './SonsPainelAdmin'
 
 // Itens de RV Marine — a única das 4 aplicações com telas prontas hoje.
@@ -43,7 +43,7 @@ function MenuAcoesPainel({ acoes }) {
 export default function Layout({
   children, appSelecionada, setAppSelecionada, telaAtiva, setTelaAtiva, perfil, titulo, acoesPainel,
 }) {
-  const app = APLICACOES.find((a) => a.chave === appSelecionada)
+  const app = buscarApp(appSelecionada)
 
   // Único caso em que a logo do cabeçalho some por completo: a tela de
   // seleção de aplicações (nenhuma das 4 escolhida ainda), que já mostra
@@ -70,7 +70,7 @@ export default function Layout({
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
           sempre que não há nada de verdade pra navegar — nem aplicação
           escolhida ainda, nem uma das 3 aplicações ainda "Em construção"
-          (RV NautDoc / RV e-Náutica / RV Engenharia). Só volta ao
+          (todas menos o RV Marine). Só volta ao
           comportamento dinâmico normal (esconde/revela por hover) dentro
           do RV Marine, que é a única com telas de verdade. */}
       <aside className={`sidebar ${appSelecionada !== 'marine' ? 'sidebar-fixa' : ''}`}>
@@ -82,7 +82,7 @@ export default function Layout({
                 item de lista, e as outras 3 aplicações somem daqui. */}
             <p className="app-titulo">{app.prefixo} {app.nome}</p>
 
-            {/* RV Marine tem os itens de verdade; as outras 3 aplicações
+            {/* RV Marine tem os itens de verdade; as outras aplicações
                 ainda não têm telas — mostram um único item fixo "Em
                 construção" no lugar da lista, só pra manter a mesma
                 composição visual (título + lista) em qualquer aplicação

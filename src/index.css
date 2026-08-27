@@ -88,7 +88,7 @@ body {
    "RV INVICTUS" empilhados, arquivo oficial da identidade visual) em vez da
    horizontal — usada por PaginaMarcaDagua.jsx: estado ocioso do menu lateral
    (nenhuma das 4 aplicações escolhida ainda) e as 3 aplicações ainda sem
-   tela própria (RV NautDoc / RV e-Náutica / RV Engenharia). Não reaproveita
+   tela própria (todas menos o RV Marine). Não reaproveita
    .pagina-marca-dagua-despachos de propósito — aquela classe/tela continua
    intacta, pronta para virar a base do RV NautDoc mais adiante. */
 /* padding-left: 220px (largura da sidebar) — centraliza o conteúdo em
@@ -611,8 +611,9 @@ body {
    cursor normal, sem afordance de clique. */
 .nav-item-estatico { cursor: default; }
 
-/* Título da aplicação escolhida (RV Marine / RV NautDoc / RV e-Náutica /
-   RV Engenharia) — rótulo fixo, não clicável, no topo da lista de itens.
+/* Título da aplicação escolhida (RV Marine, RV NautDoc, RV e-Náutica,
+   RV Enge, RV Manut, RV Stock, RV Finance) — rótulo fixo, não clicável,
+   no topo da lista de itens.
    Mesma "categoria Destaque" do manual (Cinzel, caixa alta, dourado) já
    usada no rodapé de marca; aqui um pouco maior, por ser um título de
    verdade, com hairline dourada separando dos itens abaixo. */
@@ -664,6 +665,61 @@ body {
 .nav-app-item-nome { font-size: 13.5px; display: inline-block; transition: font-size 0.15s ease; }
 .nav-app-item:hover { color: #F5F5F0; }
 .nav-app-item:hover .nav-app-item-nome { font-size: 15px; }
+
+/* ---------- Seleção de aplicações do cliente (SelecaoAplicacoes.jsx) ----------
+   Mesma tela de entrada do login (.tela-login-rv cuida do fundo, da logo e
+   do rodapé); aqui só a lista em si. Reusa .nav-app-item do menu do
+   administrador — o mesmo gesto de seleção nos dois lugares — só subindo a
+   escala, porque no cliente a lista é o conteúdo principal da página, não
+   um menu lateral estreito.
+
+   margin: auto 0 centraliza a lista verticalmente entre a logo e o rodapé
+   (o .tela-login-rv é uma coluna flex com justify-content: space-between). */
+.selecao-apps {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: auto 0;
+  width: min(320px, 88vw);
+}
+.selecao-apps .selecao-app-item { padding: 13px 4px; }
+.selecao-apps .nav-app-item-prefixo { font-size: 13px; }
+.selecao-apps .nav-app-item-nome { font-size: 16px; }
+.selecao-apps .selecao-app-item:hover .nav-app-item-nome { font-size: 17.5px; }
+
+/* Aplicação ainda não desenvolvida, vista pelo cliente
+   (AplicacaoEmConstrucao.jsx). Mesma hierarquia da tela de seleção: nome da
+   aplicação em Cinzel dourado (o "momento de peso simbólico" do manual),
+   aviso em Montserrat apagado, e a volta como link discreto. */
+.em-construcao-bloco {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.em-construcao-app {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #D4AF37;
+}
+.em-construcao-aviso {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(245,245,240,0.55);
+}
+/* Reusa .nav-voltar (a mesma seta "Aplicações" do menu do administrador),
+   só desfazendo o margin-top:auto que lá serve pra colar no rodapé da
+   sidebar — aqui o botão faz parte do bloco centralizado. */
+.em-construcao-voltar { margin-top: 14px; width: auto; }
 
 /* Seta "Aplicações" — volta do submenu de uma aplicação pro seletor das 4.
    Sempre no rodapé da sidebar (margin-top: auto), logo acima de "Sair",
