@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
 import { buscarMarina } from './lib/db'
-import { buscarApp, nomeCompleto } from './lib/apps'
+import { buscarApp, nomeCompleto, temTelas, primeiraTela } from './lib/apps'
 import Home from './components/Home'
 import FichaCadastro from './components/FichaCadastro'
 import RedefinirSenha from './components/RedefinirSenha'
@@ -17,12 +17,16 @@ import TelaManutencao from './components/TelaManutencao'
 import TelaAbastecimento from './components/TelaAbastecimento'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 
-// Telas de RV Marine — a única das aplicações RV Invictus (ver
-// lib/apps.js) já desenvolvida. "Despachos" saiu daqui (não foi apagado, só
-// desligado do menu — ver TelaDocumentacao.jsx): vai virar a base do RV
-// NautDoc quando essa aplicação for desenvolvida.
+// Catálogo de telas da área administrativa: chave → componente e título.
+// QUAL aplicação mostra QUAIS telas é decidido em lib/apps.js (campo
+// `telas`), a fonte única — aqui só se resolve a chave em componente. Foi o
+// que permitiu o RV Finance e o RV Manut nascerem reaproveitando telas que
+// já existiam e funcionavam, em vez de reescrevê-las.
+//
+// "Despachos" continua fora do menu (não foi apagado — ver
+// TelaDocumentacao.jsx): vai virar a base do RV NautDoc.
 const TELAS = {
-  // O título mostrado no topo da tela é o nome da marina (não "Painel de
+  // O título do Painel de Controle é o nome da marina (não "Painel de
   // Controle" — esse nome já aparece no item do menu lateral).
   vagas: { titulo: TEMA_PADRAO.nomeExibicao, Componente: TelaVagas },
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
@@ -91,6 +95,16 @@ export default function App() {
     buscarMarina(perfil.marina_id).then((m) => setNomeMarina(m?.nome || null)).catch(() => setNomeMarina(null))
   }, [perfil?.marina_id])
 
+  // Trocar de aplicação precisa reposicionar a tela ativa: cada aplicação
+  // tem o seu próprio conjunto (lib/apps.js). Sem isto, sair do RV Marine
+  // em "Clientes" e entrar no RV Finance deixaria `telaAtiva` apontando pra
+  // uma tela que não existe ali. `null` volta pro seletor de aplicações.
+  function escolherApp(chave) {
+    setAppSelecionada(chave)
+    setTelaAtiva(chave ? primeiraTela(buscarApp(chave)) : null)
+    setAcoesVagas(null)
+  }
+
   if (carregando) return <div className="tela-central">Carregando...</div>
 
   // Link de redefinição de senha clicado: pede a nova senha antes de
@@ -121,7 +135,10 @@ export default function App() {
     if (!appSelecionada) {
       return <SelecaoAplicacoes onSelecionar={setAppSelecionada} />
     }
-    if (appSelecionada !== 'marine') {
+    // `clientePronto` (não a lista de telas): RV Finance e RV Manut já
+    // existem para a equipe da marina, mas ainda não têm experiência para o
+    // cliente final — para ele continuam "Em construção".
+    if (!buscarApp(appSelecionada)?.clientePronto) {
       return (
         <AplicacaoEmConstrucao
           app={buscarApp(appSelecionada)}
@@ -141,40 +158,42 @@ export default function App() {
   // com a própria logo já centralizada no cabeçalho) — só a logo.
   if (!appSelecionada) {
     return (
-      <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo="">
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo="">
         <PaginaMarcaDagua />
       </Layout>
     )
   }
 
-  // Demais aplicações (NautDoc, e-Náutica, Enge, Manut, Stock, Finance):
-  // ainda não têm telas próprias — mostram só o título escolhido na sidebar
-  // e "Em construção" com a marca d'água no conteúdo, até serem
-  // desenvolvidas.
-  if (appSelecionada !== 'marine') {
-    const nomeApp = nomeCompleto(buscarApp(appSelecionada))
+  // Aplicações ainda sem telas (NautDoc, e-Náutica, Enge, Stock): só o
+  // título escolhido na sidebar e "Em construção" com a marca d'água.
+  const app = buscarApp(appSelecionada)
+  if (!temTelas(app)) {
     return (
-      <Layout appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada} perfil={perfil} titulo={nomeApp}>
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo={nomeCompleto(app)}>
         <PaginaMarcaDagua texto="Em construção" />
       </Layout>
     )
   }
 
-  // RV Marine: shell interno já existente, com os itens de sempre. Só a
-  // tela "vagas" (Painel de Controle) usa o nome de verdade da marina no
-  // título — as demais continuam com o próprio nome da tela (TELAS acima).
-  const { titulo: tituloTela, Componente } = TELAS[telaAtiva]
-  const titulo = telaAtiva === 'vagas' ? (nomeMarina || tituloTela) : tituloTela
+  // Aplicação com telas (RV Marine, RV Finance, RV Manut): shell interno.
+  // `telaAtiva` pode não pertencer a esta aplicação no primeiro render
+  // depois de uma troca — daí o fallback pra primeira tela dela, que evita
+  // procurar em TELAS uma chave que a aplicação atual não tem.
+  const telaDaApp = app.telas.some((t) => t.chave === telaAtiva) ? telaAtiva : primeiraTela(app)
+  const { titulo: tituloTela, Componente } = TELAS[telaDaApp]
+  // Só o Painel de Controle usa o nome real da marina no título; as demais
+  // usam o próprio nome da tela.
+  const titulo = telaDaApp === 'vagas' ? (nomeMarina || tituloTela) : tituloTela
 
   return (
     <Layout
-      appSelecionada={appSelecionada} setAppSelecionada={setAppSelecionada}
-      telaAtiva={telaAtiva} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
-      acoesPainel={telaAtiva === 'vagas' ? acoesVagas : null}
+      appSelecionada={appSelecionada} setAppSelecionada={escolherApp}
+      telaAtiva={telaDaApp} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
+      acoesPainel={telaDaApp === 'vagas' ? acoesVagas : null}
     >
       <Componente
         marinaId={perfil?.marina_id} perfil={perfil}
-        onAcoes={telaAtiva === 'vagas' ? setAcoesVagas : undefined}
+        onAcoes={telaDaApp === 'vagas' ? setAcoesVagas : undefined}
       />
     </Layout>
   )

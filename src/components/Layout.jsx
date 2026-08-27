@@ -1,19 +1,7 @@
 import { IconSettings, IconArrowLeft, IconLogout } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
-import { APLICACOES, buscarApp } from '../lib/apps'
+import { APLICACOES, buscarApp, temTelas } from '../lib/apps'
 import SonsPainelAdmin from './SonsPainelAdmin'
-
-// Itens de RV Marine — a única das 4 aplicações com telas prontas hoje.
-// "Despachos" saiu daqui (não foi apagado, só desligado do menu): vai virar
-// a base do RV NautDoc quando essa aplicação for desenvolvida — o
-// componente (TelaDocumentacao.jsx) e os dados continuam intactos.
-const ITENS_MENU = [
-  { chave: 'vagas', label: 'Painel de Controle' },
-  { chave: 'clientes', label: 'Clientes' },
-  { chave: 'financeiro', label: 'Financeiro' },
-  { chave: 'manutencao', label: 'Manutenção' },
-  { chave: 'abastecimento', label: 'Abastecimento' },
-]
 
 // Cabeçalho mostra só o cargo (ex: "Admin"), nunca o nome cadastrado da
 // pessoa (ex: "Admin Teste") — a pedido da administração, pra não expor um
@@ -24,7 +12,9 @@ const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Op
 
 // Nessas telas o cargo some inteiro do cabeçalho (nem "Admin" aparece) — a
 // pedido da administração. Só o Painel de Controle continua mostrando o
-// cargo normalmente.
+// cargo normalmente. Financeiro e Manutenção seguem na lista depois de
+// migrarem pro RV Finance e pro RV Manut: a regra é da TELA, não da
+// aplicação onde ela mora.
 const TELAS_SEM_CARGO = ['financeiro', 'manutencao', 'abastecimento', 'clientes']
 
 // Botão de engrenagem no cabeçalho, do lado do nome do usuário — abre direto
@@ -57,7 +47,9 @@ export default function Layout({
   // volta a ser sólida (.topo-logo-solida), a pedido explícito: desfaz só
   // essa parte da mudança, sem mexer em mais nada.
   const mostrarLogoTopo = appSelecionada !== null
-  const logoSolida = appSelecionada === 'marine' && telaAtiva === 'vagas'
+  // 'vagas' (Painel de Controle) só existe no RV Marine, então não precisa
+  // checar a aplicação — a tela já identifica sozinha.
+  const logoSolida = telaAtiva === 'vagas'
 
   return (
     <div className="app-shell">
@@ -87,9 +79,9 @@ export default function Layout({
                 construção" no lugar da lista, só pra manter a mesma
                 composição visual (título + lista) em qualquer aplicação
                 escolhida. Não é clicável (não tem nada pra abrir ainda). */}
-            {appSelecionada === 'marine' ? (
+            {temTelas(app) ? (
               <nav>
-                {ITENS_MENU.map(({ chave, label }) => (
+                {app.telas.map(({ chave, label }) => (
                   <button
                     key={chave}
                     className={`nav-item ${telaAtiva === chave ? 'ativo' : ''}`}
@@ -164,7 +156,7 @@ export default function Layout({
             )}
           </div>
           <div className="topo-direita">
-            {appSelecionada === 'marine' && !TELAS_SEM_CARGO.includes(telaAtiva) && (
+            {telaAtiva && !TELAS_SEM_CARGO.includes(telaAtiva) && (
               <span className="usuario">{LABEL_CARGO[perfil?.role] || 'Usuário'}</span>
             )}
             <MenuAcoesPainel acoes={acoesPainel} />

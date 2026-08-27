@@ -1,6 +1,6 @@
-// As aplicações da RV Invictus — fonte ÚNICA da lista, da ordem e do nome.
-// Usada nos dois lugares onde o usuário escolhe uma aplicação, pra que os
-// dois nunca divirjam:
+// As aplicações da RV Invictus — fonte ÚNICA da lista, da ordem, do nome e
+// das telas de cada uma. Usada nos dois lugares onde se escolhe uma
+// aplicação, pra que os dois nunca divirjam:
 //   - seleção do cliente, logo após o login (SelecaoAplicacoes.jsx)
 //   - menu lateral do administrador (Layout.jsx)
 //
@@ -9,18 +9,48 @@
 // .nav-app-item-prefixo/.nav-app-item-nome no index.css) — quem precisar do
 // nome completo usa `nomeCompleto(app)` abaixo.
 //
-// `pronta` diz se a aplicação já tem telas de verdade. Só o RV Marine tem
-// hoje; as demais entram no lugar certo da lista desde já, mas levam à tela
-// "Em construção" (mesma regra pro cliente e pro administrador) até serem
-// desenvolvidas. É o único ponto a mudar quando uma delas ficar pronta.
+// `telas` são as telas da ÁREA ADMINISTRATIVA daquela aplicação, na ordem em
+// que aparecem no menu lateral. Uma aplicação com `telas` vazio ainda não
+// foi desenvolvida e mostra "Em construção" — é o único lugar a mexer
+// quando uma delas ficar pronta. A chave de cada tela é resolvida em
+// componente no App.jsx (COMPONENTES).
+//
+// `clientePronto` é separado de propósito: diz se a aplicação tem uma
+// experiência para o CLIENTE FINAL, que é diferente da área administrativa.
+// Hoje só o RV Marine tem (o painel do cliente); RV Finance e RV Manut já
+// existem para a equipe da marina, mas o cliente ainda não entra neles.
 export const APLICACOES = [
-  { chave: 'marine', prefixo: 'RV', nome: 'Marine', pronta: true },
-  { chave: 'nautdoc', prefixo: 'RV', nome: 'NautDoc', pronta: false },
-  { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', pronta: false },
-  { chave: 'enge', prefixo: 'RV', nome: 'Enge', pronta: false },
-  { chave: 'manut', prefixo: 'RV', nome: 'Manut', pronta: false },
-  { chave: 'stock', prefixo: 'RV', nome: 'Stock', pronta: false },
-  { chave: 'finance', prefixo: 'RV', nome: 'Finance', pronta: false },
+  {
+    chave: 'marine', prefixo: 'RV', nome: 'Marine', clientePronto: true,
+    telas: [
+      { chave: 'vagas', label: 'Painel de Controle' },
+      { chave: 'clientes', label: 'Clientes' },
+      { chave: 'abastecimento', label: 'Abastecimento' },
+      // Financeiro e Manutenção saíram daqui na Etapa 11, DEPOIS que o RV
+      // Finance e o RV Manut já estavam funcionando com as mesmas telas
+      // (TelaFinanceiro.jsx / TelaManutencao.jsx, reaproveitadas inteiras).
+      // Nada foi apagado nem duplicado: os componentes, as tabelas
+      // (cobrancas, ordens_servico), os relacionamentos, o histórico e as
+      // policies continuam exatamente como estavam — só mudou em qual
+      // aplicação o item aparece no menu.
+    ],
+  },
+  { chave: 'nautdoc', prefixo: 'RV', nome: 'NautDoc', clientePronto: false, telas: [] },
+  { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', clientePronto: false, telas: [] },
+  { chave: 'enge', prefixo: 'RV', nome: 'Enge', clientePronto: false, telas: [] },
+  {
+    chave: 'manut', prefixo: 'RV', nome: 'Manut', clientePronto: false,
+    telas: [
+      { chave: 'manutencao', label: 'Ordens de serviço' },
+    ],
+  },
+  { chave: 'stock', prefixo: 'RV', nome: 'Stock', clientePronto: false, telas: [] },
+  {
+    chave: 'finance', prefixo: 'RV', nome: 'Finance', clientePronto: false,
+    telas: [
+      { chave: 'financeiro', label: 'Cobranças' },
+    ],
+  },
 ]
 
 export function buscarApp(chave) {
@@ -29,4 +59,15 @@ export function buscarApp(chave) {
 
 export function nomeCompleto(app) {
   return app ? `${app.prefixo} ${app.nome}` : ''
+}
+
+// Uma aplicação está desenvolvida (para a equipe) quando tem pelo menos uma
+// tela. Evita manter um segundo campo dizendo a mesma coisa, que poderia
+// ficar desencontrado da lista de telas.
+export function temTelas(app) {
+  return !!app && app.telas.length > 0
+}
+
+export function primeiraTela(app) {
+  return app?.telas?.[0]?.chave || null
 }
