@@ -3,7 +3,7 @@ import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconT
 import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
-  listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
+  listarDocumentos, buscarMarina, atualizarConfigMarina,
   listarPedidosAbastecimento, confirmarAbastecimento, cancelarAbastecimento,
 } from '../lib/db'
 import { ativarSons } from '../lib/sons'
@@ -115,19 +115,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Configurações do sistema — todas centralizadas no Painel de Controle
   // (ver ConfiguracoesPainel.jsx). A mensalidade e o cadastro de
   // combustíveis saíram daqui junto com a cobrança e o abastecimento: são
-  // assunto do RV Finance. O que sobrou (apitos, e-mail do relatório,
-  // agenda da rampa, localidade do clima) continua no mesmo
+  // assunto do RV Finance. A aba "Despacho" (e o e-mail/disparo manual do
+  // relatório de documentos vencidos que morava nela) saiu do menu de
+  // Configurações — o envio automático diário continua rodando sozinho via
+  // Edge Function/Cron no Supabase, só a tela de controle é que não existe
+  // mais (ver enviarRelatorioDocumentosAgora em lib/db.js). O que sobrou
+  // (apitos, agenda da rampa, localidade do clima) continua no mesmo
   // marinas.config_json, lido e gravado abaixo.
-  const [emailRelatorio, setEmailRelatorio] = useState('')
-  const [salvandoEmailRelatorio, setSalvandoEmailRelatorio] = useState(false)
-  const [ultimoEnvioRelatorio, setUltimoEnvioRelatorio] = useState(null)
-  const [enviandoRelatorio, setEnviandoRelatorio] = useState(false)
-  const [mensagemRelatorio, setMensagemRelatorio] = useState('')
 
-  // Carrega a configuração da marina (apitos, valor da mensalidade, e-mail
-  // do relatório de documentos) — tudo em marinas.config_json. Se ainda não
-  // configurou nada, apitos ficam no padrão (1 longo na descida, 3 curtos no
-  // retorno) e os demais campos ficam vazios.
+  // Carrega a configuração da marina (apitos, valor da mensalidade) — tudo
+  // em marinas.config_json. Se ainda não configurou nada, apitos ficam no
+  // padrão (1 longo na descida, 3 curtos no retorno).
   function carregarConfigMarina() {
     if (!marinaId) return
     buscarMarina(marinaId).then((m) => {
@@ -139,8 +137,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       setConfigApitos(apitos)
       setFormApitos(apitos)
       setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
-      setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
-      setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
       // Localidade do clima (ver lib/clima.js) — configurada pelo
       // administrador em Configurações → Agenda; sem isso, buscarClimaAtual
       // já cai sozinha no padrão de Torres/RS.
@@ -182,38 +178,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-
-  async function salvarEmailRelatorio(e) {
-    e.preventDefault()
-    setSalvandoEmailRelatorio(true)
-    setMensagemRelatorio('')
-    try {
-      await atualizarConfigMarina(marinaId, { emailRelatorioDocumentos: emailRelatorio })
-      setMensagemRelatorio('E-mail salvo. O relatório diário passa a ser enviado para este endereço.')
-    } catch (err) {
-      setMensagemRelatorio(`Não foi possível salvar: ${err.message}`)
-    } finally {
-      setSalvandoEmailRelatorio(false)
-    }
-  }
-
-  async function enviarRelatorioAgora() {
-    setEnviandoRelatorio(true)
-    setMensagemRelatorio('')
-    try {
-      const resultado = await enviarRelatorioDocumentosAgora(marinaId)
-      setUltimoEnvioRelatorio(new Date().toISOString())
-      setMensagemRelatorio(
-        resultado?.documentos > 0
-          ? `Relatório enviado com ${resultado.documentos} documento(s) vencido(s)/a vencer.`
-          : 'Relatório enviado — nenhum documento vencido ou a vencer nos próximos 30 dias.'
-      )
-    } catch (err) {
-      setMensagemRelatorio(`Não foi possível enviar: ${err.message}`)
-    } finally {
-      setEnviandoRelatorio(false)
-    }
-  }
 
   async function carregar() {
     if (!marinaId) return
@@ -814,14 +778,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         onMudarApitos={setFormApitos}
         onSalvarApitos={salvarConfigApitos}
         salvandoApitos={salvandoApitos}
-        emailRelatorio={emailRelatorio}
-        onMudarEmailRelatorio={setEmailRelatorio}
-        onSalvarEmailRelatorio={salvarEmailRelatorio}
-        salvandoEmailRelatorio={salvandoEmailRelatorio}
-        ultimoEnvioRelatorio={ultimoEnvioRelatorio}
-        onEnviarRelatorioAgora={enviarRelatorioAgora}
-        enviandoRelatorio={enviandoRelatorio}
-        mensagemRelatorio={mensagemRelatorio}
+        pedidosAbastecimento={pedidosAbastecimento}
       />
     </div>
   )

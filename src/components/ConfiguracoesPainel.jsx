@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { exportarClientesCsv, exportarManutencaoCsv, exportarDespachosCsv, exportarHistoricoManobrasCsv } from '../lib/exportarPlanilha'
+import { exportarClientesCsv, exportarHistoricoManobrasCsv, exportarAbastecimentoCsv, exportarAbastecimentoPdf } from '../lib/exportarPlanilha'
 import { buscarMarina, atualizarConfigMarina, listarCombustiveis, salvarCombustivel } from '../lib/db'
 import { lerConfigRampa, RAMPA_PADRAO, MENSAGENS_INDISPONIBILIDADE } from '../lib/agendaRampa'
 import { geocodePorCidade } from '../lib/clima'
+import { statusEfetivoAbastecimento, labelStatusAbastecimento, classeStatusAbastecimento, textoQuantidade } from '../lib/statusAbastecimento'
 
 // Todas as configurações do sistema, centralizadas aqui dentro do Painel de
 // Controle (antes espalhadas em: engrenagem do Painel de Controle — aviso
@@ -26,35 +27,51 @@ import { geocodePorCidade } from '../lib/clima'
 //
 // "Combustível" é outra coisa e por isso ficou: são os tipos que o cliente
 // pode escolher ao pedir abastecimento — nome e ativo/inativo, sem preço nem
-// estoque, que seriam financeiro.
+// estoque, que seriam financeiro — e agora também o Histórico de
+// Abastecimento (planilha filtrável do que já foi pedido, com exportação
+// PDF/Excel), incorporado direto nesta aba em vez de viver solto.
+//
+// As abas "Despacho", "Manutenção" e "Acessos" saíram do menu (removidas a
+// pedido — ver histórico de conversa): a exportação de despacho/manutenção
+// e o texto fixo de Acessos não existem mais aqui. O relatório automático
+// de documentos vencidos (que morava dentro de "Despacho") continua
+// rodando sozinho todo dia via Edge Function/Cron no Supabase — só a tela
+// pra trocar o e-mail ou disparar manualmente é que saiu; ver
+// enviarRelatorioDocumentosAgora em lib/db.js se precisar repor esse
+// controle em outro lugar. "Agenda" virou "Rampa" no rótulo — o `chave`
+// interno e toda a lógica (formRampa, salvarConfigRampa, manutenções da
+// rampa) continuam com o nome de sempre, só o texto da aba mudou.
 const CATEGORIAS = [
   { chave: 'notificacoes', label: 'Notificações' },
   { chave: 'combustivel', label: 'Combustível' },
-  { chave: 'despacho', label: 'Despacho' },
   { chave: 'clientes', label: 'Clientes' },
-  { chave: 'manutencao', label: 'Manutenção' },
-  { chave: 'agenda', label: 'Agenda' },
+  { chave: 'agenda', label: 'Rampa' },
   { chave: 'historico', label: 'Histórico' },
-  { chave: 'acessos', label: 'Acessos' },
 ]
 
 const LOCALIZACAO_CLIMA_VAZIA = { cidade: '', latitude: null, longitude: null, local: '' }
+
+const FILTRO_ABASTECIMENTO_VAZIO = { dataInicio: '', dataFim: '', cliente: '', embarcacao: '', combustivelId: '' }
 
 export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
   // Notificações — aviso sonoro + apitos
   sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
-  // Despacho — relatório automático de documentos
-  emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
-  ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
   // Histórico de manobras — antes num modal solto no Painel de Controle,
   // agora só aqui (categoria "Histórico"), junto da exportação da mesma
   // planilha.
   historicoManobras = [], tipoAgendamentoLabel = {},
+  // Histórico de Abastecimento (aba Combustível) — a mesma lista completa
+  // que TelaVagas.jsx já busca com listarPedidosAbastecimento (não o recorte
+  // ativo de 24h da planilha "Solicitações de combustível" do Painel de
+  // Controle); os filtros de período/cliente/embarcação/combustível abaixo
+  // são só de tela, aplicados em cima desta lista.
+  pedidosAbastecimento = [],
 }) {
   const [categoria, setCategoria] = useState('notificacoes')
   const [exportando, setExportando] = useState('')
   const [mensagemExportacao, setMensagemExportacao] = useState('')
+  const [filtroAbastecimento, setFiltroAbastecimento] = useState(FILTRO_ABASTECIMENTO_VAZIO)
 
   // Localidade usada pra buscar a previsão do tempo do Painel de Controle
   // (ver lib/clima.js) — cada marina configura a própria cidade aqui em vez
@@ -255,6 +272,48 @@ export default function ConfiguracoesPainel({
     }
   }
 
+  // Histórico de Abastecimento — mesmos filtros de tela pedidos: período
+  // (por created_at, o "pedido em" da planilha), cliente e embarcação por
+  // busca de texto, combustível por seleção exata. Mais recente primeiro,
+  // igual à planilha ativa de TelaVagas.jsx.
+  const historicoAbastecimentoFiltrado = pedidosAbastecimento
+    .filter((p) => {
+      if (filtroAbastecimento.dataInicio && new Date(p.created_at) < new Date(filtroAbastecimento.dataInicio)) return false
+      if (filtroAbastecimento.dataFim && new Date(p.created_at) > new Date(`${filtroAbastecimento.dataFim}T23:59:59`)) return false
+      if (filtroAbastecimento.cliente && !(p.clientes?.nome || '').toLowerCase().includes(filtroAbastecimento.cliente.trim().toLowerCase())) return false
+      if (filtroAbastecimento.embarcacao && !(p.embarcacoes?.nome || '').toLowerCase().includes(filtroAbastecimento.embarcacao.trim().toLowerCase())) return false
+      if (filtroAbastecimento.combustivelId && p.combustivel_id !== filtroAbastecimento.combustivelId) return false
+      return true
+    })
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  // Linhas já formatadas pra exibição na tabela e para as duas exportações
+  // (CSV/Excel e PDF) — mesmo texto que aparece na tela, ver
+  // exportarAbastecimentoCsv/exportarAbastecimentoPdf em lib/exportarPlanilha.js.
+  const itensAbastecimentoExportacao = historicoAbastecimentoFiltrado.map((p) => ({
+    cliente: p.clientes?.nome || '',
+    embarcacao: p.embarcacoes?.nome || '',
+    combustivel: p.combustiveis?.nome || '',
+    quantidade: textoQuantidade(p),
+    statusLabel: labelStatusAbastecimento(statusEfetivoAbastecimento(p)),
+    quando: new Date(p.created_at).toLocaleString('pt-BR'),
+  }))
+
+  async function exportarAbastecimento(formato) {
+    const chave = `abastecimento_${formato}`
+    setExportando(chave)
+    setMensagemExportacao('')
+    try {
+      if (formato === 'pdf') exportarAbastecimentoPdf(itensAbastecimentoExportacao)
+      else exportarAbastecimentoCsv(itensAbastecimentoExportacao)
+      setMensagemExportacao(`Histórico de abastecimento (${itensAbastecimentoExportacao.length} pedido(s)) exportado em ${formato === 'pdf' ? 'PDF' : 'Excel'}.`)
+    } catch (err) {
+      alert('Não foi possível exportar o histórico de abastecimento: ' + err.message)
+    } finally {
+      setExportando('')
+    }
+  }
+
   if (!aberto) return null
 
   return (
@@ -310,6 +369,77 @@ export default function ConfiguracoesPainel({
                 ))}
               </div>
             </div>
+
+            <div>
+              <strong>Histórico de Abastecimento</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Todos os pedidos de combustível já feitos pelos clientes, com filtro de período, cliente,
+                embarcação e tipo de combustível. Exporte em Excel ou PDF o recorte que estiver filtrado na tela.
+              </p>
+
+              <div className="form-inline" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12, gap: 2 }}>
+                  De
+                  <input type="date" value={filtroAbastecimento.dataInicio}
+                    onChange={(e) => setFiltroAbastecimento({ ...filtroAbastecimento, dataInicio: e.target.value })} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12, gap: 2 }}>
+                  Até
+                  <input type="date" value={filtroAbastecimento.dataFim}
+                    onChange={(e) => setFiltroAbastecimento({ ...filtroAbastecimento, dataFim: e.target.value })} />
+                </label>
+                <input placeholder="Cliente" style={{ minWidth: 160 }} value={filtroAbastecimento.cliente}
+                  onChange={(e) => setFiltroAbastecimento({ ...filtroAbastecimento, cliente: e.target.value })} />
+                <input placeholder="Embarcação" style={{ minWidth: 160 }} value={filtroAbastecimento.embarcacao}
+                  onChange={(e) => setFiltroAbastecimento({ ...filtroAbastecimento, embarcacao: e.target.value })} />
+                <select value={filtroAbastecimento.combustivelId}
+                  onChange={(e) => setFiltroAbastecimento({ ...filtroAbastecimento, combustivelId: e.target.value })}>
+                  <option value="">Todos os combustíveis</option>
+                  {combustiveis.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+                <button type="button" onClick={() => setFiltroAbastecimento(FILTRO_ABASTECIMENTO_VAZIO)}>Limpar filtros</button>
+              </div>
+
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th className="col-responsavel">Cliente</th>
+                    <th>Embarcação</th>
+                    <th>Combustível</th>
+                    <th>Quantidade</th>
+                    <th>Status</th>
+                    <th>Pedido em</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historicoAbastecimentoFiltrado.length === 0 && (
+                    <tr><td colSpan={6}>Nenhum pedido de combustível encontrado para os filtros selecionados.</td></tr>
+                  )}
+                  {historicoAbastecimentoFiltrado.map((p) => (
+                    <tr key={p.id}>
+                      <td className="col-responsavel"><b>{p.clientes?.nome}</b></td>
+                      <td>{p.embarcacoes?.nome || '—'}</td>
+                      <td>{p.combustiveis?.nome || '—'}</td>
+                      <td>{textoQuantidade(p)}</td>
+                      <td><span className={`badge status-${classeStatusAbastecimento(statusEfetivoAbastecimento(p))}`}>{labelStatusAbastecimento(statusEfetivoAbastecimento(p))}</span></td>
+                      <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button type="button" onClick={() => exportarAbastecimento('csv')} disabled={exportando === 'abastecimento_csv' || itensAbastecimentoExportacao.length === 0}>
+                  {exportando === 'abastecimento_csv' ? 'Exportando…' : 'Exportar Excel'}
+                </button>
+                <button type="button" onClick={() => exportarAbastecimento('pdf')} disabled={exportando === 'abastecimento_pdf' || itensAbastecimentoExportacao.length === 0}>
+                  {exportando === 'abastecimento_pdf' ? 'Exportando…' : 'Exportar PDF'}
+                </button>
+              </div>
+              {mensagemExportacao && exportando === '' && (
+                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -353,45 +483,6 @@ export default function ConfiguracoesPainel({
           </div>
         )}
 
-        {categoria === 'despacho' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div>
-              <strong>Relatório automático de documentos vencidos</strong>
-              <p className="dica" style={{ margin: '4px 0 14px' }}>
-                Todo dia o sistema confere quem está com TIE, seguro, habilitação do condutor ou vistoria vencidos (ou
-                vencendo em até 1 mês) e envia uma planilha para o e-mail cadastrado abaixo.
-              </p>
-              <form className="form-inline" onSubmit={onSalvarEmailRelatorio} style={{ marginBottom: 8 }}>
-                <input
-                  type="email" required placeholder="e-mail@exemplo.com" style={{ minWidth: 240 }} disabled={!ehAdmin}
-                  value={emailRelatorio} onChange={(e) => onMudarEmailRelatorio(e.target.value)}
-                />
-                <button type="submit" disabled={!ehAdmin || salvandoEmailRelatorio}>{salvandoEmailRelatorio ? 'Salvando…' : 'Salvar e-mail'}</button>
-                <button type="button" onClick={onEnviarRelatorioAgora} disabled={!ehAdmin || enviandoRelatorio || !emailRelatorio}>
-                  {enviandoRelatorio ? 'Enviando…' : 'Enviar relatório agora'}
-                </button>
-              </form>
-              <p className="dica" style={{ margin: 0 }}>
-                {ultimoEnvioRelatorio ? `Último envio: ${new Date(ultimoEnvioRelatorio).toLocaleString('pt-BR')}` : 'Ainda não foi enviado nenhum relatório para este e-mail.'}
-              </p>
-              {mensagemRelatorio && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemRelatorio}</p>}
-            </div>
-
-            <div>
-              <strong>Exportar planilha de despacho</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Baixa uma planilha com todos os dados de despacho, completos e atualizados.
-              </p>
-              <button type="button" onClick={() => exportar(exportarDespachosCsv, 'despacho', 'despacho')} disabled={exportando === 'despacho'}>
-                {exportando === 'despacho' ? 'Exportando…' : 'Exportar planilha de despacho'}
-              </button>
-              {mensagemExportacao && exportando === '' && (
-                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {categoria === 'clientes' && (
           <div>
             <strong>Exportar planilha de clientes</strong>
@@ -400,20 +491,6 @@ export default function ConfiguracoesPainel({
             </p>
             <button type="button" onClick={() => exportar(exportarClientesCsv, 'clientes', 'clientes')} disabled={exportando === 'clientes'}>
               {exportando === 'clientes' ? 'Exportando…' : 'Exportar planilha de clientes'}
-            </button>
-            {mensagemExportacao && exportando === '' && (
-              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-            )}
-          </div>
-        )}
-        {categoria === 'manutencao' && (
-          <div>
-            <strong>Exportar planilha de manutenção</strong>
-            <p className="dica" style={{ margin: '4px 0 10px' }}>
-              Baixa uma planilha com todos os dados de manutenção, completos e atualizados.
-            </p>
-            <button type="button" onClick={() => exportar(exportarManutencaoCsv, 'manutencao', 'manutenção')} disabled={exportando === 'manutencao'}>
-              {exportando === 'manutencao' ? 'Exportando…' : 'Exportar planilha de manutenção'}
             </button>
             {mensagemExportacao && exportando === '' && (
               <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
@@ -564,14 +641,6 @@ export default function ConfiguracoesPainel({
             </div>
           </div>
         )}
-        {categoria === 'acessos' && (
-          <p className="dica">
-            Somente o perfil <b>Administrador</b> pode alterar qualquer configuração desta tela — vale tanto na
-            interface quanto no banco de dados (funcionário e operador não conseguem gravar mudanças aqui mesmo
-            chamando a API diretamente).
-          </p>
-        )}
-
         <div className="acoes-modal" style={{ marginTop: 20 }}>
           <button type="button" onClick={onFechar}>Fechar</button>
         </div>
