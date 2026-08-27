@@ -4,3 +4,6 @@ dist/
 !.env.local.example
 .DS_Store
 *.log
+
+# Temporarios gerados pelo Vite ao recarregar a config
+vite.config.*.timestamp-*
