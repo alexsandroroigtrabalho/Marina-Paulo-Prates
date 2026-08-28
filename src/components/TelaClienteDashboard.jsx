@@ -32,11 +32,28 @@ import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 // concluída), não só por 5 dias depois de sair do Diário de Bordo ativo —
 // ver diarioAtivo/historicoSolicitacoes mais abaixo.
 const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
-// Quanto tempo uma solicitação JÁ CONCLUÍDA ainda fica à vista no Diário de
-// Bordo antes de passar a viver só no Histórico de Solicitações. Antes ela
-// saía no instante em que era concluída, o que fazia o registro sumir da
-// tela do cliente antes mesmo de ele perceber que tinha terminado.
-const DIARIO_JANELA_MS = 24 * 60 * 60 * 1000
+// Horário da "limpeza diária" do Diário de Bordo (ver proximaLimpezaAs7h
+// abaixo) — uma solicitação já concluída/cancelada some da tela só na
+// próxima passagem das 7h da manhã, nunca no instante em que termina (senão
+// o registro sumiria antes mesmo do cliente perceber que tinha terminado).
+// Não existe job nenhum rodando às 7h no servidor: agoraMs (ver mais abaixo)
+// já é recalculado a cada 10s nesta tela, então o item some sozinho assim
+// que o relógio do navegador cruza essa hora — o "cron job" pedido pela
+// especificação é só esse recálculo cliente, sem precisar de nenhuma peça
+// nova de infraestrutura. Isso também cobre a "limpeza retroativa imediata"
+// pedida junto: qualquer item concluído antes da última passagem das 7h já
+// nasce escondido assim que este código entra no ar, sem precisar de
+// nenhuma migração ou ação manual.
+const HORA_LIMPEZA_DIARIO = 7
+
+// Instante da próxima passagem das HORA_LIMPEZA_DIARIO (7h) depois de
+// `instante` — se `instante` já é hoje às 7h ou depois, a próxima passagem é
+// amanhã às 7h; se é antes das 7h de hoje, a própria hoje às 7h já serve.
+function proximaLimpezaAs7h(instante) {
+  const d = new Date(instante)
+  const hojeAs7h = new Date(d.getFullYear(), d.getMonth(), d.getDate(), HORA_LIMPEZA_DIARIO, 0, 0, 0)
+  return d.getTime() < hojeAs7h.getTime() ? hojeAs7h : new Date(hojeAs7h.getTime() + 24 * 60 * 60 * 1000)
+}
 
 // "Silenciar notificações" (engrenagem → Diário de Bordo): preferência só
 // deste navegador/aparelho, não do cadastro do cliente — por isso fica em
@@ -986,7 +1003,14 @@ export default function TelaClienteDashboard({ perfil }) {
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
       detalhe: textoQuantidade(p),
       ...statusAbastecimentoDiario(p, agoraMs),
-      quando: p.created_at,
+      // confirmado_em (quando existe) — o instante real do clique em
+      // "Confirmar abastecimento" na planilha do Painel de Controle (ver
+      // confirmarAbastecimento em lib/db.js) — não created_at, que é só a
+      // hora do pedido. Fica nulo pra um pedido confirmado automaticamente
+      // (sem clique da equipe, passados 15min — ver JANELA_CONFIRMACAO_MS em
+      // lib/statusAbastecimento.js) e pra um cancelado, únicos casos em que
+      // created_at ainda é a melhor data disponível.
+      quando: p.confirmado_em || p.created_at,
       // O botão sai no mesmo instante em que os botões da equipe saem, no
       // Painel de Controle: as duas telas chamam aguardandoDecisao.
       abastecimentoParaCancelar: aguardandoDecisao(p, agoraMs) ? p : null,
@@ -1001,7 +1025,10 @@ export default function TelaClienteDashboard({ perfil }) {
       // status igual em todo lugar que mostra manutenção.
       statusLabel: labelStatusManutencao(os.status),
       statusClasse: classeStatusDiario(os.status),
-      quando: os.data_abertura,
+      // data_conclusao (quando existe) — gravado em atualizarStatusOS
+      // (lib/db.js) no instante em que a equipe marca a manutenção como
+      // concluída. Enquanto aberta, usa data_abertura normalmente.
+      quando: os.data_conclusao || os.data_abertura,
     })),
     ...despachos.map((d) => ({
       id: `de-${d.id}`,
@@ -1010,7 +1037,10 @@ export default function TelaClienteDashboard({ perfil }) {
       detalhe: `${d.orgao || ''}${d.numero_protocolo ? ` · Protocolo ${d.numero_protocolo}` : ''}`,
       statusLabel: STATUS_LABEL[d.status] || d.status,
       statusClasse: classeStatusDiario(d.status),
-      quando: d.created_at,
+      // data_conclusao (quando existe) — gravado em TelaDocumentacao.jsx no
+      // instante em que a equipe marca o despacho como concluído (só a data,
+      // sem hora — coluna date no banco). Enquanto aberto, usa created_at.
+      quando: d.data_conclusao || d.created_at,
     })),
     ...laudos.map((l) => ({
       id: `la-${l.id}`,
@@ -1019,7 +1049,10 @@ export default function TelaClienteDashboard({ perfil }) {
       detalhe: l.finalidade || '',
       statusLabel: STATUS_LABEL[l.status] || l.status,
       statusClasse: classeStatusDiario(l.status),
-      quando: l.data_solicitacao,
+      // data_emissao (quando existe) — gravado em TelaDocumentacao.jsx no
+      // instante em que a equipe marca o laudo como emitido. Enquanto em
+      // aberto, usa data_solicitacao.
+      quando: l.data_emissao || l.data_solicitacao,
     })),
     // S.O.S.: só mostra o estado ATUAL (não existe histórico com data/hora
     // de pedidos de resgate anteriores — resgate_status é um campo só na
@@ -1035,7 +1068,10 @@ export default function TelaClienteDashboard({ perfil }) {
           detalhe: DETALHE_STATUS_RESGATE[agendamentoNavegando.resgate_status] || '',
           statusLabel: labelStatusResgate(agendamentoNavegando.resgate_status),
           statusClasse: ['recolhido', 'cancelado'].includes(agendamentoNavegando.resgate_status) ? 'em-dia' : 'sos',
-          quando: agendamentoNavegando.data_hora,
+          // resgate_atualizado_em — o instante real da última mudança de
+          // etapa do resgate (ver atualizarStatusResgate em lib/db.js), não
+          // data_hora da navegação em si (que não muda com o S.O.S.).
+          quando: agendamentoNavegando.resgate_atualizado_em || agendamentoNavegando.data_hora,
           // Só dá pra cancelar enquanto ainda está "Solicitado" ou
           // "Recebido" — ver cancelarResgateCliente.
           resgateParaCancelar: STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status) ? agendamentoNavegando : null,
@@ -1075,42 +1111,38 @@ export default function TelaClienteDashboard({ perfil }) {
   // já colore o badge de verde), a solicitação sai do Diário de Bordo ativo
   // — continua visível, sem limite de tempo aqui, no Histórico de
   // Solicitações da engrenagem (abaixo), junto com TODA solicitação já
-  // feita (pendente, cancelada ou concluída) — ver historicoSolicitacoes.
-  // Nada é apagado do banco — só sai desta lista aqui.
+  // feita (pendente, cancelada ou concluída) — ver historicoSolicitacoes, e
+  // para sempre no Histórico de Manobras/Abastecimento (Configurações da
+  // equipe) — nada é apagado do banco em nenhum dos dois filtros abaixo, só
+  // sai de listar aqui.
   //
   // diarioBordoLimpoEm (marina.marinas.config_json): carimbo opcional de uma
   // limpeza geral da tela, gravado direto no banco (não tem UI própria hoje
-  // — é uma ação pontual da administração). Qualquer item, mesmo em aberto,
-  // com "quando" igual ou anterior a esse carimbo some do Diário de Bordo
-  // ativo — só isso, mesmo espírito do filtro acima: nada é apagado do
-  // banco, o item só some da tela (o Histórico de Solicitações abaixo não é
-  // afetado por essa limpeza — continua mostrando tudo normalmente). Uma
-  // solicitação nova, criada depois do carimbo, aparece normalmente. Chega
-  // em tempo real (Realtime já assina marina.marinas mais abaixo), sem
-  // precisar de F5.
+  // — é uma ação pontual da administração). Chega em tempo real (Realtime já
+  // assina marina.marinas mais abaixo), sem precisar de F5.
   const limpoEm = marina?.config_json?.diarioBordoLimpoEm ? new Date(marina.config_json.diarioBordoLimpoEm) : null
   const agora = agoraMs
-  // Regra do Diário de Bordo: Registro → Diário de Bordo → após 1 dia →
-  // Histórico.
+  // Regra do Diário de Bordo: Registro → Diário de Bordo → próxima passagem
+  // das 7h da manhã → Histórico (ver proximaLimpezaAs7h acima).
   //
-  // Uma solicitação concluída não sai mais na hora: ela ainda fica 1 dia no
-  // Diário (DIARIO_JANELA_MS, contado a partir do registro — `item.quando`,
-  // que vem sempre de uma data real do banco: data_hora, created_at,
-  // data_abertura ou data_solicitacao, conforme o tipo). Passado o prazo,
-  // deixa de aparecer aqui e segue no Histórico de Solicitações.
+  // Uma solicitação AINDA EM ABERTO (inclusive uma agendada pra uma data
+  // futura — ela só deixa de estar "em aberto" quando de fato for atendida
+  // ou cancelada) continua no Diário sem prazo nenhum, e nunca é afetada
+  // pela limpeza das 7h nem por diarioBordoLimpoEm — sem isso, um pedido
+  // pendente há mais de um dia (uma descida não atendida, um S.O.S. em
+  // andamento) desapareceria da tela do cliente justamente enquanto ainda
+  // precisa de atenção.
   //
-  // Uma solicitação AINDA EM ABERTO continua no Diário sem prazo, como
-  // sempre foi — some daqui só depois de concluída e cumprido o dia. Sem
-  // isso, um pedido pendente há mais de um dia (uma descida não atendida,
-  // um S.O.S. em andamento) desapareceria da tela do cliente justamente
-  // enquanto ainda precisa de atenção.
+  // Só uma solicitação já concluída/cancelada (statusClasse 'em-dia') é
+  // candidata a sumir — e mesmo assim, só na próxima passagem das 7h depois
+  // do "quando" dela (item.quando), nunca no instante em que termina.
   //
   // Nada é apagado nem copiado: é o mesmo registro, deixando de ser listado
   // aqui e seguindo visível no Histórico.
   const diarioAtivo = diarioDeBordo.filter((item) => {
-    if (limpoEm && new Date(item.quando) <= limpoEm) return false
     if (item.statusClasse !== 'em-dia') return true
-    return agora - new Date(item.quando).getTime() <= DIARIO_JANELA_MS
+    if (limpoEm && new Date(item.quando) <= limpoEm) return false
+    return agora < proximaLimpezaAs7h(item.quando).getTime()
   })
   // Histórico de Solicitações: registro de TODA solicitação já feita pelo
   // cliente — descida/subida, combustível, S.O.S., manutenção, regularização,
