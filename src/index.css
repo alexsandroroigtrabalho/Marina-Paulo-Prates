@@ -1758,15 +1758,30 @@ button.badge:hover { filter: brightness(0.95); }
    sem precisar mexer na largura de mais nenhuma coluna. */
 .painel-controle .tabela-fila { margin-bottom: 18px; table-layout: fixed; }
 .painel-controle .tabela-fila .col-status { width: 160px; }
-/* A maioria dos rótulos de Status é curta (Solicitado/Confirmado/Navegando)
-   e cabe de sobra nos 160px. Alguns poucos são bem mais longos ("Solicitação
-   de resgate", "Confirmado (fluxo antigo)") — em vez de alargar a coluna
-   pra sempre por causa desses casos raros (o que desalinharia tudo de novo
-   e deixaria um vão enorme nos casos comuns), só esses selos quebram linha
-   dentro da própria coluna quando precisam. .badge força nowrap por padrão
-   (pra não quebrar em nenhum outro lugar do sistema) — aqui, escopado só
-   nesta coluna do Painel de Controle, essa regra é revertida. */
-.painel-controle .tabela-fila td.col-status .badge { white-space: normal; max-width: 100%; }
+/* O selo de "Navegando" é um <select> (ver linhaNavegando em TelaVagas.jsx)
+   com opções bem mais longas escondidas dentro ("Solicitação de resgate",
+   23 caracteres) — mesmo mostrando só "Navegando" fechado, o navegador
+   reserva a largura do <select> pensando na MAIOR opção da lista, não na
+   selecionada. Resultado: mesmo depois do appearance:none, esse selo saía
+   bem mais largo que o span fixo "Confirmado" de Solicitações de
+   combustível, que não tem esse problema (não é um <select>, só mostra o
+   próprio texto). width:110px explícito tira essa conta do navegador —
+   todo selo de Status (span, <select> ou <button>, os 3 tipos usados nas 3
+   tabelas) passa a ter exatamente a mesma caixa, não importa o que exista
+   escondido dentro dele. display:inline-block é necessário pro <span>
+   (Combustível) aceitar width — <span> puro ignora width/height.
+   Os rótulos mais raros e longos que não cabem numa linha só ("Solicitação
+   de resgate", "Confirmado (fluxo antigo)", "Excedeu retorno") quebram
+   dentro da própria caixa em vez de estourar — .badge força nowrap por
+   padrão (pra não quebrar em nenhum outro lugar do sistema), então essa
+   regra é revertida aqui, escopada só nesta coluna do Painel de Controle. */
+.painel-controle .tabela-fila td.col-status .badge {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 110px;
+  text-align: center;
+  white-space: normal;
+}
 
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
    continua 14px — apertar o horizontal é que deixaria a tabela confusa. */
