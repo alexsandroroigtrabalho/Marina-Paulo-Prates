@@ -1742,7 +1742,31 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .tabela {
   margin-bottom: 18px;
 }
-.painel-controle .tabela-fila { margin-bottom: 18px; }
+/* Alinha o selo/seletor de Status das 3 tabelas (Fila de Rampa, Navegando,
+   Solicitações de combustível) numa mesma coluna vertical — sem isso cada
+   tabela distribui a largura das colunas conforme o próprio conteúdo (mais
+   largo ou mais estreito conforme o texto de cada uma), e o Status acaba
+   caindo num "x" horizontal diferente em cada tabela.
+   table-layout:fixed tira essa distribuição por conteúdo; só ".col-status"
+   ganha uma largura própria (a mesma nas 3 tabelas) — as colunas restantes
+   (Pedido, Responsável, Horário...) dividem em partes iguais o espaço que
+   sobra, dentro da própria tabela. Como "Status" é sempre a ÚLTIMA coluna
+   nas 3 (ver TelaVagas.jsx — a coluna de ações/Cancelar-Confirmar virou
+   penúltima só pra isso), o espaço que sobra pra ela é sempre "100% menos a
+   própria largura do Status", nunca depende de quantas colunas cada tabela
+   tem antes dele — por isso a mesma largura fixa já basta pra alinhar as 3,
+   sem precisar mexer na largura de mais nenhuma coluna. */
+.painel-controle .tabela-fila { margin-bottom: 18px; table-layout: fixed; }
+.painel-controle .tabela-fila .col-status { width: 160px; }
+/* A maioria dos rótulos de Status é curta (Solicitado/Confirmado/Navegando)
+   e cabe de sobra nos 160px. Alguns poucos são bem mais longos ("Solicitação
+   de resgate", "Confirmado (fluxo antigo)") — em vez de alargar a coluna
+   pra sempre por causa desses casos raros (o que desalinharia tudo de novo
+   e deixaria um vão enorme nos casos comuns), só esses selos quebram linha
+   dentro da própria coluna quando precisam. .badge força nowrap por padrão
+   (pra não quebrar em nenhum outro lugar do sistema) — aqui, escopado só
+   nesta coluna do Painel de Controle, essa regra é revertida. */
+.painel-controle .tabela-fila td.col-status .badge { white-space: normal; max-width: 100%; }
 
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
    continua 14px — apertar o horizontal é que deixaria a tabela confusa. */

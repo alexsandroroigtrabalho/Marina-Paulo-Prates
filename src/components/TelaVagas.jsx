@@ -398,6 +398,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td>
+          <div className="fila-tabela-acoes">
+            <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+          </div>
+        </td>
+        <td className="col-status">
           <select
             className={`badge select-status-fila status-${classeStatusFila(a.status)}`}
             value={a.status}
@@ -408,11 +413,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               <option key={o.valor} value={o.valor}>{o.label}</option>
             ))}
           </select>
-        </td>
-        <td>
-          <div className="fila-tabela-acoes">
-            <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
-          </div>
         </td>
       </tr>
     )
@@ -508,7 +508,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
-        <td>
+        <td className="col-status">
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
             // Cliente cancelou o próprio S.O.S. — mostra "Estou bem", sem
             // nenhum controle (não precisa de ação da equipe, é só um
@@ -601,7 +601,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>—</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-        <td>
+        <td className="col-status">
           <select
             className="badge select-status-fila status-navegando"
             value=""
@@ -669,9 +669,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th className="col-responsavel">Responsável</th>
             <th>Horário</th>
             <th>Documentação</th>
-            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. */}
-            <th>Status</th>
+            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. A
+                coluna de ações (Cancelar) vem ANTES do Status agora — sem
+                rótulo próprio, igual sempre foi — só pra "Status" terminar
+                sendo a última coluna nas 3 tabelas desta tela (ver
+                .col-status no index.css: com table-layout:fixed, a coluna
+                que sobra até a borda direita é sempre a última — não tem
+                como o Status "flutuar" numa posição diferente em cada
+                tabela se ele sempre for a última de todas). */}
             <th></th>
+            <th className="col-status">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -687,7 +694,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th className="col-responsavel">Responsável</th>
             <th>Horário de saída</th>
             <th>Previsão de retorno</th>
-            <th>Status</th>
+            <th className="col-status">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -720,8 +727,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th>Combustível</th>
             <th>Quantidade</th>
             <th>Pedido em</th>
-            <th>Status</th>
+            {/* Ações antes do Status — mesmo motivo do comentário na Fila de
+                Rampa logo acima: "Status" precisa ser a última coluna nas 3
+                tabelas pra table-layout:fixed alinhar o selo entre elas. */}
             <th></th>
+            <th className="col-status">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -739,18 +749,18 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                 <td>{textoQuantidade(p)}</td>
                 <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
                 <td>
-                  <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>
-                  {/* Contagem regressiva ao lado do selo: sem ela a equipe
-                      não teria como saber que aquela linha tem prazo. */}
-                  {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
-                </td>
-                <td>
                   {decidir ? (
                     <div className="fila-tabela-acoes">
                       <button type="button" onClick={() => confirmarPedidoAbastecimento(p.id)}>Confirmar abastecimento</button>
                       <button type="button" className="cancelar" onClick={() => cancelarPedidoAbastecimento(p)}>Cancelar</button>
                     </div>
                   ) : '—'}
+                </td>
+                <td className="col-status">
+                  <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>
+                  {/* Contagem regressiva ao lado do selo: sem ela a equipe
+                      não teria como saber que aquela linha tem prazo. */}
+                  {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
                 </td>
               </tr>
             )
