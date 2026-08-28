@@ -354,9 +354,15 @@ export async function listarHorariosOcupados(marinaId, dataYMD) {
 // Sem isso, uma descida confirmada agora podia "perder" pra uma subida
 // antiga se o cliente tivesse digitado um horário anterior ao dela, e a
 // embarcação recém-confirmada não aparecia em Navegando.
-export async function atualizarStatusAgendamento(id, status) {
+// `motivoCancelamento` só é gravado quando status === 'cancelado' (o
+// cancelamento pela Fila de Rampa sempre pede o motivo antes — ver
+// cancelarNotificacao em TelaVagas.jsx); nos demais status o parâmetro é
+// ignorado, então continua compatível com quem chama sem ele
+// (encerrarNavegacao, o <select> legado de subida avulsa etc.).
+export async function atualizarStatusAgendamento(id, status, motivoCancelamento) {
   const patch = { status }
   if (status === 'concluido') patch.concluido_em = new Date().toISOString()
+  if (status === 'cancelado') patch.motivo_cancelamento = motivoCancelamento || null
   const { error } = await db.from('agendamentos').update(patch).eq('id', id)
   if (error) throw error
 }

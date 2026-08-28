@@ -1,4 +1,4 @@
-import { statusEfetivoAgendamento } from './statusAgendamento.js'
+import { aguardandoNaFila } from './statusAgendamento.js'
 
 // Fonte única de "quais notificações da Fila de Rampa ainda estão
 // aguardando" — antes vivia só dentro de TelaVagas.jsx, mas passou a ser
@@ -8,14 +8,15 @@ import { statusEfetivoAgendamento } from './statusAgendamento.js'
 // segunda cópia, pelo mesmo motivo dos outros módulos lib/status*.js: evitar
 // que as duas cópias divirjam.
 
-// Linhas ativas da Fila de Rampa: só o que ainda espera decisão da equipe
-// (dois botões, Confirmar/Cancelar, 15 minutos de prazo — ver
-// lib/statusAgendamento.js). Usa o status EFETIVO, não o gravado: a
-// notificação some da Fila de Rampa no instante exato em que os 15 minutos
-// se esgotam, mesmo que a confirmação automática ainda não tenha sido
-// escrita no banco (isso acontece sozinho no próximo ciclo do painel — ver
-// autoConfirmarVencidos em TelaVagas.jsx). Sem isso a linha ficaria visível
-// por até um ciclo de atualização (10s) depois do prazo já ter passado.
+// Linhas ativas da Fila de Rampa: o que ainda espera decisão inicial da
+// equipe (dois botões, Confirmar/Cancelar, 15min descida/5min subida — ver
+// lib/statusAgendamento.js) OU, só pra subida, o que já confirmou sozinho
+// pelo relógio mas ainda não foi "Recolhido" — esse fica visível
+// indefinidamente até o clique manual (ver aguardandoNaFila). Usa o status
+// EFETIVO, não o gravado: a notificação muda de comportamento na Fila de
+// Rampa no instante exato em que o prazo se esgota, mesmo que a confirmação
+// automática ainda não tenha sido escrita no banco (isso acontece sozinho no
+// próximo ciclo do painel — ver autoConfirmarVencidos em TelaVagas.jsx).
 //
 // `agoraMs` tem padrão Date.now() pra não quebrar quem ainda chama sem
 // relógio próprio (SonsPainelAdmin.jsx) — quem já tem um relógio que avança
@@ -23,6 +24,6 @@ import { statusEfetivoAgendamento } from './statusAgendamento.js'
 // com o resto da tela.
 export function linhasFilaAtivas(agendamentos, agoraMs = Date.now()) {
   return agendamentos
-    .filter((a) => a.status !== 'cancelado' && statusEfetivoAgendamento(a, agoraMs) === 'solicitado')
+    .filter((a) => a.status !== 'cancelado' && aguardandoNaFila(a, agoraMs))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
 }

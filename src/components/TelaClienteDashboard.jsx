@@ -929,11 +929,20 @@ export default function TelaClienteDashboard({ perfil }) {
   // em "Recolhido") — ver statusAgendamentoDiario.
   const ultimaPorEmbarcacao = ultimaMovimentacaoPorEmbarcacao(agendamentos)
   const diarioDeBordo = [
-    ...agendamentos.map((a) => ({
+    ...agendamentos.map((a) => {
+      const dataFormatada = new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      return {
       id: `ag-${a.id}`,
       icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
       titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}`,
-      detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      // Cancelado com motivo (a equipe sempre pergunta antes de cancelar
+      // pela Fila de Rampa — ver cancelarNotificacao em TelaVagas.jsx):
+      // mostra o motivo aqui embaixo do título, no lugar da data — é a
+      // única forma do cliente saber por que o pedido não vai mais
+      // acontecer.
+      detalhe: a.status === 'cancelado' && a.motivo_cancelamento
+        ? `Motivo do cancelamento: ${a.motivo_cancelamento}`
+        : dataFormatada,
       ...statusAgendamentoDiario(a, ultimaPorEmbarcacao),
       quando: a.data_hora,
       // Só dá pra cancelar enquanto o pedido ainda espera decisão — em
@@ -946,7 +955,8 @@ export default function TelaClienteDashboard({ perfil }) {
       // "cliente_cancela_proprio_agendamento" repete essa mesma condição, então
       // nem por fora da aplicação dá pra cancelar depois do prazo.
       agendamentoParaCancelar: aguardandoDecisaoAgendamento(a, agoraMs) ? a : null,
-    })),
+      }
+    }),
     // TODO pedido entra aqui, inclusive os já confirmados e cancelados — é
     // o que mantém a linha visível no Histórico de Solicitações depois de
     // envelhecer e sair do Diário de Bordo ativo (ver diarioAtivo abaixo).

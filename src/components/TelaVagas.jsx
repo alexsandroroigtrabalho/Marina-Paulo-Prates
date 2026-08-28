@@ -16,7 +16,7 @@ import {
   textoQuantidade,
 } from '../lib/statusAbastecimento'
 import {
-  aguardandoDecisaoAgendamento, statusFinalAgendamento, labelConfirmarAgendamento,
+  aguardandoDecisaoAgendamento, statusFinalAgendamento, statusAutoConfirmadoAgendamento, labelConfirmarAgendamento,
 } from '../lib/statusAgendamento'
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
@@ -239,16 +239,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     setAgendamentos(a); setDocumentos(doc); setPedidosAbastecimento(ped)
   }
 
-  // Varre a Fila de Rampa por notificações que já passaram dos 15 minutos
-  // sem decisão da equipe e grava a confirmação automática — o mesmo status
-  // final que "Confirmar" grava na mão (statusFinalAgendamento), adiantando
+  // Varre a Fila de Rampa por notificações que já passaram do prazo sem
+  // decisão da equipe e grava a confirmação automática sozinha — adiantando
   // o que o pg_cron (marina.auto_confirmar_agendamentos) faria de qualquer
-  // jeito no próprio ciclo dele. Falha de uma notificação isolada (rede,
-  // corrida com outra aba) não impede as demais nem trava a tela: cada
-  // escrita é independente, e o cron cobre o que sobrar.
+  // jeito no próprio ciclo dele. O destino NÃO é mais sempre igual ao clique
+  // manual: statusAutoConfirmadoAgendamento devolve 'concluido' pra descida
+  // (igual ao clique) mas 'confirmado' pra subida (diferente do clique em
+  // "Recolhido", que continua indo direto pra 'concluido' — ver
+  // confirmarNotificacao). Falha de uma notificação isolada (rede, corrida
+  // com outra aba) não impede as demais nem trava a tela: cada escrita é
+  // independente, e o cron cobre o que sobrar.
   async function autoConfirmarVencidos(lista) {
     const vencidos = lista.filter((a) => a.status === 'solicitado' && !aguardandoDecisaoAgendamento(a))
-    await Promise.all(vencidos.map((a) => atualizarStatusAgendamento(a.id, statusFinalAgendamento(a.tipo)).catch(() => {})))
+    await Promise.all(vencidos.map((a) => atualizarStatusAgendamento(a.id, statusAutoConfirmadoAgendamento(a.tipo)).catch(() => {})))
   }
 
   useEffect(() => { carregar() }, [marinaId])
@@ -295,13 +298,29 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return () => clearInterval(intervalo)
   }, [localizacaoClima?.latitude, localizacaoClima?.longitude])
 
-  async function mudarStatusAgendamento(id, status) {
+  async function mudarStatusAgendamento(id, status, motivoCancelamento) {
     try {
-      await atualizarStatusAgendamento(id, status)
+      await atualizarStatusAgendamento(id, status, motivoCancelamento)
       await carregar()
     } catch (err) {
       alert('Não foi possível atualizar a notificação: ' + err.message)
     }
+  }
+
+  // Cancelar uma descida/subida pela Fila de Rampa sempre pede o motivo
+  // antes — é o que o cliente vê no lugar do pedido cancelado (Diário de
+  // Bordo/Histórico de solicitações, ver statusAgendamentoDiario em
+  // TelaClienteDashboard.jsx), pra ele saber por que não vai mais acontecer.
+  // Continua disponível mesmo depois da confirmação automática da subida
+  // (status 'confirmado' — ver statusAutoConfirmadoAgendamento): só o clique
+  // em "Recolhido" fecha de vez, "Cancelar" segue como válvula de escape até
+  // lá. Campo vazio é permitido (motivo opcional); cancelar o próprio prompt
+  // (Esc/"Cancelar" do navegador) desiste da ação, não confirma sem motivo.
+  async function cancelarNotificacao(a) {
+    const nome = a.clientes?.nome || 'o cliente'
+    const motivo = window.prompt(`Motivo do cancelamento (enviado para ${nome}):`, '')
+    if (motivo === null) return
+    await mudarStatusAgendamento(a.id, 'cancelado', motivo.trim() || null)
   }
 
   // Os dois únicos botões da planilha de combustível. Não há nada além
@@ -470,10 +489,15 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // combustível — só que aqui o rótulo do botão de confirmar muda por tipo
   // (ver labelConfirmarAgendamento em lib/statusAgendamento.js): "Navegando"
   // na descida, "Recolhido" na subida. O prazo também muda por tipo (15min/
-  // 5min) mas não tem mais contagem regressiva visível na tela — só o selo
-  // "Solicitado" e os botões. A 1ª coluna fica vazia nas outras duas
-  // tabelas (Navegando/Abastecimento) só para as larguras baterem — ver
-  // comentário em cima das 3 tabelas, mais abaixo.
+  // 5min), sem contagem regressiva visível na tela. O selo de status saiu
+  // daqui — a confirmação é sempre automática (clique ou o prazo vencendo),
+  // não precisa de um campo pra anunciar "Solicitado"; a coluna fica vazia
+  // (mantida só pro alinhamento bater com as outras duas tabelas — ver
+  // comentário em cima das 3 tabelas, mais abaixo). Os botões continuam
+  // aparecendo mesmo depois do prazo vencer sozinho: na subida, vencer o
+  // prazo não finaliza mais nada (vira 'confirmado', ver
+  // statusAutoConfirmadoAgendamento) — a notificação continua aqui até
+  // "Recolhido" de verdade, e "Cancelar" continua valendo o tempo todo.
   function linhaNotificacao(a) {
     const doc = statusDocumentacao(a.embarcacao_id)
     return (
@@ -483,13 +507,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td></td>
-        <td>
-          <span className="badge status-solicitado">Solicitado</span>
-        </td>
+        <td></td>
         <td className="col-acoes">
           <div className="fila-tabela-acoes">
             <button type="button" onClick={() => confirmarNotificacao(a)}>{labelConfirmarAgendamento(a.tipo)}</button>
-            <button type="button" className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+            <button type="button" className="cancelar" onClick={() => cancelarNotificacao(a)}>Cancelar</button>
           </div>
         </td>
       </tr>
@@ -641,18 +663,23 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               {status.texto}
             </button>
           ) : (
-            // Navegação normal (sem alerta de resgate em andamento): só o
-            // selo de status — o seletor com 4 opções (Recolhido/Cancelar/
-            // Solicitação de resgate) saiu daqui. Encerrar a navegação
-            // normalmente é o cliente pedindo a Subida pelo app (Fila de
-            // Rampa, com os botões Recolhido/Cancelar e o prazo de 5min —
-            // ver linhaNotificacao). A lixeira ao lado é só a válvula de
-            // escape pra quando isso não acontece (cliente sem o app à
-            // mão, esqueceu de pedir etc.): apaga a notificação da tela
-            // marcando a navegação como encerrada, mesma ação de
-            // "Recolhido" de sempre (encerrarNavegacaoAcao).
+            // Navegação normal (sem alerta de resgate em andamento): o selo
+            // "Navegando" saiu — é redundante, qualquer linha parada aqui já
+            // está, por definição, navegando (só sobra o selo pras duas
+            // situações que realmente precisam chamar atenção: S.O.S. ativo,
+            // tratado nos ramos acima, ou "Excedeu retorno", classe
+            // diferente de 'navegando' — ver statusNavegando). O seletor com
+            // 4 opções (Recolhido/Cancelar/Solicitação de resgate) já tinha
+            // saído daqui antes. Encerrar a navegação normalmente é o
+            // cliente pedindo a Subida pelo app (Fila de Rampa, com os
+            // botões Recolhido/Cancelar e o prazo de 5min — ver
+            // linhaNotificacao). A lixeira ao lado é só a válvula de escape
+            // pra quando isso não acontece (cliente sem o app à mão,
+            // esqueceu de pedir etc.): apaga a notificação da tela marcando
+            // a navegação como encerrada, mesma ação de "Recolhido" de
+            // sempre (encerrarNavegacaoAcao).
             <>
-              <span className={`badge status-${status.classe}`}>{status.texto}</span>
+              {status.classe !== 'navegando' && <span className={`badge status-${status.classe}`}>{status.texto}</span>}
               <button
                 type="button"
                 className="icone-lixeira"
@@ -747,8 +774,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th>Horário</th>
             <th>Documentação</th>
             <th></th>
-            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. */}
-            <th>Status</th>
+            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. O
+                selo "Status" também saiu (ver linhaNotificacao) — a
+                confirmação aqui é sempre automática, não precisa de campo
+                próprio pra anunciar. */}
+            <th></th>
             <th>Ações</th>
           </tr>
         </thead>
