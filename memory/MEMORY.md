@@ -7,5 +7,9 @@ remover uma entrada — nunca fazer isso fora do fluxo do `/dream` (auto-aplicá
 pra erro de digitação/formatação; o resto pede aprovação explícita via
 `Dream apply`).
 
-(Ainda vazio — a primeira rodada do `/dream` deve propor as memórias iniciais a
-partir do histórico desta conversa.)
+- [preferencia-proatividade-diagnostico.md](preferencia-proatividade-diagnostico.md)
+  — ao corrigir um bug relatado, auditar por conta própria domínios/tabelas
+  irmãos com o mesmo padrão antes de dar como concluído.
+- [padrao-rls-staff-vs-cliente.md](padrao-rls-staff-vs-cliente.md) — toda tabela
+  do schema `marina` lida por staff e cliente precisa de política RLS separada
+  pra cada lado; faltar a do cliente não dá erro, só retorna 0 linhas.
