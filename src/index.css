@@ -1100,7 +1100,21 @@ button.badge:hover { filter: brightness(0.95); }
    reaproveita a cor terrosa de "aguardando" (Recolhido) ou o verde de
    ".status-navegando" logo acima (Navegando) — mesmas cores que a linha já
    ganha ao sair pra tabela "Navegando" quando é uma descida. */
-.select-status-fila { border: none; cursor: pointer; font-family: inherit; }
+/* Sem isso, o <select> sempre renderiza maior/desalinhado que o mesmo .badge
+   usado como <span> não-interativo no Status de Solicitações de combustível
+   (referência) — o "chrome" nativo do navegador (setinha, padding extra,
+   altura mínima do sistema) não some só por herdar o mesmo padding do
+   .badge. appearance:none tira esse chrome; text-align(-last) centraliza o
+   rótulo igual ao texto do badge de referência, que já nasce centralizado
+   por ter padding simétrico. Resultado: a caixa dos dois selos das tabelas
+   "Fila de Rampa"/"Navegando" fica com exatamente a mesma largura, altura e
+   padding do selo de "Solicitações de combustível". */
+.select-status-fila {
+  border: none; cursor: pointer; font-family: inherit;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  text-align: center; text-align-last: center; -moz-text-align-last: center;
+  line-height: normal;
+}
 .select-status-fila.status-solicitado { background: #F1E3D6; color: #8B5A2B; }
 .select-status-fila.status-recebido { background: #FFF3C4; color: #8A6D00; }
 .status-resgate-solicitado, .status-resgate-recebido { background: #7A3B33; color: #fff; font-weight: 800; }
@@ -1120,8 +1134,13 @@ button.badge:hover { filter: brightness(0.95); }
 
 /* Título de seção com uma ação rápida ao lado (ex.: "+" de inserir pedido de
    combustível, ver .botao-inserir-pedido logo abaixo) — mesma folga vertical
-   do <h2> normal, só ganha o flex pra alinhar o botão à mesma altura. */
-.painel-titulo-com-acao { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+   do <h2> normal, só ganha o flex pra alinhar o botão à mesma altura. O
+   próprio <h2> aqui dentro nasce com margin:0 (senão o flex descentralizava
+   o título em relação ao botão) — por isso o respiro até a tabela seguinte
+   precisa vir do container, repetindo o mesmo margin-bottom de ".painel-controle
+   h2" (10px): sem isso a seção "Solicitações de combustível" começava colada
+   na tabela, sem o mesmo respiro que "Fila de Rampa" e "Navegando" têm. */
+.painel-titulo-com-acao { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 
 /* Botão de ação rápida discreto (só ícone, sem texto) — pensado pra ficar ao
    lado de um título de planilha sem competir visualmente com ele. Redondo,
