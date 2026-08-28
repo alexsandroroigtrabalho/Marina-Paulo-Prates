@@ -1086,6 +1086,23 @@ button.badge:hover { filter: brightness(0.95); }
 .fila-tabela-acoes { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; }
 .fila-tabela-acoes button.cancelar { background: #F1EAE3; color: #8B5A2B; }
 
+/* Título de seção com uma ação rápida ao lado (ex.: "+" de inserir pedido de
+   combustível, ver .botao-inserir-pedido logo abaixo) — mesma folga vertical
+   do <h2> normal, só ganha o flex pra alinhar o botão à mesma altura. */
+.painel-titulo-com-acao { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* Botão de ação rápida discreto (só ícone, sem texto) — pensado pra ficar ao
+   lado de um título de planilha sem competir visualmente com ele. Redondo,
+   sem borda, cor neutra em repouso e só ganha destaque no hover/foco. */
+.botao-inserir-pedido {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; border: none; border-radius: 50%;
+  background: transparent; color: var(--cor-texto-suave); cursor: pointer;
+}
+.botao-inserir-pedido:hover, .botao-inserir-pedido:focus-visible {
+  background: var(--cor-secundaria); color: #fff; outline: none;
+}
+
 /* Botão "Cancelar" de uma descida/subida direto no Diário de Bordo do
    cliente (ver cancelarAgendamentoCliente em TelaClienteDashboard.jsx) —
    mesmo visual (pílula + tom terroso) do "Cancelar" já usado na Fila de

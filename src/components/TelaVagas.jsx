@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
+import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind, IconPlus } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
@@ -17,6 +17,7 @@ import {
 } from '../lib/statusAbastecimento'
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
+import NovoPedidoAbastecimentoModal from './NovoPedidoAbastecimentoModal'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -97,6 +98,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const [documentos, setDocumentos] = useState([])
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
+  // Registro manual de pedido de combustível (botão "+" da planilha de
+  // solicitações) — ver NovoPedidoAbastecimentoModal.jsx.
+  const [modalNovoPedidoAberto, setModalNovoPedidoAberto] = useState(false)
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [localizacaoClima, setLocalizacaoClima] = useState(null)
@@ -692,7 +696,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           botões e 15 minutos; passado o prazo, a linha aparece confirmada
           sozinha (ver statusEfetivoAbastecimento em
           lib/statusAbastecimento.js). */}
-      <h2>Solicitações de combustível</h2>
+      <div className="painel-titulo-com-acao">
+        <h2 style={{ margin: 0 }}>Solicitações de combustível</h2>
+        <button
+          type="button"
+          className="botao-inserir-pedido"
+          title="Inserir novo pedido de abastecimento"
+          onClick={() => setModalNovoPedidoAberto(true)}
+        >
+          <IconPlus size={18} stroke={1.75} />
+        </button>
+      </div>
       <table className="tabela tabela-fila">
         <thead>
           <tr>
@@ -779,6 +793,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         onSalvarApitos={salvarConfigApitos}
         salvandoApitos={salvandoApitos}
         pedidosAbastecimento={pedidosAbastecimento}
+      />
+
+      <NovoPedidoAbastecimentoModal
+        aberto={modalNovoPedidoAberto}
+        onFechar={() => setModalNovoPedidoAberto(false)}
+        marinaId={marinaId}
+        onCriado={carregar}
       />
     </div>
   )
