@@ -970,6 +970,14 @@ button.badge:hover { filter: brightness(0.95); }
 .status-vencendo { background: #FCE6DA; color: var(--cor-alerta); }
 .status-valido { background: var(--cor-primaria-tint); color: var(--cor-secundaria); }
 
+/* ---------- Fila de Rampa: natureza do pedido (Status) ----------
+   Selo puramente informativo (sem ação/clique) na coluna Status da Fila de
+   Rampa — mesmas cores que a antiga coluna "Pedido" usava no texto
+   (.pedido.tipo-descida/.tipo-subida, mais abaixo; a coluna em si saiu,
+   virou redundante com este selo, mas as classes de cor continuam aqui). */
+.status-descida { background: #E4EBDD; color: #55702F; }
+.status-subida { background: #F1E3D6; color: #8B5A2B; }
+
 /* ---------- Abastecimento ---------- */
 /* Planilha de solicitações de combustível (Painel de Controle). Classes
    próprias, com prefixo "abast-": .status-solicitado e .status-confirmado
@@ -1735,10 +1743,29 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .linha-sub { line-height: 1.25; }
 .painel-controle .fila-abastecimento-linha { margin-bottom: 2px; }
 
-/* Blocos em grade (quando houver) e o crédito final. */
+/* Blocos em grade (quando houver). */
 .painel-controle .painel-controle-grid { gap: 14px; margin-bottom: 20px; }
 .painel-controle .painel-controle-grid h3 { margin: 0 0 8px; }
-.painel-controle .painel-controle-rodape { margin: 22px 0 4px; }
+
+/* Rodapé "RV Marine by RVinvictus.com.br" travado no rodapé da tela — fica
+   sempre visível, mesmo rolando a página, em vez de rolar junto com o resto
+   do conteúdo. padding-bottom aqui embaixo reserva o espaço equivalente
+   (altura do rodapé + a folga de sempre), pra nenhuma tabela ficar coberta
+   por trás dele. */
+.painel-controle {
+  padding-bottom: 52px;
+}
+.painel-controle .painel-controle-rodape {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 12px 0;
+  background: var(--cor-fundo);
+  box-shadow: 0 -2px 8px rgba(13, 27, 42, 0.06);
+  z-index: 20;
+}
 
 /* ---------- Cartão do Diário de Bordo (painel do cliente) ----------
    Ícone e título na primeira linha; o resto (data/detalhe e status) abaixo,

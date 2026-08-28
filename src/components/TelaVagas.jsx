@@ -43,12 +43,20 @@ const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve
 // Fila de Rampa, Navegando e Solicitações de combustível ficam na mesma
 // tela (a "TV" do Painel de Controle, uma embaixo da outra) — por pedido,
 // as colunas das três precisam bater entre si. Nenhuma das três tem o
-// mesmo conteúdo em todas as colunas, então o esquema é por POSIÇÃO: 7
+// mesmo conteúdo em todas as colunas, então o esquema é por POSIÇÃO: 6
 // larguras fixas (ver .painel-controle .tabela-fila no index.css, que liga
 // table-layout: fixed pra elas valerem), e cada tabela preenche com uma
-// célula vazia a posição que não tem conteúdo — em vez de tipo de
-// pedido (só a Fila de Rampa tem) ou de Ações (a Navegando não tem, a
-// própria seleção de status já age).
+// célula vazia a posição que não tem conteúdo — hoje só a de Ações (a
+// Navegando não tem, a própria seleção de status já age). A 1ª coluna
+// (Pedido, só a Fila de Rampa tinha — Descida/Subida) saiu: ficou
+// redundante depois que a mesma informação passou a aparecer também no
+// selo da coluna Status (ver linhaNotificacao). Responsável é a 1ª coluna
+// agora nas três tabelas, alinhada à esquerda (.col-responsavel, ver
+// index.css) — as outras colunas continuam centralizadas.
+//
+// As 6 larguras são IGUAIS entre si, de propósito — o espaço horizontal
+// entre uma coluna e a próxima precisa ser o mesmo em qualquer ponto da
+// tabela, não maior numa dupla de colunas e menor noutra.
 //
 // Em pixels, não em porcentagem — de propósito. Porcentagem some com
 // table-layout: fixed + width: 100%: o navegador reparte esses 100% entre
@@ -59,7 +67,7 @@ const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve
 // escrito aqui sempre — se não couber tudo na largura da tela, quem
 // aparece é uma barra de rolagem horizontal só daquela tabela, nunca um
 // botão cortado pela metade.
-const LARGURA_COLUNAS_TV = ['90px', '230px', '150px', '150px', '150px', '110px', '190px']
+const LARGURA_COLUNAS_TV = ['180px', '180px', '180px', '180px', '180px', '180px']
 function ColunasTV() {
   return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
@@ -99,7 +107,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // abaixo. Só o pedido: não há preço, valor nem pagamento nesta tela.
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
   const [documentos, setDocumentos] = useState([])
-  const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
@@ -489,25 +496,21 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // combustível — só que aqui o rótulo do botão de confirmar muda por tipo
   // (ver labelConfirmarAgendamento em lib/statusAgendamento.js): "Navegando"
   // na descida, "Recolhido" na subida. O prazo também muda por tipo (15min/
-  // 5min), sem contagem regressiva visível na tela. O selo de status saiu
-  // daqui — a confirmação é sempre automática (clique ou o prazo vencendo),
-  // não precisa de um campo pra anunciar "Solicitado"; a coluna fica vazia
-  // (mantida só pro alinhamento bater com as outras duas tabelas — ver
-  // comentário em cima das 3 tabelas, mais abaixo). Os botões continuam
-  // aparecendo mesmo depois do prazo vencer sozinho: na subida, vencer o
-  // prazo não finaliza mais nada (vira 'confirmado', ver
-  // statusAutoConfirmadoAgendamento) — a notificação continua aqui até
-  // "Recolhido" de verdade, e "Cancelar" continua valendo o tempo todo.
+  // 5min), sem contagem regressiva visível na tela. A coluna Pedido saiu —
+  // a natureza do pedido (Descida/Subida) já aparece no selo da coluna
+  // Status, então virou a mesma informação em dois lugares; agora Status é
+  // só esse selo informativo, sem clique nem consequência nenhuma.
+  // Responsável é a 1ª coluna agora, alinhada à esquerda.
   function linhaNotificacao(a) {
     const doc = statusDocumentacao(a.embarcacao_id)
+    const classeNatureza = a.tipo === 'retirada' ? 'descida' : 'subida'
     return (
       <tr key={a.id}>
-        <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td></td>
-        <td></td>
+        <td><span className={`badge status-${classeNatureza}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span></td>
         <td className="col-acoes">
           <div className="fila-tabela-acoes">
             <button type="button" onClick={() => confirmarNotificacao(a)}>{labelConfirmarAgendamento(a.tipo)}</button>
@@ -605,7 +608,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     const status = statusNavegando(a)
     return (
       <tr key={a.id}>
-        <td></td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
@@ -704,7 +706,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   function linhaSubidaAvulsa(a) {
     return (
       <tr key={a.id}>
-        <td></td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>—</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
@@ -762,28 +763,27 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         )}
       </div>
 
-      <h2>Fila de Rampa</h2>
+      <h2>Rampa</h2>
 
       <div className="tabela-scroll">
       <table className="tabela tabela-fila">
         <ColunasTV />
         <thead>
           <tr>
-            <th>Pedido</th>
             <th className="col-responsavel">Responsável</th>
-            <th>Horário</th>
+            <th>Horário de manobra</th>
             <th>Documentação</th>
             <th></th>
             {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. O
-                selo "Status" também saiu (ver linhaNotificacao) — a
-                confirmação aqui é sempre automática, não precisa de campo
-                próprio pra anunciar. */}
-            <th></th>
+                selo "Status" voltou com outro papel — não é mais ação nem
+                confirmação, só a natureza do pedido (Descida/Subida), sem
+                clique nenhum (ver linhaNotificacao). A coluna "Pedido" saiu
+                de vez — virou redundante com esse mesmo selo. */}
+            <th>Status</th>
             <th>Ações</th>
           </tr>
         </thead>
         <tbody>
-          {linhasFila.length === 0 && <tr><td colSpan={7}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
@@ -795,17 +795,15 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <ColunasTV />
         <thead>
           <tr>
-            <th></th>
             <th className="col-responsavel">Responsável</th>
             <th>Horário de saída</th>
-            <th>Previsão de retorno</th>
+            <th>Horário de retorno</th>
             <th></th>
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={7}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
           {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
         </tbody>
@@ -817,13 +815,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           botões; passado o prazo, o pedido sai daqui sozinho e vai para o
           Histórico de abastecimento (Configurações → Histórico — ver
           statusEfetivoAbastecimento em lib/statusAbastecimento.js). */}
-      <h2>Solicitações de combustível</h2>
+      <h2>Abastecimento</h2>
       <div className="tabela-scroll">
       <table className="tabela tabela-fila">
         <ColunasTV />
         <thead>
           <tr>
-            <th></th>
             <th className="col-responsavel">Responsável</th>
             <th>Combustível</th>
             <th>Quantidade</th>
@@ -833,7 +830,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           </tr>
         </thead>
         <tbody>
-          {pedidosCombustivel.length === 0 && <tr><td colSpan={7}>Nenhuma solicitação de combustível no momento.</td></tr>}
           {pedidosCombustivel.map((p) => {
             // pedidosCombustivel já vem filtrado só com quem ainda aguarda
             // decisão (ver o filtro logo acima) — os botões aparecem sempre
@@ -841,7 +837,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             const efetivo = statusEfetivoAbastecimento(p, agora.getTime())
             return (
               <tr key={p.id}>
-                <td></td>
                 <td className="col-responsavel">
                   <b>{p.clientes?.nome}</b>{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}
                 </td>
@@ -864,23 +859,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       </table>
       </div>
 
-      {agendamentos.some((a) => a.status === 'cancelado') && (
-        <div style={{ marginBottom: 32 }}>
-          <button type="button" className="voltar" onClick={() => setMostrarCancelados(!mostrarCancelados)}>
-            {mostrarCancelados ? 'Ocultar' : 'Ver'} cancelados ({agendamentos.filter((a) => a.status === 'cancelado').length})
-          </button>
-          {mostrarCancelados && (
-            <div className="lista-cards" style={{ marginTop: 10 }}>
-              {agendamentos.filter((a) => a.status === 'cancelado').map((a) => (
-                <div key={a.id} className="cliente-card">
-                  <div className="linha"><b>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</b> — {a.clientes?.nome}{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
-                  <div className="linha">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* "Ver cancelados" saiu daqui a pedido — cancelados continuam
+          gravados no banco (nada é apagado), só não têm mais uma lista
+          própria nesta tela. */}
 
       {/* Assinatura da aplicação, fechando o Painel de Controle: identifica
           o RV Marine e credita a RV Invictus numa linha só. Mesmo gesto
