@@ -28,6 +28,12 @@
 
 export const JANELA_CONFIRMACAO_MS = 15 * 60 * 1000
 
+// `janelaMs` é opcional em todas as funções abaixo (padrão: os 15 minutos
+// de sempre) porque a regra é a mesma para todo mundo, só a DURAÇÃO da
+// janela pode variar por domínio — descida usa 15 min, subida usa 5 min
+// (ver lib/statusAgendamento.js). O abastecimento, com um consumidor só,
+// nunca passa esse terceiro argumento e continua exatamente como antes.
+
 // Milissegundos de um campo de data que pode vir nulo, vazio ou ilegível.
 // Devolve null nesses casos, nunca um número.
 //
@@ -44,23 +50,23 @@ export function paraMs(valor) {
 // A janela já fechou? `inicioMs` null (não dá pra saber quando começou)
 // devolve false de propósito: sem essa informação, o seguro é continuar
 // esperando decisão de gente — nunca confirmar sozinho.
-export function janelaEncerrada(inicioMs, agoraMs) {
+export function janelaEncerrada(inicioMs, agoraMs, janelaMs = JANELA_CONFIRMACAO_MS) {
   if (inicioMs === null) return false
-  return agoraMs - inicioMs >= JANELA_CONFIRMACAO_MS
+  return agoraMs - inicioMs >= janelaMs
 }
 
 // Quanto falta para a confirmação automática, em ms — 0 quando já passou ou
 // quando não dá pra calcular.
-export function restanteDaJanela(inicioMs, agoraMs) {
+export function restanteDaJanela(inicioMs, agoraMs, janelaMs = JANELA_CONFIRMACAO_MS) {
   if (inicioMs === null) return 0
-  return Math.max(0, inicioMs + JANELA_CONFIRMACAO_MS - agoraMs)
+  return Math.max(0, inicioMs + janelaMs - agoraMs)
 }
 
 // O instante exato em que a confirmação automática aconteceu — usado para
 // gravar/exibir o momento da confirmação de quem nunca foi clicado.
-export function momentoConfirmacaoAutomatica(inicioMs) {
+export function momentoConfirmacaoAutomatica(inicioMs, janelaMs = JANELA_CONFIRMACAO_MS) {
   if (inicioMs === null) return null
-  return new Date(inicioMs + JANELA_CONFIRMACAO_MS).toISOString()
+  return new Date(inicioMs + janelaMs).toISOString()
 }
 
 // "7 min" / "40 s" — abaixo de um minuto conta em segundos, senão a

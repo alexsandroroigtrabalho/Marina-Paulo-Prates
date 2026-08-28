@@ -1678,29 +1678,36 @@ button.badge:hover { filter: brightness(0.95); }
 
 /* Fila de Rampa, Navegando e Solicitações de combustível ficam na mesma
    tela (a "TV" do Painel de Controle) — as 3 usam o mesmo esquema de 7
-   colunas por largura (ver LARGURA_COLUNAS_TV em TelaVagas.jsx, via
-   <colgroup>), preenchidas com célula vazia onde uma tabela não tem
-   conteúdo pra aquela posição. table-layout: fixed é o que faz o
-   <colgroup> valer — sem isso o navegador ignora as larguras e recalcula
-   cada tabela pelo próprio conteúdo, que é exatamente o desalinhamento que
-   isto resolve. */
-.painel-controle .tabela-fila { table-layout: fixed; }
+   colunas por largura, em PIXELS (ver LARGURA_COLUNAS_TV em TelaVagas.jsx,
+   via <colgroup>), preenchidas com célula vazia onde uma tabela não tem
+   conteúdo pra aquela posição.
+
+   table-layout: fixed é o que faz o <colgroup> valer — sem isso o
+   navegador ignora as larguras e recalcula cada tabela pelo próprio
+   conteúdo, que é o desalinhamento que isto resolve. Mas fixed + width:
+   100% span as colunas SEMPRE na mesma proporção informada — numa janela
+   estreita isso espreme todas elas por igual, cortando texto e até botão
+   inteiro (foi o bug do "onfirmar"/"Cancela" cortados). Por isso aqui é
+   width: max-content (a tabela nunca fica mais estreita que a soma das
+   colunas) com min-width: 100% (ainda estica pra preencher telas largas,
+   sem distorcer a proporção) — e .tabela-scroll (ver abaixo) dá rolagem
+   horizontal só daquela tabela nos raros casos em que a tela é mais
+   estreita que a soma das colunas. Nunca mais um botão cortado pela
+   metade. */
+.painel-controle .tabela-fila {
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+}
 .painel-controle .tabela-fila td,
 .painel-controle .tabela-fila th {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Exceção: a coluna de Ações (dois botões, Confirmar/Cancelar) não pode
-   cortar — um botão pela metade fica ilegível e, pior, parece clicável só
-   naquele pedaço. Em vez de confiar só no acerto fino da largura em
-   LARGURA_COLUNAS_TV, deixa o conteúdo respirar (sem corte) e os botões
-   quebrarem pra uma segunda linha se algum dia não couberem lado a lado —
-   nunca corta o texto de um botão. */
-.painel-controle .tabela-fila td.col-acoes {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-}
+/* Envolve cada <table class="tabela-fila"> — dá rolagem horizontal só
+   daquela tabela (nunca a página toda) nos raros casos em que a soma das
+   colunas passa da largura disponível. */
+.painel-controle .tabela-scroll { overflow-x: auto; }
 .painel-controle .fila-tabela-acoes { flex-wrap: wrap; }
 
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
