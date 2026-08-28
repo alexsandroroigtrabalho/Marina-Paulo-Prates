@@ -46,13 +46,33 @@ const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
 // nenhuma migração ou ação manual.
 const HORA_LIMPEZA_DIARIO = 7
 
-// Instante da próxima passagem das HORA_LIMPEZA_DIARIO (7h) depois de
-// `instante` — se `instante` já é hoje às 7h ou depois, a próxima passagem é
-// amanhã às 7h; se é antes das 7h de hoje, a própria hoje às 7h já serve.
+// Fuso fixo da marina (America/Sao_Paulo — ver lib/clima.js, que já usa o
+// mesmo fuso pra previsão do tempo). Brasil não tem mais horário de verão
+// desde 2019, então UTC-3 vale o ano inteiro sem exceção.
+//
+// A limpeza das 7h TEM que ser sempre "7h da manhã na marina", não "7h da
+// manhã no fuso configurado no aparelho de quem está com a tela aberta" —
+// getFullYear/getMonth/getDate (usados na primeira versão desta função)
+// leem o fuso LOCAL do dispositivo, então um cliente acessando de um
+// aparelho/navegador configurado em outro fuso (ou só com o relógio do
+// sistema errado) via a régua das 7h deslizar pra outro horário e via itens
+// antigos ficarem visíveis (ou sumirem cedo demais) sem que nada esteja
+// errado no banco. Por isso: desloca manualmente pro "relógio de parede" da
+// marina em vez de confiar no fuso do navegador.
+const FUSO_MARINA_MS = -3 * 60 * 60 * 1000
+
+// Instante da próxima passagem das HORA_LIMPEZA_DIARIO (7h, hora da marina)
+// depois de `instante` — se `instante` já é hoje às 7h ou depois (hora da
+// marina), a próxima passagem é amanhã às 7h; se é antes das 7h de hoje, a
+// própria hoje às 7h já serve. Sempre devolve um instante real (UTC/epoch),
+// direto comparável com Date.now()/agoraMs.
 function proximaLimpezaAs7h(instante) {
-  const d = new Date(instante)
-  const hojeAs7h = new Date(d.getFullYear(), d.getMonth(), d.getDate(), HORA_LIMPEZA_DIARIO, 0, 0, 0)
-  return d.getTime() < hojeAs7h.getTime() ? hojeAs7h : new Date(hojeAs7h.getTime() + 24 * 60 * 60 * 1000)
+  const real = new Date(instante).getTime()
+  const naParedeDaMarina = real + FUSO_MARINA_MS
+  const d = new Date(naParedeDaMarina)
+  const hojeAs7hNaParede = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), HORA_LIMPEZA_DIARIO, 0, 0, 0)
+  const proximaNaParede = naParedeDaMarina < hojeAs7hNaParede ? hojeAs7hNaParede : hojeAs7hNaParede + 24 * 60 * 60 * 1000
+  return new Date(proximaNaParede - FUSO_MARINA_MS)
 }
 
 // "Silenciar notificações" (engrenagem → Diário de Bordo): preferência só
