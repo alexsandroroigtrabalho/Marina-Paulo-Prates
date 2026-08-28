@@ -938,6 +938,49 @@ body {
    alinhada à esquerda — nome + embarcação lê melhor assim do que centralizado. */
 .tabela th.col-responsavel, .tabela td.col-responsavel { text-align: left; }
 
+/* Larguras fixas e consistentes ENTRE as 3 tabelas do Painel de Controle
+   (Fila de Rampa, Navegando, Solicitações de combustível) — sem isso cada
+   tabela calculava a própria largura de coluna a partir do próprio
+   conteúdo (table-layout auto, o padrão), e a coluna Responsável — a única
+   presente nas 3 — acabava num x diferente em cada uma. table-layout:fixed
+   faz as larguras abaixo valerem de verdade (baseadas na primeira linha, o
+   cabeçalho). Navegando e Combustível ganham uma coluna "fantasma" no
+   início (.col-tipo, sem cabeçalho nem conteúdo) do mesmo tamanho do
+   "Pedido" da Fila de Rampa, só pra empurrar a própria coluna Responsável
+   pro mesmo x — nenhuma informação nova, só alinhamento (ver TelaVagas.jsx).
+   Navegando também ganha uma coluna fantasma no fim (mesma largura de
+   .col-acoes): sem ela, a sobra de largura entraria na própria coluna
+   Status (a última de verdade ali), alargando o selo e descentralizando-o
+   em relação às outras duas. Combustível tem 3 colunas de informação
+   própria (Combustível/Quantidade/Pedido em) contra 2 nas outras duas —
+   por isso usa sua própria largura pra Status/ações (.col-status-combustivel/
+   .col-acoes-combustivel), um pouco mais à direita: apertar essas 3 só pra
+   forçar esse alinhamento também deixaria o conteúdo confuso. */
+.painel-controle .tabela-fila { table-layout: fixed; }
+.painel-controle .col-tipo { width: 9%; }
+.painel-controle .col-responsavel { width: 24%; }
+.painel-controle .col-horario { width: 15%; }
+.painel-controle .col-documentacao { width: 13%; }
+.painel-controle .col-status { width: 17%; }
+.painel-controle .col-acoes { width: 22%; }
+.painel-controle .col-combustivel { width: 12%; }
+.painel-controle .col-quantidade { width: 11%; }
+.painel-controle .col-pedido-em { width: 10%; }
+.painel-controle .col-status-combustivel { width: 14%; }
+/* Generosa de propósito: é a única das 3 tabelas com DOIS botões lado a
+   lado ("Confirmar abastecimento" + "Cancelar", ver .fila-tabela-acoes) —
+   as outras usam col-acoes só pra um "Cancelar" sozinho (Fila de Rampa) ou
+   nem usam (Navegando, coluna fantasma vazia). */
+.painel-controle .col-acoes-combustivel { width: 20%; }
+/* .tabela-fila td é nowrap por padrão (linha abaixo, compartilhada com
+   outras telas) — combinado com table-layout:fixed isso faria um texto
+   maior que a coluna vazar por cima da vizinha em vez de simplesmente
+   quebrar linha. Desfaz o nowrap só aqui: texto normal (nome longo, data
+   completa) pode ocupar 2 linhas quando precisar, sem esconder informação;
+   selos e botões (.badge, button) têm o próprio nowrap mais específico e
+   continuam numa linha só. */
+.painel-controle .tabela-fila td { white-space: normal; }
+
 /* Raio reduzido (era 20px/pill) — mesmo princípio institucional dos botões,
    selo/rótulo em vez de "bolha" arredondada. */
 .badge { padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }

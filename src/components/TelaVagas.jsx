@@ -506,6 +506,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     const status = statusNavegando(a)
     return (
       <tr key={a.id}>
+        <td></td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
@@ -587,6 +588,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             </select>
           )}
         </td>
+        <td></td>
       </tr>
     )
   }
@@ -599,6 +601,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   function linhaSubidaAvulsa(a) {
     return (
       <tr key={a.id}>
+        <td></td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>—</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
@@ -618,6 +621,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <option value="cancelado">Cancelar</option>
           </select>
         </td>
+        <td></td>
       </tr>
     )
   }
@@ -666,13 +670,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       <table className="tabela tabela-fila">
         <thead>
           <tr>
-            <th>Pedido</th>
+            <th className="col-tipo">Pedido</th>
             <th className="col-responsavel">Responsável</th>
-            <th>Horário</th>
-            <th>Documentação</th>
+            <th className="col-horario">Horário</th>
+            <th className="col-documentacao">Documentação</th>
             {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. */}
-            <th>Status</th>
-            <th></th>
+            <th className="col-status">Status</th>
+            <th className="col-acoes"></th>
           </tr>
         </thead>
         <tbody>
@@ -681,18 +685,26 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         </tbody>
       </table>
 
+      {/* Colunas "fantasma" no início e no fim (col-tipo/col-acoes, sem
+          cabeçalho nem conteúdo) — só pra alinhar a coluna Responsável e o
+          selo de Status com os mesmos da Fila de Rampa acima (mesmas classes,
+          mesma largura). Sem elas, table-layout:fixed alargaria a própria
+          coluna Status pra ocupar a sobra, descentralizando o selo em
+          relação às outras 2 tabelas. Ver .col-tipo/.col-acoes no index.css. */}
       <h2>Navegando</h2>
       <table className="tabela tabela-fila">
         <thead>
           <tr>
+            <th className="col-tipo"></th>
             <th className="col-responsavel">Responsável</th>
-            <th>Horário de saída</th>
-            <th>Previsão de retorno</th>
-            <th>Status</th>
+            <th className="col-horario">Horário de saída</th>
+            <th className="col-documentacao">Previsão de retorno</th>
+            <th className="col-status">Status</th>
+            <th className="col-acoes"></th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={6}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
           {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
         </tbody>
@@ -714,25 +726,36 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           <IconPlus size={18} stroke={1.75} />
         </button>
       </div>
+      {/* Coluna fantasma no início (col-tipo, sem cabeçalho nem conteúdo) —
+          só pra alinhar a coluna Responsável com a mesma da Fila de Rampa e
+          da Navegando acima (mesma classe, mesma largura). Status/ações
+          desta tabela ficam um pouco mais à direita que nas outras duas de
+          propósito: esta planilha tem 3 colunas de informação própria
+          (Combustível/Quantidade/Pedido em) contra 2 nas outras, e apertar
+          essas 3 só pra forçar o alinhamento do selo deixaria o conteúdo
+          confuso — ver .col-combustivel/.col-quantidade/.col-pedido-em no
+          index.css. */}
       <table className="tabela tabela-fila">
         <thead>
           <tr>
+            <th className="col-tipo"></th>
             <th className="col-responsavel">Responsável</th>
-            <th>Combustível</th>
-            <th>Quantidade</th>
-            <th>Pedido em</th>
-            <th>Status</th>
-            <th></th>
+            <th className="col-combustivel">Combustível</th>
+            <th className="col-quantidade">Quantidade</th>
+            <th className="col-pedido-em">Pedido em</th>
+            <th className="col-status-combustivel">Status</th>
+            <th className="col-acoes-combustivel"></th>
           </tr>
         </thead>
         <tbody>
-          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>Nenhuma solicitação de combustível no momento.</td></tr>}
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={7}>Nenhuma solicitação de combustível no momento.</td></tr>}
           {pedidosCombustivel.map((p) => {
             const efetivo = statusEfetivoAbastecimento(p, agora.getTime())
             const decidir = aguardandoDecisao(p, agora.getTime())
             const restante = textoRestanteParaConfirmar(restanteParaConfirmar(p, agora.getTime()))
             return (
               <tr key={p.id}>
+                <td></td>
                 <td className="col-responsavel">
                   <b>{p.clientes?.nome}</b>{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}
                 </td>
