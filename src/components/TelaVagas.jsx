@@ -634,6 +634,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           cabeçalho institucional único do Layout.jsx (junto do nome da
           marina, Admin, engrenagem e Sair), pra não duplicar a marca em
           duas faixas separadas no topo da página. */}
+      {/* Tudo que cresce com o volume de notificações/pedidos — cabeçalho de
+          relógio/clima, Fila de Rampa, Navegando e Solicitações de
+          combustível — rola só aqui dentro. O rodapé de marca (logo
+          abaixo, fora desta div) fica fixo na base da tela, sempre visível,
+          independente de quanto essa área cresça (ver .painel-controle-rolavel
+          e .painel-controle-rodape no index.css). */}
+      <div className="painel-controle-rolavel">
       <div className="painel-controle-cabecalho">
         <p className="painel-controle-relogio">
           {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
@@ -769,11 +776,14 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           )}
         </div>
       )}
+      </div>
 
       {/* Assinatura da aplicação, fechando o Painel de Controle: identifica
           o RV Marine e credita a RV Invictus numa linha só. Mesmo gesto
           tipográfico dos outros rodapés do sistema (Cinzel, caixa alta,
-          tracking), agora no dourado do rótulo TORRES/TS logo acima. */}
+          tracking), agora no dourado do rótulo TORRES/TS logo acima. Fixo na
+          base da tela (position: fixed, ver index.css) — sempre visível,
+          fora da área rolável acima. */}
       <a className="painel-controle-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">
         RV Marine by RVinvictus.com.br
       </a>

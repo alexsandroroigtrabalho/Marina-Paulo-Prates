@@ -844,6 +844,12 @@ body {
   .topo-logo-area { justify-self: center; margin-top: 2px; }
   .topo-logo { width: 190px; }
   .topo-titulo-area h1 { font-size: 19px; }
+  /* O cabeçalho institucional ganha uma segunda linha aqui (título+ações,
+     depois a logo) — a área rolável do Painel de Controle folga mais espaço
+     de sobra pra essa altura extra, senão o cálculo do desktop (acima)
+     cortaria a rolagem cedo demais e deixaria uma faixa vazia por cima do
+     rodapé fixo. */
+  .painel-controle-rolavel { max-height: calc(100vh - 250px); }
 }
 /* Título de página em Cinzel: um dos "poucos momentos de peso simbólico"
    que a análise recomenda pra a fonte de exibição da marca — cada tela é
@@ -1027,13 +1033,39 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-clima-item { display: flex; align-items: center; gap: 5px; font-size: 15px; font-weight: 700; color: var(--cor-primaria); }
 .painel-clima-item svg { flex-shrink: 0; }
 
-/* Crédito de marca discreto ao final do Painel de Controle — mesmo gesto
-   tipográfico dos outros rodapés "Developed by/RVinvictus.com.br" do
-   sistema (Cinzel, caixa alta, tracking), só que bem pequeno e sem peso,
-   pra fechar a tela sem competir com a Fila de Rampa/Navegando acima. */
+/* Área rolável do Painel de Controle (cabeçalho de relógio/clima, Fila de
+   Rampa, Navegando, Solicitações de combustível — ver .painel-controle-rolavel
+   em TelaVagas.jsx): sozinha ganha rolagem própria quando o volume de
+   notificações/pedidos cresce, em vez de esticar a janela toda — assim o
+   rodapé fixo abaixo nunca é empurrado pra fora da tela, e nunca aparecem
+   duas barras de rolagem (a da janela e a desta área) ao mesmo tempo.
+   max-height é uma estimativa generosa do espaço abaixo do cabeçalho
+   institucional (.topo, em Layout.jsx) e acima do rodapé fixo — escopado só
+   nesta tela de propósito, sem mexer no shell compartilhado com
+   Clientes/Financeiro/Manutenção. padding-bottom garante que a última linha
+   de qualquer tabela nunca fique colada (ou escondida) atrás do rodapé. */
+.painel-controle-rolavel {
+  overflow-y: auto;
+  max-height: calc(100vh - 190px);
+  padding-bottom: 56px;
+}
+
+/* Crédito de marca discreto do Painel de Controle — mesmo gesto tipográfico
+   dos outros rodapés "Developed by/RVinvictus.com.br" do sistema (Cinzel,
+   caixa alta, tracking), só que bem pequeno e sem peso. Fixo na base da
+   tela (sempre visível, independente de quanto a área rolável acima
+   cresça) — fundo sólido + hairline dourada no topo pra nunca deixar uma
+   linha de tabela "passar por baixo" do texto ao rolar. z-index abaixo da
+   sidebar (40) e de qualquer modal (10), acima do conteúdo normal. */
 .painel-controle-rodape {
   display: block;
-  margin: 36px 0 4px;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 10px 0;
+  background: var(--cor-fundo);
+  border-top: 1px solid rgba(212,175,55,0.25);
   text-align: center;
   font-family: 'Cinzel', serif;
   font-size: 12px;
@@ -1705,10 +1737,11 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .linha-sub { line-height: 1.25; }
 .painel-controle .fila-abastecimento-linha { margin-bottom: 2px; }
 
-/* Blocos em grade (quando houver) e o crédito final. */
+/* Blocos em grade (quando houver). O rodapé de marca não entra mais aqui —
+   virou position:fixed (ver .painel-controle-rodape acima), então não flui
+   mais depois destes blocos e não precisa de margem própria nesta densidade. */
 .painel-controle .painel-controle-grid { gap: 14px; margin-bottom: 20px; }
 .painel-controle .painel-controle-grid h3 { margin: 0 0 8px; }
-.painel-controle .painel-controle-rodape { margin: 22px 0 4px; }
 
 /* ---------- Cartão do Diário de Bordo (painel do cliente) ----------
    Ícone e título na primeira linha; o resto (data/detalhe e status) abaixo,
