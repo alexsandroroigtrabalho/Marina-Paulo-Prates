@@ -1,4 +1,4 @@
-Última rodada do dream: (nunca rodou)
+Última rodada do dream: 2026-08-28T17:30Z (rodada de teste inicial, dentro da própria conversa que criou a skill)
 
 # Registro cumulativo de observações — Marina Manager
 
