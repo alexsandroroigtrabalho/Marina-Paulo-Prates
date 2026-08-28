@@ -231,13 +231,34 @@ const MENSAGEM_BOTAO_RESGATE = {
 const STATUS_RESGATE_CANCELAVEIS = ['solicitado', 'recebido']
 
 // Agrupa os status de todas as origens (agendamentos, abastecimento,
-// manutenção, despachos, laudos) em 3 cores só, pro Diário de Bordo não
+// manutenção, despachos, laudos) em 2 cores só, pro Diário de Bordo não
 // virar uma sopa de badges diferentes — mesmo padrão minimalista (texto
 // colorido, sem bolinha/pill) já usado no resto do painel do cliente.
+//
+// TODO status TERMINAL — concluído/confirmado/pago OU cancelado/indeferido —
+// cai na mesma classe 'em-dia': é ela que o diarioAtivo (mais abaixo) trata
+// como "não pede mais nada de ninguém, pode envelhecer e sair pela regra das
+// 7h". Cancelado/indeferido perdem a cor cinza distinta que já tiveram (vira
+// o mesmo texto esverdeado de "concluído") — troca já aceita de propósito
+// pra agendamento cancelado e abastecimento cancelado (ver
+// statusAgendamentoDiario/statusAbastecimentoDiario) desde que a regra das
+// 7h existe; só nunca tinha sido estendida pra manutenção/despacho/laudo, e
+// por isso uma ordem de serviço ou laudo cancelado/indeferido ficava preso
+// no Diário de Bordo ativo pra sempre, imune tanto à regra das 7h quanto à
+// limpeza manual (diarioBordoLimpoEm) — bug real encontrado com um teste que
+// gerou várias manutenções canceladas.
+//
+// 'aguardando_pagamento' (legado do antigo fluxo com cobrança — ver
+// STATUS_ABASTECIMENTO_LABEL, rótulo "Confirmado (fluxo antigo)") também
+// faltava aqui: sem entrar nem na lista de terminal nem na de cancelado,
+// caía no 'pendente' padrão lá embaixo — um pedido de abastecimento antigo,
+// de dias atrás, ficava "ativo" pra sempre pelo mesmo motivo.
 function classeStatusDiario(status) {
-  if (['concluido', 'concluida', 'confirmado', 'pago', 'entregue', 'emitido', 'aprovado'].includes(status)) return 'em-dia'
-  if (['cancelado', 'cancelada', 'indeferido'].includes(status)) return 'cancelado'
-  return 'pendente'
+  const terminal = [
+    'concluido', 'concluida', 'confirmado', 'pago', 'entregue', 'aguardando_pagamento', 'emitido', 'aprovado',
+    'cancelado', 'cancelada', 'indeferido',
+  ]
+  return terminal.includes(status) ? 'em-dia' : 'pendente'
 }
 
 // Rótulo/cor de um agendamento (retirada/retorno) no Diário de Bordo —
@@ -264,14 +285,14 @@ function classeStatusDiario(status) {
 //     visível igual ao "Navegando" da descida (não é um status "em-dia" de
 //     classeStatusDiario, então cai certo no branco padrão ali embaixo; só
 //     precisa do rótulo certo aqui, já que STATUS_LABEL não tem essa chave).
-//   - 'cancelado': classeStatusDiario('cancelado') sozinho devolveria
-//     'cancelado' (fica parado no Diário de Bordo ativo pra sempre, com um
-//     badge vermelho) — força 'em-dia' aqui, mesmo tratamento já dado ao
-//     combustível cancelado (ver statusAbastecimentoDiario abaixo): uma
-//     descida/subida cancelada (pelo administrador ou pelo próprio
-//     cliente) também é terminal, não sobra ação nenhuma, então some do
-//     Diário de Bordo ativo do mesmo jeito. Continua no Histórico de
-//     Solicitações normalmente, e já sai do Painel de Controle desde
+//   - 'cancelado': classeStatusDiario('cancelado') já devolve 'em-dia'
+//     sozinho (terminal é terminal, ver classeStatusDiario acima) — o valor
+//     explícito aqui é só pra deixar claro, no ponto onde mais gente vai
+//     procurar, que uma descida/subida cancelada (pelo administrador ou
+//     pelo próprio cliente) também é terminal, não sobra ação nenhuma, então
+//     some do Diário de Bordo ativo do mesmo jeito que uma concluída.
+//     Continua no Histórico de Solicitações normalmente, e já sai do Painel
+//     de Controle desde
 //     sempre (Fila de Rampa/Navegando só mostram status ativo — ver
 //     linhasFilaAtivas em lib/filaRampa.js; cancelados só aparecem lá
 //     atrás do botão "Ver cancelados").
@@ -337,16 +358,16 @@ function detalheAgendamentoDiario(a) {
 // cliente, exatamente como aparece para a equipe no Painel de Controle —
 // mesma função nos dois lados, então nunca divergem.
 //
-// 'cancelado' vira classe 'em-dia' de propósito: classeStatusDiario
-// devolveria 'cancelado', e um item dessa classe fica parado no Diário de
-// Bordo ativo para sempre (ver diarioAtivo). Como cancelar é terminal —
-// não sobra ação nenhuma —, ele precisa envelhecer e sair igual a um
-// pedido confirmado. Continua inteiro no Histórico de Solicitações.
+// 'cancelado' (e os legados 'pago'/'entregue'/'aguardando_pagamento') já
+// caem em 'em-dia' dentro do próprio classeStatusDiario — terminal é
+// terminal, não sobra ação nenhuma, então envelhece e sai do Diário de
+// Bordo ativo igual a um pedido confirmado (ver diarioAtivo). Continua
+// inteiro no Histórico de Solicitações.
 function statusAbastecimentoDiario(pedido, agoraMs) {
   const efetivo = statusEfetivoAbastecimento(pedido, agoraMs)
   return {
     statusLabel: labelStatusAbastecimento(efetivo),
-    statusClasse: efetivo === 'cancelado' ? 'em-dia' : classeStatusDiario(efetivo),
+    statusClasse: classeStatusDiario(efetivo),
   }
 }
 
