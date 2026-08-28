@@ -50,7 +50,7 @@ const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve
 // célula vazia a posição que não tem conteúdo — em vez de tipo de
 // pedido (só a Fila de Rampa tem) ou de Ações (a Navegando não tem, a
 // própria seleção de status já age).
-const LARGURA_COLUNAS_TV = ['10%', '22%', '16%', '16%', '14%', '12%', '10%']
+const LARGURA_COLUNAS_TV = ['8%', '20%', '15%', '15%', '12%', '12%', '18%']
 function ColunasTV() {
   return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
@@ -471,7 +471,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           <span className="badge status-solicitado">Solicitado</span>
           {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
         </td>
-        <td>
+        <td className="col-acoes">
           <div className="fila-tabela-acoes">
             <button type="button" onClick={() => confirmarNotificacao(a)}>Confirmar</button>
             <button type="button" className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
@@ -805,10 +805,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                       não teria como saber que aquela linha tem prazo. */}
                   {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
                 </td>
-                <td>
+                <td className="col-acoes">
                   {decidir ? (
                     <div className="fila-tabela-acoes">
-                      <button type="button" onClick={() => confirmarPedidoAbastecimento(p.id)}>Confirmar abastecimento</button>
+                      <button type="button" onClick={() => confirmarPedidoAbastecimento(p.id)}>Confirmar</button>
                       <button type="button" className="cancelar" onClick={() => cancelarPedidoAbastecimento(p)}>Cancelar</button>
                     </div>
                   ) : '—'}

@@ -1690,6 +1690,18 @@ button.badge:hover { filter: brightness(0.95); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Exceção: a coluna de Ações (dois botões, Confirmar/Cancelar) não pode
+   cortar — um botão pela metade fica ilegível e, pior, parece clicável só
+   naquele pedaço. Em vez de confiar só no acerto fino da largura em
+   LARGURA_COLUNAS_TV, deixa o conteúdo respirar (sem corte) e os botões
+   quebrarem pra uma segunda linha se algum dia não couberem lado a lado —
+   nunca corta o texto de um botão. */
+.painel-controle .tabela-fila td.col-acoes {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.painel-controle .fila-tabela-acoes { flex-wrap: wrap; }
 
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
    continua 14px — apertar o horizontal é que deixaria a tabela confusa. */
