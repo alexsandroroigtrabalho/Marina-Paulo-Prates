@@ -1710,6 +1710,19 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .tabela-scroll { overflow-x: auto; }
 .painel-controle .fila-tabela-acoes { flex-wrap: wrap; }
 
+/* Lixeira ao lado do selo "Navegando" (tabela Navegando, sem alerta de
+   resgate) — válvula de escape pra encerrar a navegação na mão quando o
+   cliente não pede a Subida pelo app. Discreta por padrão (não é a ação
+   principal daquela linha), fica vermelha só no hover, pra não competir
+   visualmente com o selo de status ao lado. */
+.icone-lixeira {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 8px; padding: 4px; border: none; background: none;
+  color: var(--cor-texto-suave); cursor: pointer; border-radius: 6px;
+  vertical-align: middle;
+}
+.icone-lixeira:hover { color: #B3472B; background: #FBEAE5; }
+
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
    continua 14px — apertar o horizontal é que deixaria a tabela confusa. */
 .painel-controle .tabela th,

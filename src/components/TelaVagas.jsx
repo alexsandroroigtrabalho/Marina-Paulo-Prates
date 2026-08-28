@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
+import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind, IconTrash } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
@@ -641,29 +641,27 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               {status.texto}
             </button>
           ) : (
-            // Navegação normal (sem alerta de resgate em andamento): o
-            // campo Status vira um seletor só, com a opção de marcar
-            // manualmente uma Solicitação de resgate (mesma ação de antes,
-            // agora aqui dentro) e as 2 formas de encerrar a navegação —
-            // Recolhido (retorno normal, sem o cliente precisar pedir a
-            // Subida pelo app) e Cancelar (anula a descida).
-            <select
-              className={`badge select-status-fila status-${status.classe}`}
-              value=""
-              title="Selecionar ação"
-              onChange={(e) => {
-                const valor = e.target.value
-                e.target.value = ''
-                if (!valor) return
-                if (valor === 'sos') avancarResgate(a.id, a.resgate_status)
-                else encerrarNavegacaoAcao(a, valor)
-              }}
-            >
-              <option value="">{status.texto}</option>
-              <option value="sos">Solicitação de resgate</option>
-              <option value="recolhido">Recolhido</option>
-              <option value="cancelado">Cancelar</option>
-            </select>
+            // Navegação normal (sem alerta de resgate em andamento): só o
+            // selo de status — o seletor com 4 opções (Recolhido/Cancelar/
+            // Solicitação de resgate) saiu daqui. Encerrar a navegação
+            // normalmente é o cliente pedindo a Subida pelo app (Fila de
+            // Rampa, com os botões Recolhido/Cancelar e o prazo de 5min —
+            // ver linhaNotificacao). A lixeira ao lado é só a válvula de
+            // escape pra quando isso não acontece (cliente sem o app à
+            // mão, esqueceu de pedir etc.): apaga a notificação da tela
+            // marcando a navegação como encerrada, mesma ação de
+            // "Recolhido" de sempre (encerrarNavegacaoAcao).
+            <>
+              <span className={`badge status-${status.classe}`}>{status.texto}</span>
+              <button
+                type="button"
+                className="icone-lixeira"
+                title="Apagar notificação (o cliente não pediu a subida pelo app)"
+                onClick={() => encerrarNavegacaoAcao(a, 'recolhido')}
+              >
+                <IconTrash size={16} />
+              </button>
+            </>
           )}
         </td>
         <td></td>
