@@ -1,3 +1,19 @@
+import { paraMs } from './confirmacaoAutomatica.js'
+
+// A regra dos 15 minutos (ver confirmacaoAutomatica.js) vale também para
+// pedido de descida e de subida: a equipe confirma ou cancela, e se ninguém
+// decidir em 15 minutos o pedido vale como confirmado sozinho — descida vai
+// para "Navegando", subida some da Fila de Rampa.
+//
+// A janela começa em created_at, o instante em que o cliente fez o pedido —
+// e não em data_hora, o horário do slot que o próprio cliente escolhe (podia
+// ser daqui a três dias). "Confirmar em 15 minutos" só faz sentido contado a
+// partir de quando o pedido chegou pra equipe, do mesmo jeito que no
+// abastecimento (inicioJanelaAbastecimento em statusAbastecimento.js).
+export function inicioJanelaAgendamento(agendamento) {
+  return paraMs(agendamento?.created_at)
+}
+
 // Pra cada embarcação, decide qual foi a movimentação concluída mais
 // recente (retirada = ainda na água | retorno = já atracou) — é isso que
 // decide se uma embarcação aparece em "Navegando" no Painel de Controle da

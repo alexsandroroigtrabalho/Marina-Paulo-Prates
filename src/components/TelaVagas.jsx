@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind, IconPlus } from '@tabler/icons-react'
+import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
-  listarDocumentos, buscarMarina, atualizarConfigMarina,
+  listarDocumentos, buscarMarina, atualizarConfigMarina, enviarRelatorioDocumentosAgora,
   listarPedidosAbastecimento, confirmarAbastecimento, cancelarAbastecimento,
 } from '../lib/db'
 import { ativarSons } from '../lib/sons'
@@ -12,12 +12,15 @@ import { STATUS_RESGATE, labelStatusResgate, estouBemAtivo } from '../lib/status
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import {
   statusEfetivoAbastecimento, aguardandoDecisao, restanteParaConfirmar, textoRestanteParaConfirmar,
-  labelStatusAbastecimento, classeStatusAbastecimento, abastecimentoConcluido,
-  textoQuantidade, JANELA_PLANILHA_MS,
+  labelStatusAbastecimento, classeStatusAbastecimento, momentoConfirmacaoAbastecimento,
+  textoQuantidade,
 } from '../lib/statusAbastecimento'
+import {
+  aguardandoDecisaoAgendamento, restanteParaConfirmarAgendamento, textoRestanteParaConfirmarAgendamento,
+  statusFinalAgendamento,
+} from '../lib/statusAgendamento'
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
-import NovoPedidoAbastecimentoModal from './NovoPedidoAbastecimentoModal'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -38,56 +41,41 @@ const INTERVALO_CLIMA_MS = 15 * 60 * 1000
 
 const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve: IconCloudSnow, tempestade: IconCloudStorm }
 
+// Fila de Rampa, Navegando e Solicitações de combustível ficam na mesma
+// tela (a "TV" do Painel de Controle, uma embaixo da outra) — por pedido,
+// as colunas das três precisam bater entre si. Nenhuma das três tem o
+// mesmo conteúdo em todas as colunas, então o esquema é por POSIÇÃO: 7
+// larguras fixas (ver .painel-controle .tabela-fila no index.css, que liga
+// table-layout: fixed pra elas valerem), e cada tabela preenche com uma
+// célula vazia a posição que não tem conteúdo — em vez de tipo de
+// pedido (só a Fila de Rampa tem) ou de Ações (a Navegando não tem, a
+// própria seleção de status já age).
+const LARGURA_COLUNAS_TV = ['10%', '22%', '16%', '16%', '14%', '12%', '10%']
+function ColunasTV() {
+  return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+}
+
 const TIPO_AGENDAMENTO_LABEL = {
   retirada: 'Descida',
   retorno: 'Subida',
 }
 
-// "Recolhido" deixou de ser uma opção do campo Status da Fila de Rampa —
-// vira uma ação da tabela "Navegando" (ver naAgua/subidasNavegando/
-// linhaNavegando/linhaSubidaAvulsa). O critério de "notificação ainda
-// aguardando" (statusLinha) mora agora em lib/filaRampa.js — extraído de
-// lá porque o apito de descida/retorno passou a precisar da mesma lógica
-// fora desta tela (ver SonsPainelAdmin.jsx, sempre montado em Layout.jsx).
-
-// Campo Status da Fila de Rampa: um <select> só, o operador escolhe direto
-// aqui, sem botão "Confirmar" separado. "Solicitado" reaproveita o status
-// que já vem do pedido do cliente; "Recebido" usa o status 'confirmado' (já
-// existia no banco, nunca usado até aqui).
+// "Recolhido" não é uma opção da Fila de Rampa — vira uma ação da tabela
+// "Navegando" (ver naAgua/subidasNavegando/linhaNavegando/linhaSubidaAvulsa).
 //
-// Na descida, o status final reaproveita 'concluido' e vira "Navegando" — a
-// notificação sai da Fila de Rampa e passa a aparecer na tabela "Navegando"
-// logo abaixo, como já acontecia.
+// A Fila de Rampa segue a mesma regra dos 15 minutos do abastecimento (ver
+// lib/statusAgendamento.js, lib/confirmacaoAutomatica.js): dois botões,
+// Confirmar e Cancelar, e nada de passo intermediário ("Recebido" saiu). A
+// confirmação — por clique ou pelo relógio — leva sempre ao mesmo destino
+// (statusFinalAgendamento): 'concluido' na descida, que já é o status que
+// faz a notificação sair da Fila de Rampa e a embarcação aparecer em
+// "Navegando"; 'navegando' na subida, que já é o status que faz a
+// notificação sumir da Fila de Rampa (a embarcação está voltando, some do
+// Diário de Bordo do cliente e passa a aparecer também na tabela
+// "Navegando", junto com o resto do que já está na água).
 //
-// Na subida, "Navegando" (status='navegando', valor novo, sem constraint no
-// banco pra travar os valores possíveis) é o último passo por aqui: assim
-// que escolhido, a notificação sai da Fila de Rampa (ver statusLinha em
-// lib/filaRampa.js) e passa a aparecer também na tabela "Navegando", junto com o resto do que
-// já está na água. "Recolhido" não é mais uma opção deste campo — vira uma
-// ação de lá (ver linhaNavegando/encerrarNavegacaoAcao), então nem precisa
-// de status próprio aqui.
-const STATUS_FILA_OPCOES = {
-  retirada: [
-    { valor: 'solicitado', label: 'Solicitado' },
-    { valor: 'confirmado', label: 'Recebido' },
-    { valor: 'concluido', label: 'Navegando' },
-  ],
-  retorno: [
-    { valor: 'solicitado', label: 'Solicitado' },
-    { valor: 'confirmado', label: 'Recebido' },
-    { valor: 'navegando', label: 'Navegando' },
-  ],
-}
-
-// Cor do campo Status: tom terroso (mesmo de sempre) pra "Solicitado",
-// amarelo (mesmo tom já usado em Manutenção "Em andamento") pra "Recebido",
-// e o mesmo verde de ".status-navegando" (tabela Navegando) pro status
-// final e pro "Navegando" da subida — ver .select-status-fila no index.css.
-function classeStatusFila(status) {
-  if (status === 'confirmado') return 'recebido'
-  if (status === 'concluido' || status === 'navegando') return 'navegando'
-  return 'solicitado'
-}
+// O critério de "notificação ainda aguardando" mora em lib/filaRampa.js —
+// usado também pelo apito global (SonsPainelAdmin.jsx).
 
 export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const ehAdmin = perfil?.role === 'admin'
@@ -96,10 +84,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // abaixo. Só o pedido: não há preço, valor nem pagamento nesta tela.
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
   const [documentos, setDocumentos] = useState([])
+  const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
-  // Registro manual de pedido de combustível (botão "+" da planilha de
-  // solicitações) — ver NovoPedidoAbastecimentoModal.jsx.
-  const [modalNovoPedidoAberto, setModalNovoPedidoAberto] = useState(false)
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [localizacaoClima, setLocalizacaoClima] = useState(null)
@@ -118,17 +104,19 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Configurações do sistema — todas centralizadas no Painel de Controle
   // (ver ConfiguracoesPainel.jsx). A mensalidade e o cadastro de
   // combustíveis saíram daqui junto com a cobrança e o abastecimento: são
-  // assunto do RV Finance. A aba "Despacho" (e o e-mail/disparo manual do
-  // relatório de documentos vencidos que morava nela) saiu do menu de
-  // Configurações — o envio automático diário continua rodando sozinho via
-  // Edge Function/Cron no Supabase, só a tela de controle é que não existe
-  // mais (ver enviarRelatorioDocumentosAgora em lib/db.js). O que sobrou
-  // (apitos, agenda da rampa, localidade do clima) continua no mesmo
+  // assunto do RV Finance. O que sobrou (apitos, e-mail do relatório,
+  // agenda da rampa, localidade do clima) continua no mesmo
   // marinas.config_json, lido e gravado abaixo.
+  const [emailRelatorio, setEmailRelatorio] = useState('')
+  const [salvandoEmailRelatorio, setSalvandoEmailRelatorio] = useState(false)
+  const [ultimoEnvioRelatorio, setUltimoEnvioRelatorio] = useState(null)
+  const [enviandoRelatorio, setEnviandoRelatorio] = useState(false)
+  const [mensagemRelatorio, setMensagemRelatorio] = useState('')
 
-  // Carrega a configuração da marina (apitos, valor da mensalidade) — tudo
-  // em marinas.config_json. Se ainda não configurou nada, apitos ficam no
-  // padrão (1 longo na descida, 3 curtos no retorno).
+  // Carrega a configuração da marina (apitos, valor da mensalidade, e-mail
+  // do relatório de documentos) — tudo em marinas.config_json. Se ainda não
+  // configurou nada, apitos ficam no padrão (1 longo na descida, 3 curtos no
+  // retorno) e os demais campos ficam vazios.
   function carregarConfigMarina() {
     if (!marinaId) return
     buscarMarina(marinaId).then((m) => {
@@ -140,6 +128,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       setConfigApitos(apitos)
       setFormApitos(apitos)
       setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
+      setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
+      setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
       // Localidade do clima (ver lib/clima.js) — configurada pelo
       // administrador em Configurações → Agenda; sem isso, buscarClimaAtual
       // já cai sozinha no padrão de Torres/RS.
@@ -182,12 +172,68 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   }
 
 
+  async function salvarEmailRelatorio(e) {
+    e.preventDefault()
+    setSalvandoEmailRelatorio(true)
+    setMensagemRelatorio('')
+    try {
+      await atualizarConfigMarina(marinaId, { emailRelatorioDocumentos: emailRelatorio })
+      setMensagemRelatorio('E-mail salvo. O relatório diário passa a ser enviado para este endereço.')
+    } catch (err) {
+      setMensagemRelatorio(`Não foi possível salvar: ${err.message}`)
+    } finally {
+      setSalvandoEmailRelatorio(false)
+    }
+  }
+
+  async function enviarRelatorioAgora() {
+    setEnviandoRelatorio(true)
+    setMensagemRelatorio('')
+    try {
+      const resultado = await enviarRelatorioDocumentosAgora(marinaId)
+      setUltimoEnvioRelatorio(new Date().toISOString())
+      setMensagemRelatorio(
+        resultado?.documentos > 0
+          ? `Relatório enviado com ${resultado.documentos} documento(s) vencido(s)/a vencer.`
+          : 'Relatório enviado — nenhum documento vencido ou a vencer nos próximos 30 dias.'
+      )
+    } catch (err) {
+      setMensagemRelatorio(`Não foi possível enviar: ${err.message}`)
+    } finally {
+      setEnviandoRelatorio(false)
+    }
+  }
+
   async function carregar() {
     if (!marinaId) return
     const [a, doc, ped] = await Promise.all([
       listarAgendamentos(marinaId), listarDocumentos(marinaId), listarPedidosAbastecimento(marinaId),
     ])
+    // Confirmação automática dos 15 minutos: dispara em segundo plano, sem
+    // travar o carregamento da tela — a Fila de Rampa já esconde a linha na
+    // hora certa usando o status EFETIVO (ver linhasFilaAtivas em
+    // lib/filaRampa.js), então a escrita no banco não precisa ser
+    // instantânea. Existem hoje DUAS redes de segurança pra essa escrita
+    // acontecer de verdade, sem depender de ninguém: o job do banco
+    // marina.auto_confirmar_agendamentos (pg_cron, a cada 5 minutos —
+    // continua rodando mesmo com todo painel fechado) é quem garante a
+    // regra por completo; esta varredura aqui só adianta o resultado
+    // enquanto a tela está aberta, pra "Navegando"/o Diário de Bordo do
+    // cliente atualizarem no próximo ciclo de 10s em vez de esperar o cron.
+    autoConfirmarVencidos(a)
     setAgendamentos(a); setDocumentos(doc); setPedidosAbastecimento(ped)
+  }
+
+  // Varre a Fila de Rampa por notificações que já passaram dos 15 minutos
+  // sem decisão da equipe e grava a confirmação automática — o mesmo status
+  // final que "Confirmar" grava na mão (statusFinalAgendamento), adiantando
+  // o que o pg_cron (marina.auto_confirmar_agendamentos) faria de qualquer
+  // jeito no próprio ciclo dele. Falha de uma notificação isolada (rede,
+  // corrida com outra aba) não impede as demais nem trava a tela: cada
+  // escrita é independente, e o cron cobre o que sobrar.
+  async function autoConfirmarVencidos(lista) {
+    const vencidos = lista.filter((a) => a.status === 'solicitado' && !aguardandoDecisaoAgendamento(a))
+    await Promise.all(vencidos.map((a) => atualizarStatusAgendamento(a.id, statusFinalAgendamento(a.tipo)).catch(() => {})))
   }
 
   useEffect(() => { carregar() }, [marinaId])
@@ -313,34 +359,38 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const subidasAvulsas = subidasNavegando.filter((s) => !naAgua.some((a) => a.embarcacao_id === s.embarcacao_id))
 
   // Linhas ativas da Fila de Rampa — ver lib/filaRampa.js (linhasFilaAtivas).
-  const linhasFila = linhasFilaAtivas(agendamentos)
+  const linhasFila = linhasFilaAtivas(agendamentos, agora.getTime())
 
-  // Planilha de solicitações de combustível. Mostra o que ainda pede alguma
-  // coisa da marina:
-  //   - pedido esperando decisão (dentro dos 15 minutos), com os dois botões;
-  //   - pedido já confirmado, para a equipe saber que tem barco pra abastecer.
-  // Cancelado sai na hora, e confirmado sai depois de um dia
-  // (JANELA_PLANILHA_MS) — como não existe "entregue" neste fluxo, é o
-  // relógio que limpa a lista, senão ela cresceria pra sempre. Nada some do
-  // banco: o pedido continua no Histórico de Solicitações do cliente.
+  // Planilha de solicitações de combustível. Mostra só o que ainda espera
+  // decisão da equipe (dentro dos 15 minutos, com os dois botões) — assim
+  // que confirmado (pela equipe ou pelo relógio), sai daqui e passa a viver
+  // no Histórico de abastecimento (Configurações → Histórico), de onde
+  // também sai a planilha exportada. Cancelado sai na hora, do mesmo jeito.
+  // Nada some do banco: o pedido continua no Histórico de Solicitações do
+  // cliente.
   //
   // Mais recente em cima, que é a ordem em que a equipe precisa agir.
   const pedidosCombustivel = pedidosAbastecimento
-    .filter((p) => !abastecimentoConcluido(statusEfetivoAbastecimento(p, agora.getTime())))
-    .filter((p) => aguardandoDecisao(p, agora.getTime()) || agora.getTime() - new Date(p.created_at).getTime() <= JANELA_PLANILHA_MS)
+    .filter((p) => aguardandoDecisao(p, agora.getTime()))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
+  // Histórico de abastecimento (Configurações → Histórico): todo pedido já
+  // confirmado — pela equipe ou pelo relógio — mais recente primeiro. Some
+  // da planilha de trabalho acima na mesma hora em que entra aqui (mesmo
+  // corte: abaixo é só a metade oposta do filtro, "não" aguardando decisão
+  // e "não" cancelado).
+  const historicoAbastecimento = pedidosAbastecimento
+    .filter((p) => !aguardandoDecisao(p, agora.getTime()) && statusEfetivoAbastecimento(p, agora.getTime()) !== 'cancelado')
+    .sort((a, b) => new Date(momentoConfirmacaoAbastecimento(b, agora.getTime()) || b.created_at) - new Date(momentoConfirmacaoAbastecimento(a, agora.getTime()) || a.created_at))
+
   // Histórico de manobras: toda descida ou subida já confirmada, mais recente
-  // primeiro — vira o registro permanente assim que o operador confirma a
-  // notificação na Fila de Rampa (não some quando a embarcação volta, como
-  // acontece com a tabela Navegando). Ordena por concluido_em (o instante
-  // real da confirmação), não por data_hora (o que o cliente digitou ao
-  // pedir) — mesmo raciocínio de ultimaMovimentacaoPorEmbarcacao em
-  // lib/agendamentos.js: sem isso, "mais recente primeiro" podia ficar
-  // errado sempre que um cliente tivesse digitado um horário fora de ordem.
+  // primeiro — vira o registro permanente assim que a notificação da Fila
+  // de Rampa é confirmada (pela equipe ou pelo relógio, ver
+  // autoConfirmarVencidos acima; não some quando a embarcação volta, como
+  // acontece com a tabela Navegando).
   const historicoManobras = agendamentos
     .filter((a) => a.status === 'concluido')
-    .sort((a, b) => new Date(b.concluido_em || b.data_hora) - new Date(a.concluido_em || a.data_hora))
+    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
 
   // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
   // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
@@ -390,33 +440,42 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     onAcoes?.({ abrirConfiguracoes: () => setModalConfiguracoesAberto(true) })
   }, [])
 
-  // Linha da Fila de Rampa (notificação aguardando descida ou retorno).
-  // A coluna de abastecimento saiu daqui (foi pro RV Finance) — por isso a
-  // tabela tem 6 colunas agora, e não 7.
+  // Confirmar uma descida/subida da Fila de Rampa — mesmo par de botões e
+  // mesma regra dos 15 minutos do abastecimento (ver
+  // confirmarPedidoAbastecimento acima e lib/statusAgendamento.js). O
+  // destino é sempre o mesmo que a confirmação automática grava sozinha
+  // (statusFinalAgendamento): 'concluido' na descida (vira "Navegando"),
+  // 'navegando' na subida (some da Fila de Rampa, aparece em "Navegando").
+  async function confirmarNotificacao(a) {
+    await mudarStatusAgendamento(a.id, statusFinalAgendamento(a.tipo))
+  }
+
+  // Linha da Fila de Rampa (notificação aguardando descida ou retorno). O
+  // <select> de 3 passos deu lugar aos mesmos dois botões da planilha de
+  // combustível — Confirmar/Cancelar, com o mesmo prazo de 15 minutos (ver
+  // lib/statusAgendamento.js). A 1ª coluna fica vazia nas outras duas
+  // tabelas (Navegando/Abastecimento) só para as larguras baterem — ver
+  // comentário em cima das 3 tabelas, mais abaixo.
   function linhaNotificacao(a) {
     const doc = statusDocumentacao(a.embarcacao_id)
+    const decidir = aguardandoDecisaoAgendamento(a, agora.getTime())
+    const restante = textoRestanteParaConfirmarAgendamento(restanteParaConfirmarAgendamento(a, agora.getTime()))
     return (
       <tr key={a.id}>
         <td className={`pedido ${a.tipo === 'retirada' ? 'tipo-descida' : 'tipo-subida'}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
+        <td></td>
+        <td>
+          <span className="badge status-solicitado">Solicitado</span>
+          {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
+        </td>
         <td>
           <div className="fila-tabela-acoes">
-            <button className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
+            <button type="button" onClick={() => confirmarNotificacao(a)}>Confirmar</button>
+            <button type="button" className="cancelar" onClick={() => mudarStatusAgendamento(a.id, 'cancelado')}>Cancelar</button>
           </div>
-        </td>
-        <td className="col-status">
-          <select
-            className={`badge select-status-fila status-${classeStatusFila(a.status)}`}
-            value={a.status}
-            title="Status da solicitação"
-            onChange={(e) => mudarStatusAgendamento(a.id, e.target.value)}
-          >
-            {STATUS_FILA_OPCOES[a.tipo].map((o) => (
-              <option key={o.valor} value={o.valor}>{o.label}</option>
-            ))}
-          </select>
         </td>
       </tr>
     )
@@ -509,19 +568,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     const status = statusNavegando(a)
     return (
       <tr key={a.id}>
+        <td></td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-        {/* concluido_em (não data_hora) — o instante real em que o
-            Administrador clicou "Navegando" na Fila de Rampa, gravado por
-            atualizarStatusAgendamento (ver lib/db.js). data_hora aqui é só o
-            horário que o CLIENTE pediu a descida, que pode ser bem diferente
-            do horário em que a equipe de fato confirmou/liberou a saída —
-            mesmo raciocínio já usado em ultimaMovimentacaoPorEmbarcacao
-            (lib/agendamentos.js) e no Histórico de manobras
-            (ConfiguracoesPainel.jsx). concluido_em nunca é nulo aqui: só
-            chega em "Navegando" quem já tem status='concluido'. */}
-        <td>{new Date(a.concluido_em || a.data_hora).toLocaleString('pt-BR')}</td>
+        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
-        <td className="col-status">
+        <td></td>
+        <td>
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
             // Cliente cancelou o próprio S.O.S. — mostra "Estou bem", sem
             // nenhum controle (não precisa de ação da equipe, é só um
@@ -599,6 +651,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             </select>
           )}
         </td>
+        <td></td>
       </tr>
     )
   }
@@ -611,10 +664,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   function linhaSubidaAvulsa(a) {
     return (
       <tr key={a.id}>
+        <td></td>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>—</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-        <td className="col-status">
+        <td></td>
+        <td>
           <select
             className="badge select-status-fila status-navegando"
             value=""
@@ -630,6 +685,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <option value="cancelado">Cancelar</option>
           </select>
         </td>
+        <td></td>
       </tr>
     )
   }
@@ -646,13 +702,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           cabeçalho institucional único do Layout.jsx (junto do nome da
           marina, Admin, engrenagem e Sair), pra não duplicar a marca em
           duas faixas separadas no topo da página. */}
-      {/* Tudo que cresce com o volume de notificações/pedidos — cabeçalho de
-          relógio/clima, Fila de Rampa, Navegando e Solicitações de
-          combustível — rola só aqui dentro. O rodapé de marca (logo
-          abaixo, fora desta div) fica fixo na base da tela, sempre visível,
-          independente de quanto essa área cresça (ver .painel-controle-rolavel
-          e .painel-controle-rodape no index.css). */}
-      <div className="painel-controle-rolavel">
       <div className="painel-controle-cabecalho">
         <p className="painel-controle-relogio">
           {agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {agora.toLocaleTimeString('pt-BR')}
@@ -676,45 +725,41 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       <h2>Fila de Rampa</h2>
 
       <table className="tabela tabela-fila">
+        <ColunasTV />
         <thead>
           <tr>
             <th>Pedido</th>
             <th className="col-responsavel">Responsável</th>
             <th>Horário</th>
             <th>Documentação</th>
-            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. A
-                coluna de ações (Cancelar) vem ANTES do Status agora — sem
-                rótulo próprio, igual sempre foi — só pra "Status" terminar
-                sendo a última coluna nas 3 tabelas desta tela (ver
-                .col-status no index.css: com table-layout:fixed, a coluna
-                que sobra até a borda direita é sempre a última — não tem
-                como o Status "flutuar" numa posição diferente em cada
-                tabela se ele sempre for a última de todas). */}
             <th></th>
-            <th className="col-status">Status</th>
+            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. */}
+            <th>Status</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
-          {linhasFila.length === 0 && <tr><td colSpan={6}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
+          {linhasFila.length === 0 && <tr><td colSpan={7}>Nenhuma notificação de descida ou subida no momento.</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
 
       <h2>Navegando</h2>
       <table className="tabela tabela-fila">
+        <ColunasTV />
         <thead>
           <tr>
+            <th></th>
             <th className="col-responsavel">Responsável</th>
-            {/* Renomeado de "Horário de saída" — o valor agora é o instante
-                real do clique em "Navegando" (concluido_em), não mais o
-                horário que o cliente pediu ao solicitar a descida. */}
-            <th>Início de navegação</th>
+            <th>Horário de saída</th>
             <th>Previsão de retorno</th>
-            <th className="col-status">Status</th>
+            <th></th>
+            <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={4}>Nenhuma embarcação na água no momento.</td></tr>}
+          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={7}>Nenhuma embarcação na água no momento.</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
           {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
         </tbody>
@@ -722,48 +767,44 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
 
       {/* Planilha de solicitações de combustível. Só o pedido — nada de
           preço, valor ou pagamento, que são do RV Finance. A equipe tem dois
-          botões e 15 minutos; passado o prazo, a linha aparece confirmada
-          sozinha (ver statusEfetivoAbastecimento em
-          lib/statusAbastecimento.js). */}
-      <div className="painel-titulo-com-acao">
-        <h2 style={{ margin: 0 }}>Solicitações de combustível</h2>
-        <button
-          type="button"
-          className="botao-inserir-pedido"
-          title="Inserir novo pedido de abastecimento"
-          onClick={() => setModalNovoPedidoAberto(true)}
-        >
-          <IconPlus size={18} stroke={1.75} />
-        </button>
-      </div>
+          botões e 15 minutos; passado o prazo, o pedido sai daqui sozinho e
+          vai para o Histórico de abastecimento (Configurações → Histórico —
+          ver statusEfetivoAbastecimento em lib/statusAbastecimento.js). */}
+      <h2>Solicitações de combustível</h2>
       <table className="tabela tabela-fila">
+        <ColunasTV />
         <thead>
           <tr>
+            <th></th>
             <th className="col-responsavel">Responsável</th>
             <th>Combustível</th>
             <th>Quantidade</th>
             <th>Pedido em</th>
-            {/* Ações antes do Status — mesmo motivo do comentário na Fila de
-                Rampa logo acima: "Status" precisa ser a última coluna nas 3
-                tabelas pra table-layout:fixed alinhar o selo entre elas. */}
-            <th></th>
-            <th className="col-status">Status</th>
+            <th>Status</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
-          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>Nenhuma solicitação de combustível no momento.</td></tr>}
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={7}>Nenhuma solicitação de combustível no momento.</td></tr>}
           {pedidosCombustivel.map((p) => {
             const efetivo = statusEfetivoAbastecimento(p, agora.getTime())
             const decidir = aguardandoDecisao(p, agora.getTime())
             const restante = textoRestanteParaConfirmar(restanteParaConfirmar(p, agora.getTime()))
             return (
               <tr key={p.id}>
+                <td></td>
                 <td className="col-responsavel">
                   <b>{p.clientes?.nome}</b>{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}
                 </td>
                 <td>{p.combustiveis?.nome || '—'}</td>
                 <td>{textoQuantidade(p)}</td>
                 <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
+                <td>
+                  <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>
+                  {/* Contagem regressiva ao lado do selo: sem ela a equipe
+                      não teria como saber que aquela linha tem prazo. */}
+                  {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
+                </td>
                 <td>
                   {decidir ? (
                     <div className="fila-tabela-acoes">
@@ -772,25 +813,34 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                     </div>
                   ) : '—'}
                 </td>
-                <td className="col-status">
-                  <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>
-                  {/* Contagem regressiva ao lado do selo: sem ela a equipe
-                      não teria como saber que aquela linha tem prazo. */}
-                  {decidir && restante && <span className="prazo-confirmacao">confirma em {restante}</span>}
-                </td>
               </tr>
             )
           })}
         </tbody>
       </table>
-      </div>
+
+      {agendamentos.some((a) => a.status === 'cancelado') && (
+        <div style={{ marginBottom: 32 }}>
+          <button type="button" className="voltar" onClick={() => setMostrarCancelados(!mostrarCancelados)}>
+            {mostrarCancelados ? 'Ocultar' : 'Ver'} cancelados ({agendamentos.filter((a) => a.status === 'cancelado').length})
+          </button>
+          {mostrarCancelados && (
+            <div className="lista-cards" style={{ marginTop: 10 }}>
+              {agendamentos.filter((a) => a.status === 'cancelado').map((a) => (
+                <div key={a.id} className="cliente-card">
+                  <div className="linha"><b>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</b> — {a.clientes?.nome}{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
+                  <div className="linha">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Assinatura da aplicação, fechando o Painel de Controle: identifica
           o RV Marine e credita a RV Invictus numa linha só. Mesmo gesto
           tipográfico dos outros rodapés do sistema (Cinzel, caixa alta,
-          tracking), agora no dourado do rótulo TORRES/TS logo acima. Fixo na
-          base da tela (position: fixed, ver index.css) — sempre visível,
-          fora da área rolável acima. */}
+          tracking), agora no dourado do rótulo TORRES/TS logo acima. */}
       <a className="painel-controle-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">
         RV Marine by RVinvictus.com.br
       </a>
@@ -802,6 +852,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         marinaId={marinaId}
         historicoManobras={historicoManobras}
         tipoAgendamentoLabel={TIPO_AGENDAMENTO_LABEL}
+        historicoAbastecimento={historicoAbastecimento}
         sonsAtivados={sonsAtivados}
         onAlternarSons={alternarAvisoSonoro}
         salvandoAvisoSonoro={salvandoAvisoSonoro}
@@ -809,14 +860,14 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         onMudarApitos={setFormApitos}
         onSalvarApitos={salvarConfigApitos}
         salvandoApitos={salvandoApitos}
-        pedidosAbastecimento={pedidosAbastecimento}
-      />
-
-      <NovoPedidoAbastecimentoModal
-        aberto={modalNovoPedidoAberto}
-        onFechar={() => setModalNovoPedidoAberto(false)}
-        marinaId={marinaId}
-        onCriado={carregar}
+        emailRelatorio={emailRelatorio}
+        onMudarEmailRelatorio={setEmailRelatorio}
+        onSalvarEmailRelatorio={salvarEmailRelatorio}
+        salvandoEmailRelatorio={salvandoEmailRelatorio}
+        ultimoEnvioRelatorio={ultimoEnvioRelatorio}
+        onEnviarRelatorioAgora={enviarRelatorioAgora}
+        enviandoRelatorio={enviandoRelatorio}
+        mensagemRelatorio={mensagemRelatorio}
       />
     </div>
   )

@@ -1,7 +1,6 @@
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos, listarAgendamentos, listarCobrancasDetalhado, listarPedidosAbastecimento } from './db'
 import { labelStatusManutencao } from './statusManutencao'
+import { statusEfetivoAbastecimento, momentoConfirmacaoAbastecimento, textoQuantidade } from './statusAbastecimento.js'
 
 // Mesma tradução usada nas telas (Painel de Controle e painel do cliente) —
 // ver TIPO_AGENDAMENTO_LABEL em TelaVagas.jsx/TelaClienteDashboard.jsx.
@@ -178,6 +177,38 @@ export async function exportarHistoricoManobrasCsv(marinaId) {
   baixarCsv(comData('historico_manobras'), cabecalho, linhas)
 }
 
+/* ---------- Histórico de abastecimento (pedidos já confirmados) ----------
+ * Mesmo recorte que a tabela "Histórico de abastecimento" do Painel de
+ * Controle (Configurações → Histórico): todo pedido de combustível que já
+ * saiu da planilha de trabalho — confirmado pela equipe ou pelo relógio dos
+ * 15 minutos (ver statusEfetivoAbastecimento/momentoConfirmacaoAbastecimento
+ * em lib/statusAbastecimento.js) — e ainda não cancelado. Mais recente
+ * primeiro. Sem preço nem valor: isso é do RV Finance. */
+export async function exportarHistoricoAbastecimentoCsv(marinaId) {
+  const agoraMs = Date.now()
+  const pedidos = await listarPedidosAbastecimento(marinaId)
+
+  const historico = pedidos
+    .filter((p) => {
+      const efetivo = statusEfetivoAbastecimento(p, agoraMs)
+      return efetivo !== 'solicitado' && efetivo !== 'cancelado'
+    })
+    .sort((a, b) => new Date(momentoConfirmacaoAbastecimento(b, agoraMs) || b.created_at) - new Date(momentoConfirmacaoAbastecimento(a, agoraMs) || a.created_at))
+
+  const cabecalho = ['Nº', 'Cliente', 'Embarcação/Jet', 'Combustível', 'Quantidade', 'Pedido em', 'Confirmado em']
+  const linhas = historico.map((p, i) => [
+    i + 1,
+    p.clientes?.nome,
+    p.embarcacoes?.nome,
+    p.combustiveis?.nome || '',
+    textoQuantidade(p),
+    formatarData(p.created_at, true),
+    formatarData(momentoConfirmacaoAbastecimento(p, agoraMs) || p.confirmado_em, true),
+  ])
+
+  baixarCsv(comData('historico_abastecimento'), cabecalho, linhas)
+}
+
 /* ---------- Arrecadação detalhada (Financeiro) ----------
  * Mesma composição da tela Financeiro (mensalidades pagas + consumo de
  * combustível pago/entregue — ver montarLinhasArrecadacao em
@@ -254,43 +285,4 @@ export function exportarHistoricoSolicitacoesCsv(itens) {
     formatarData(item.quando, true),
   ])
   baixarCsv(comData('meu_historico'), cabecalho, linhas)
-}
-
-/* ---------- Histórico de abastecimento (aba Combustível) ----------
- * Mesmo princípio de exportarHistoricoSolicitacoesCsv acima: recebe as
- * linhas já prontas — exatamente o que a tabela da aba Combustível está
- * mostrando naquele momento, já com os filtros de período/cliente/
- * embarcação/combustível aplicados (ver ConfiguracoesPainel.jsx) — em vez
- * de buscar tudo de novo no banco. Não faz sentido baixar anos de pedidos
- * quando a equipe já filtrou por um recorte menor.
- *
- * "Excel" aqui segue o mesmo CSV com ";" e BOM UTF-8 usado em toda
- * exportação deste arquivo (já abre certinho no Excel/Google Sheets em
- * pt-BR); "PDF" é gerado com jsPDF + jspdf-autotable, sem depender de
- * nenhum backend — mesmo princípio de zero-servidor das demais
- * exportações. */
-const CABECALHO_ABASTECIMENTO = ['Nº', 'Cliente', 'Embarcação', 'Combustível', 'Quantidade', 'Status', 'Pedido em']
-
-function linhasAbastecimento(itens) {
-  return itens.map((item, i) => [i + 1, item.cliente, item.embarcacao, item.combustivel, item.quantidade, item.statusLabel, item.quando])
-}
-
-export function exportarAbastecimentoCsv(itens) {
-  baixarCsv(comData('historico_abastecimento'), CABECALHO_ABASTECIMENTO, linhasAbastecimento(itens))
-}
-
-export function exportarAbastecimentoPdf(itens) {
-  const doc = new jsPDF({ orientation: 'landscape' })
-  doc.setFontSize(14)
-  doc.text('Histórico de Abastecimento', 14, 15)
-  doc.setFontSize(9)
-  doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 21)
-  autoTable(doc, {
-    startY: 26,
-    head: [CABECALHO_ABASTECIMENTO],
-    body: linhasAbastecimento(itens),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [30, 60, 50] },
-  })
-  doc.save(comData('historico_abastecimento').replace(/\.csv$/, '.pdf'))
 }

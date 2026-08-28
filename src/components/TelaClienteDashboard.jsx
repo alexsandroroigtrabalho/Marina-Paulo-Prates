@@ -22,6 +22,7 @@ import {
   statusEfetivoAbastecimento, aguardandoDecisao, labelStatusAbastecimento,
   OBSERVACAO_COMPLETAR_TANQUE, textoQuantidade,
 } from '../lib/statusAbastecimento'
+import { aguardandoDecisaoAgendamento } from '../lib/statusAgendamento'
 import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from '../lib/agendaRampa'
 // TEMA_PADRAO era usado só pelo link de pagamento (TEMA_PADRAO.linkPagamento)
 // dos modais de QR/Pix, que saíram daqui junto com a cobrança.
@@ -32,48 +33,11 @@ import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
 // concluída), não só por 5 dias depois de sair do Diário de Bordo ativo —
 // ver diarioAtivo/historicoSolicitacoes mais abaixo.
 const HISTORICO_JANELA_MS = 5 * 24 * 60 * 60 * 1000
-// Horário da "limpeza diária" do Diário de Bordo (ver proximaLimpezaAs7h
-// abaixo) — uma solicitação já concluída/cancelada some da tela só na
-// próxima passagem das 7h da manhã, nunca no instante em que termina (senão
-// o registro sumiria antes mesmo do cliente perceber que tinha terminado).
-// Não existe job nenhum rodando às 7h no servidor: agoraMs (ver mais abaixo)
-// já é recalculado a cada 10s nesta tela, então o item some sozinho assim
-// que o relógio do navegador cruza essa hora — o "cron job" pedido pela
-// especificação é só esse recálculo cliente, sem precisar de nenhuma peça
-// nova de infraestrutura. Isso também cobre a "limpeza retroativa imediata"
-// pedida junto: qualquer item concluído antes da última passagem das 7h já
-// nasce escondido assim que este código entra no ar, sem precisar de
-// nenhuma migração ou ação manual.
-const HORA_LIMPEZA_DIARIO = 7
-
-// Fuso fixo da marina (America/Sao_Paulo — ver lib/clima.js, que já usa o
-// mesmo fuso pra previsão do tempo). Brasil não tem mais horário de verão
-// desde 2019, então UTC-3 vale o ano inteiro sem exceção.
-//
-// A limpeza das 7h TEM que ser sempre "7h da manhã na marina", não "7h da
-// manhã no fuso configurado no aparelho de quem está com a tela aberta" —
-// getFullYear/getMonth/getDate (usados na primeira versão desta função)
-// leem o fuso LOCAL do dispositivo, então um cliente acessando de um
-// aparelho/navegador configurado em outro fuso (ou só com o relógio do
-// sistema errado) via a régua das 7h deslizar pra outro horário e via itens
-// antigos ficarem visíveis (ou sumirem cedo demais) sem que nada esteja
-// errado no banco. Por isso: desloca manualmente pro "relógio de parede" da
-// marina em vez de confiar no fuso do navegador.
-const FUSO_MARINA_MS = -3 * 60 * 60 * 1000
-
-// Instante da próxima passagem das HORA_LIMPEZA_DIARIO (7h, hora da marina)
-// depois de `instante` — se `instante` já é hoje às 7h ou depois (hora da
-// marina), a próxima passagem é amanhã às 7h; se é antes das 7h de hoje, a
-// própria hoje às 7h já serve. Sempre devolve um instante real (UTC/epoch),
-// direto comparável com Date.now()/agoraMs.
-function proximaLimpezaAs7h(instante) {
-  const real = new Date(instante).getTime()
-  const naParedeDaMarina = real + FUSO_MARINA_MS
-  const d = new Date(naParedeDaMarina)
-  const hojeAs7hNaParede = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), HORA_LIMPEZA_DIARIO, 0, 0, 0)
-  const proximaNaParede = naParedeDaMarina < hojeAs7hNaParede ? hojeAs7hNaParede : hojeAs7hNaParede + 24 * 60 * 60 * 1000
-  return new Date(proximaNaParede - FUSO_MARINA_MS)
-}
+// Quanto tempo uma solicitação JÁ CONCLUÍDA ainda fica à vista no Diário de
+// Bordo antes de passar a viver só no Histórico de Solicitações. Antes ela
+// saía no instante em que era concluída, o que fazia o registro sumir da
+// tela do cliente antes mesmo de ele perceber que tinha terminado.
+const DIARIO_JANELA_MS = 24 * 60 * 60 * 1000
 
 // "Silenciar notificações" (engrenagem → Diário de Bordo): preferência só
 // deste navegador/aparelho, não do cadastro do cliente — por isso fica em
@@ -231,34 +195,13 @@ const MENSAGEM_BOTAO_RESGATE = {
 const STATUS_RESGATE_CANCELAVEIS = ['solicitado', 'recebido']
 
 // Agrupa os status de todas as origens (agendamentos, abastecimento,
-// manutenção, despachos, laudos) em 2 cores só, pro Diário de Bordo não
+// manutenção, despachos, laudos) em 3 cores só, pro Diário de Bordo não
 // virar uma sopa de badges diferentes — mesmo padrão minimalista (texto
 // colorido, sem bolinha/pill) já usado no resto do painel do cliente.
-//
-// TODO status TERMINAL — concluído/confirmado/pago OU cancelado/indeferido —
-// cai na mesma classe 'em-dia': é ela que o diarioAtivo (mais abaixo) trata
-// como "não pede mais nada de ninguém, pode envelhecer e sair pela regra das
-// 7h". Cancelado/indeferido perdem a cor cinza distinta que já tiveram (vira
-// o mesmo texto esverdeado de "concluído") — troca já aceita de propósito
-// pra agendamento cancelado e abastecimento cancelado (ver
-// statusAgendamentoDiario/statusAbastecimentoDiario) desde que a regra das
-// 7h existe; só nunca tinha sido estendida pra manutenção/despacho/laudo, e
-// por isso uma ordem de serviço ou laudo cancelado/indeferido ficava preso
-// no Diário de Bordo ativo pra sempre, imune tanto à regra das 7h quanto à
-// limpeza manual (diarioBordoLimpoEm) — bug real encontrado com um teste que
-// gerou várias manutenções canceladas.
-//
-// 'aguardando_pagamento' (legado do antigo fluxo com cobrança — ver
-// STATUS_ABASTECIMENTO_LABEL, rótulo "Confirmado (fluxo antigo)") também
-// faltava aqui: sem entrar nem na lista de terminal nem na de cancelado,
-// caía no 'pendente' padrão lá embaixo — um pedido de abastecimento antigo,
-// de dias atrás, ficava "ativo" pra sempre pelo mesmo motivo.
 function classeStatusDiario(status) {
-  const terminal = [
-    'concluido', 'concluida', 'confirmado', 'pago', 'entregue', 'aguardando_pagamento', 'emitido', 'aprovado',
-    'cancelado', 'cancelada', 'indeferido',
-  ]
-  return terminal.includes(status) ? 'em-dia' : 'pendente'
+  if (['concluido', 'concluida', 'confirmado', 'pago', 'entregue', 'emitido', 'aprovado'].includes(status)) return 'em-dia'
+  if (['cancelado', 'cancelada', 'indeferido'].includes(status)) return 'cancelado'
+  return 'pendente'
 }
 
 // Rótulo/cor de um agendamento (retirada/retorno) no Diário de Bordo —
@@ -285,14 +228,14 @@ function classeStatusDiario(status) {
 //     visível igual ao "Navegando" da descida (não é um status "em-dia" de
 //     classeStatusDiario, então cai certo no branco padrão ali embaixo; só
 //     precisa do rótulo certo aqui, já que STATUS_LABEL não tem essa chave).
-//   - 'cancelado': classeStatusDiario('cancelado') já devolve 'em-dia'
-//     sozinho (terminal é terminal, ver classeStatusDiario acima) — o valor
-//     explícito aqui é só pra deixar claro, no ponto onde mais gente vai
-//     procurar, que uma descida/subida cancelada (pelo administrador ou
-//     pelo próprio cliente) também é terminal, não sobra ação nenhuma, então
-//     some do Diário de Bordo ativo do mesmo jeito que uma concluída.
-//     Continua no Histórico de Solicitações normalmente, e já sai do Painel
-//     de Controle desde
+//   - 'cancelado': classeStatusDiario('cancelado') sozinho devolveria
+//     'cancelado' (fica parado no Diário de Bordo ativo pra sempre, com um
+//     badge vermelho) — força 'em-dia' aqui, mesmo tratamento já dado ao
+//     combustível cancelado (ver statusAbastecimentoDiario abaixo): uma
+//     descida/subida cancelada (pelo administrador ou pelo próprio
+//     cliente) também é terminal, não sobra ação nenhuma, então some do
+//     Diário de Bordo ativo do mesmo jeito. Continua no Histórico de
+//     Solicitações normalmente, e já sai do Painel de Controle desde
 //     sempre (Fila de Rampa/Navegando só mostram status ativo — ver
 //     linhasFilaAtivas em lib/filaRampa.js; cancelados só aparecem lá
 //     atrás do botão "Ver cancelados").
@@ -320,34 +263,6 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
   return { statusLabel: STATUS_LABEL[a.status] || a.status, statusClasse: classeStatusDiario(a.status) }
 }
 
-const FORMATO_DATA_HORA_DIARIO = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }
-
-// Linha de data/hora do card de uma descida/subida no Diário de Bordo.
-// Enquanto o pedido ainda não foi confirmado, mostra só o horário
-// solicitado (data_hora, digitado pelo cliente ao pedir a descida/subida).
-// Uma vez concluído (status='concluido' — "Navegando" numa descida,
-// "Recolhido" numa subida), o horário que passa a valer é concluido_em: o
-// instante real em que o Administrador clicou o status na Fila de
-// Rampa/Navegando (ver atualizarStatusAgendamento/encerrarNavegacao em
-// lib/db.js) — pode ser bem diferente do que o cliente pediu. Mostra os
-// dois horários juntos quando divergem (mais de 1 minuto de diferença, pra
-// não duplicar a mesma hora quando a equipe registra um "Recolhido" sem
-// pedido prévio do cliente — ver encerrarNavegacao, que grava data_hora e
-// concluido_em iguais nesse caso) — assim o cartão guarda a linha do tempo
-// completa (solicitação inicial + confirmação real) sem precisar abrir o
-// Histórico de solicitações. concluido_em nunca falta aqui: só chega em
-// status='concluido' quem já passou por atualizarStatusAgendamento/
-// encerrarNavegacao, e registros antigos foram preenchidos numa migração
-// (ver comentário de ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js).
-function detalheAgendamentoDiario(a) {
-  const solicitado = `Solicitado: ${new Date(a.data_hora).toLocaleString('pt-BR', FORMATO_DATA_HORA_DIARIO)}`
-  if (a.status !== 'concluido' || !a.concluido_em) return solicitado
-  const rotulo = a.tipo === 'retirada' ? 'Início de navegação' : 'Recolhido em'
-  const linhaConcluido = `${rotulo}: ${new Date(a.concluido_em).toLocaleString('pt-BR', FORMATO_DATA_HORA_DIARIO)}`
-  const divergem = Math.abs(new Date(a.concluido_em).getTime() - new Date(a.data_hora).getTime()) > 60 * 1000
-  return divergem ? `${solicitado} · ${linhaConcluido}` : linhaConcluido
-}
-
 // SeletorAcaoPagamento não existe mais: "Realizar pagamento" e "Pagamento
 // efetuado" saíram com o financeiro. O que voltou foi só o pedido.
 //
@@ -358,16 +273,16 @@ function detalheAgendamentoDiario(a) {
 // cliente, exatamente como aparece para a equipe no Painel de Controle —
 // mesma função nos dois lados, então nunca divergem.
 //
-// 'cancelado' (e os legados 'pago'/'entregue'/'aguardando_pagamento') já
-// caem em 'em-dia' dentro do próprio classeStatusDiario — terminal é
-// terminal, não sobra ação nenhuma, então envelhece e sai do Diário de
-// Bordo ativo igual a um pedido confirmado (ver diarioAtivo). Continua
-// inteiro no Histórico de Solicitações.
+// 'cancelado' vira classe 'em-dia' de propósito: classeStatusDiario
+// devolveria 'cancelado', e um item dessa classe fica parado no Diário de
+// Bordo ativo para sempre (ver diarioAtivo). Como cancelar é terminal —
+// não sobra ação nenhuma —, ele precisa envelhecer e sair igual a um
+// pedido confirmado. Continua inteiro no Histórico de Solicitações.
 function statusAbastecimentoDiario(pedido, agoraMs) {
   const efetivo = statusEfetivoAbastecimento(pedido, agoraMs)
   return {
     statusLabel: labelStatusAbastecimento(efetivo),
-    statusClasse: classeStatusDiario(efetivo),
+    statusClasse: efetivo === 'cancelado' ? 'em-dia' : classeStatusDiario(efetivo),
   }
 }
 
@@ -1018,19 +933,19 @@ export default function TelaClienteDashboard({ perfil }) {
       id: `ag-${a.id}`,
       icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
       titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}`,
-      detalhe: detalheAgendamentoDiario(a),
+      detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
       ...statusAgendamentoDiario(a, ultimaPorEmbarcacao),
-      // concluido_em (quando existe) — não data_hora — pra um item recém
-      // concluído sempre subir pro topo do Diário de Bordo (mais recente
-      // primeiro), mesmo que o cliente tenha digitado um data_hora fora de
-      // ordem ao pedir. Mesmo raciocínio de ultimaMovimentacaoPorEmbarcacao
-      // (lib/agendamentos.js).
-      quando: a.concluido_em || a.data_hora,
-      // Só dá pra cancelar enquanto o pedido ainda não saiu do papel
-      // ("Solicitado"/"Recebido") — uma vez "Navegando" em diante, virou uma
-      // manobra em andamento, e cancelar passa a ser decisão da marina pelo
-      // Painel de Controle, não mais um botão aqui. Ver cancelarAgendamentoCliente.
-      agendamentoParaCancelar: (a.status === 'solicitado' || a.status === 'confirmado') ? a : null,
+      quando: a.data_hora,
+      // Só dá pra cancelar enquanto o pedido ainda espera decisão — em
+      // 'solicitado' e dentro dos 15 minutos (mesma regra do abastecimento,
+      // ver aguardandoDecisaoAgendamento em lib/statusAgendamento.js e
+      // abastecimentoParaCancelar logo abaixo). Passado o prazo, o pedido já
+      // confirmou sozinho e cancelar passa a ser decisão da marina pelo
+      // Painel de Controle, não mais um botão aqui. Ver
+      // cancelarAgendamentoCliente. A policy do banco
+      // "cliente_cancela_proprio_agendamento" repete essa mesma condição, então
+      // nem por fora da aplicação dá pra cancelar depois do prazo.
+      agendamentoParaCancelar: aguardandoDecisaoAgendamento(a, agoraMs) ? a : null,
     })),
     // TODO pedido entra aqui, inclusive os já confirmados e cancelados — é
     // o que mantém a linha visível no Histórico de Solicitações depois de
@@ -1044,14 +959,7 @@ export default function TelaClienteDashboard({ perfil }) {
       titulo: `Abastecimento · ${p.combustiveis?.nome || ''}${p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}`,
       detalhe: textoQuantidade(p),
       ...statusAbastecimentoDiario(p, agoraMs),
-      // confirmado_em (quando existe) — o instante real do clique em
-      // "Confirmar abastecimento" na planilha do Painel de Controle (ver
-      // confirmarAbastecimento em lib/db.js) — não created_at, que é só a
-      // hora do pedido. Fica nulo pra um pedido confirmado automaticamente
-      // (sem clique da equipe, passados 15min — ver JANELA_CONFIRMACAO_MS em
-      // lib/statusAbastecimento.js) e pra um cancelado, únicos casos em que
-      // created_at ainda é a melhor data disponível.
-      quando: p.confirmado_em || p.created_at,
+      quando: p.created_at,
       // O botão sai no mesmo instante em que os botões da equipe saem, no
       // Painel de Controle: as duas telas chamam aguardandoDecisao.
       abastecimentoParaCancelar: aguardandoDecisao(p, agoraMs) ? p : null,
@@ -1066,10 +974,7 @@ export default function TelaClienteDashboard({ perfil }) {
       // status igual em todo lugar que mostra manutenção.
       statusLabel: labelStatusManutencao(os.status),
       statusClasse: classeStatusDiario(os.status),
-      // data_conclusao (quando existe) — gravado em atualizarStatusOS
-      // (lib/db.js) no instante em que a equipe marca a manutenção como
-      // concluída. Enquanto aberta, usa data_abertura normalmente.
-      quando: os.data_conclusao || os.data_abertura,
+      quando: os.data_abertura,
     })),
     ...despachos.map((d) => ({
       id: `de-${d.id}`,
@@ -1078,10 +983,7 @@ export default function TelaClienteDashboard({ perfil }) {
       detalhe: `${d.orgao || ''}${d.numero_protocolo ? ` · Protocolo ${d.numero_protocolo}` : ''}`,
       statusLabel: STATUS_LABEL[d.status] || d.status,
       statusClasse: classeStatusDiario(d.status),
-      // data_conclusao (quando existe) — gravado em TelaDocumentacao.jsx no
-      // instante em que a equipe marca o despacho como concluído (só a data,
-      // sem hora — coluna date no banco). Enquanto aberto, usa created_at.
-      quando: d.data_conclusao || d.created_at,
+      quando: d.created_at,
     })),
     ...laudos.map((l) => ({
       id: `la-${l.id}`,
@@ -1090,10 +992,7 @@ export default function TelaClienteDashboard({ perfil }) {
       detalhe: l.finalidade || '',
       statusLabel: STATUS_LABEL[l.status] || l.status,
       statusClasse: classeStatusDiario(l.status),
-      // data_emissao (quando existe) — gravado em TelaDocumentacao.jsx no
-      // instante em que a equipe marca o laudo como emitido. Enquanto em
-      // aberto, usa data_solicitacao.
-      quando: l.data_emissao || l.data_solicitacao,
+      quando: l.data_solicitacao,
     })),
     // S.O.S.: só mostra o estado ATUAL (não existe histórico com data/hora
     // de pedidos de resgate anteriores — resgate_status é um campo só na
@@ -1109,10 +1008,7 @@ export default function TelaClienteDashboard({ perfil }) {
           detalhe: DETALHE_STATUS_RESGATE[agendamentoNavegando.resgate_status] || '',
           statusLabel: labelStatusResgate(agendamentoNavegando.resgate_status),
           statusClasse: ['recolhido', 'cancelado'].includes(agendamentoNavegando.resgate_status) ? 'em-dia' : 'sos',
-          // resgate_atualizado_em — o instante real da última mudança de
-          // etapa do resgate (ver atualizarStatusResgate em lib/db.js), não
-          // data_hora da navegação em si (que não muda com o S.O.S.).
-          quando: agendamentoNavegando.resgate_atualizado_em || agendamentoNavegando.data_hora,
+          quando: agendamentoNavegando.data_hora,
           // Só dá pra cancelar enquanto ainda está "Solicitado" ou
           // "Recebido" — ver cancelarResgateCliente.
           resgateParaCancelar: STATUS_RESGATE_CANCELAVEIS.includes(agendamentoNavegando.resgate_status) ? agendamentoNavegando : null,
@@ -1152,38 +1048,42 @@ export default function TelaClienteDashboard({ perfil }) {
   // já colore o badge de verde), a solicitação sai do Diário de Bordo ativo
   // — continua visível, sem limite de tempo aqui, no Histórico de
   // Solicitações da engrenagem (abaixo), junto com TODA solicitação já
-  // feita (pendente, cancelada ou concluída) — ver historicoSolicitacoes, e
-  // para sempre no Histórico de Manobras/Abastecimento (Configurações da
-  // equipe) — nada é apagado do banco em nenhum dos dois filtros abaixo, só
-  // sai de listar aqui.
+  // feita (pendente, cancelada ou concluída) — ver historicoSolicitacoes.
+  // Nada é apagado do banco — só sai desta lista aqui.
   //
   // diarioBordoLimpoEm (marina.marinas.config_json): carimbo opcional de uma
   // limpeza geral da tela, gravado direto no banco (não tem UI própria hoje
-  // — é uma ação pontual da administração). Chega em tempo real (Realtime já
-  // assina marina.marinas mais abaixo), sem precisar de F5.
+  // — é uma ação pontual da administração). Qualquer item, mesmo em aberto,
+  // com "quando" igual ou anterior a esse carimbo some do Diário de Bordo
+  // ativo — só isso, mesmo espírito do filtro acima: nada é apagado do
+  // banco, o item só some da tela (o Histórico de Solicitações abaixo não é
+  // afetado por essa limpeza — continua mostrando tudo normalmente). Uma
+  // solicitação nova, criada depois do carimbo, aparece normalmente. Chega
+  // em tempo real (Realtime já assina marina.marinas mais abaixo), sem
+  // precisar de F5.
   const limpoEm = marina?.config_json?.diarioBordoLimpoEm ? new Date(marina.config_json.diarioBordoLimpoEm) : null
   const agora = agoraMs
-  // Regra do Diário de Bordo: Registro → Diário de Bordo → próxima passagem
-  // das 7h da manhã → Histórico (ver proximaLimpezaAs7h acima).
+  // Regra do Diário de Bordo: Registro → Diário de Bordo → após 1 dia →
+  // Histórico.
   //
-  // Uma solicitação AINDA EM ABERTO (inclusive uma agendada pra uma data
-  // futura — ela só deixa de estar "em aberto" quando de fato for atendida
-  // ou cancelada) continua no Diário sem prazo nenhum, e nunca é afetada
-  // pela limpeza das 7h nem por diarioBordoLimpoEm — sem isso, um pedido
-  // pendente há mais de um dia (uma descida não atendida, um S.O.S. em
-  // andamento) desapareceria da tela do cliente justamente enquanto ainda
-  // precisa de atenção.
+  // Uma solicitação concluída não sai mais na hora: ela ainda fica 1 dia no
+  // Diário (DIARIO_JANELA_MS, contado a partir do registro — `item.quando`,
+  // que vem sempre de uma data real do banco: data_hora, created_at,
+  // data_abertura ou data_solicitacao, conforme o tipo). Passado o prazo,
+  // deixa de aparecer aqui e segue no Histórico de Solicitações.
   //
-  // Só uma solicitação já concluída/cancelada (statusClasse 'em-dia') é
-  // candidata a sumir — e mesmo assim, só na próxima passagem das 7h depois
-  // do "quando" dela (item.quando), nunca no instante em que termina.
+  // Uma solicitação AINDA EM ABERTO continua no Diário sem prazo, como
+  // sempre foi — some daqui só depois de concluída e cumprido o dia. Sem
+  // isso, um pedido pendente há mais de um dia (uma descida não atendida,
+  // um S.O.S. em andamento) desapareceria da tela do cliente justamente
+  // enquanto ainda precisa de atenção.
   //
   // Nada é apagado nem copiado: é o mesmo registro, deixando de ser listado
   // aqui e seguindo visível no Histórico.
   const diarioAtivo = diarioDeBordo.filter((item) => {
-    if (item.statusClasse !== 'em-dia') return true
     if (limpoEm && new Date(item.quando) <= limpoEm) return false
-    return agora < proximaLimpezaAs7h(item.quando).getTime()
+    if (item.statusClasse !== 'em-dia') return true
+    return agora - new Date(item.quando).getTime() <= DIARIO_JANELA_MS
   })
   // Histórico de Solicitações: registro de TODA solicitação já feita pelo
   // cliente — descida/subida, combustível, S.O.S., manutenção, regularização,

@@ -1,3 +1,5 @@
+import { statusEfetivoAgendamento } from './statusAgendamento.js'
+
 // Fonte única de "quais notificações da Fila de Rampa ainda estão
 // aguardando" — antes vivia só dentro de TelaVagas.jsx, mas passou a ser
 // usada também pelo apito global (SonsPainelAdmin.jsx, sempre montado em
@@ -6,26 +8,21 @@
 // segunda cópia, pelo mesmo motivo dos outros módulos lib/status*.js: evitar
 // que as duas cópias divirjam.
 
-// Uma notificação da Fila de Rampa continua "aguardando" (some da lista só
-// quando concluída) em qualquer status que não seja 'concluido' — inclui o
-// "Recebido" (status='confirmado'), que fica no meio do caminho entre
-// "Solicitado" e o status final (Navegando/Recolhido) sem sair da Fila de
-// Rampa.
+// Linhas ativas da Fila de Rampa: só o que ainda espera decisão da equipe
+// (dois botões, Confirmar/Cancelar, 15 minutos de prazo — ver
+// lib/statusAgendamento.js). Usa o status EFETIVO, não o gravado: a
+// notificação some da Fila de Rampa no instante exato em que os 15 minutos
+// se esgotam, mesmo que a confirmação automática ainda não tenha sido
+// escrita no banco (isso acontece sozinho no próximo ciclo do painel — ver
+// autoConfirmarVencidos em TelaVagas.jsx). Sem isso a linha ficaria visível
+// por até um ciclo de atualização (10s) depois do prazo já ter passado.
 //
-// Exceção: na subida, assim que o status vira 'navegando' a notificação
-// também sai da Fila de Rampa — a embarcação já está a caminho da marina, e
-// esse acompanhamento passa a acontecer na tabela "Navegando" (ver
-// naAgua/subidasNavegando em TelaVagas.jsx), não mais aqui.
-export function statusLinha(a) {
-  if (a.status === 'concluido') return a.tipo === 'retirada' ? 'navegando' : null
-  if (a.tipo === 'retorno' && a.status === 'navegando') return null
-  return a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'
-}
-
-// Linhas ativas da Fila de Rampa: só o que ainda está aguardando descida ou
-// retorno. Assim que vira "Navegando" a notificação sai daqui sozinha.
-export function linhasFilaAtivas(agendamentos) {
+// `agoraMs` tem padrão Date.now() pra não quebrar quem ainda chama sem
+// relógio próprio (SonsPainelAdmin.jsx) — quem já tem um relógio que avança
+// sozinho (TelaVagas.jsx) passa o dele, pra ficar testável e sincronizado
+// com o resto da tela.
+export function linhasFilaAtivas(agendamentos, agoraMs = Date.now()) {
   return agendamentos
-    .filter((a) => a.status !== 'cancelado' && statusLinha(a) === (a.tipo === 'retirada' ? 'aguardando_descida' : 'aguardando_retorno'))
+    .filter((a) => a.status !== 'cancelado' && statusEfetivoAgendamento(a, agoraMs) === 'solicitado')
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
 }

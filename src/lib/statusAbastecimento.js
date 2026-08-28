@@ -1,3 +1,10 @@
+import {
+  janelaEncerrada, restanteDaJanela, momentoConfirmacaoAutomatica, textoRestante, paraMs,
+} from './confirmacaoAutomatica.js'
+// Extensão .js explícita de propósito: as regras puras deste módulo são
+// testadas rodando direto no Node (sem Vite, sem navegador), e o Node exige
+// o caminho completo. O Vite resolve dos dois jeitos.
+
 // Fonte ÚNICA do fluxo de pedido de abastecimento — usada pelo painel do
 // cliente (TelaClienteDashboard.jsx), pela planilha de solicitações do
 // Painel de Controle (TelaVagas.jsx) e pela aba Abastecimento
@@ -17,46 +24,25 @@
 // Não existe preço, valor, cobrança, QR nem confirmação de pagamento: isso
 // tudo passou para o RV Finance, o SaaS paralelo.
 
-// Quanto tempo o pedido fica esperando uma decisão da equipe antes de valer
-// como confirmado sozinho.
-export const JANELA_CONFIRMACAO_MS = 15 * 60 * 1000
-
-// A confirmação automática é DERIVADA de created_at, não gravada por
-// ninguém. Essa escolha é o que faz a regra valer de verdade:
+// A regra dos 15 minutos vem de lib/confirmacaoAutomatica.js, a mesma usada
+// pelos pedidos de descida e subida — um pedido do cliente é um pedido do
+// cliente, e a marina responde do mesmo jeito em qualquer um deles.
 //
-//   - não depende de alguém estar com o Painel de Controle aberto (o
-//     pedido feito às 3h da manhã se confirma igual);
-//   - não precisa de rotina agendada, fila nem serviço externo;
-//   - dá exatamente o mesmo resultado no painel da equipe, no painel do
-//     cliente e na policy do banco, porque os três calculam a mesma conta
-//     sobre o mesmo created_at.
-//
-// Quando alguém da equipe clica em "Confirmar abastecimento" antes dos 15
-// minutos, aí sim o status vira 'confirmado' no banco (e confirmado_em
-// guarda o momento). Um pedido confirmado com confirmado_em em NULL foi
-// confirmado pelo relógio, e o momento dele é sempre
-// created_at + JANELA_CONFIRMACAO_MS.
+// Aqui a janela começa em created_at: o pedido de combustível não tem hora
+// marcada, é para agora. (Na descida/subida é diferente — ver
+// inicioJanelaAgendamento em lib/agendamentos.js.)
 //
 // `agoraMs` entra como parâmetro (em vez de Date.now() aqui dentro) porque
-// as telas já têm o próprio relógio que avança de segundo em segundo — e
-// porque assim a função é testável sem depender do horário real.
+// as telas já têm o próprio relógio que avança sozinho — e porque assim a
+// função é testável sem depender do horário real.
 export function statusEfetivoAbastecimento(pedido, agoraMs = Date.now()) {
   if (!pedido) return null
   if (pedido.status !== 'solicitado') return pedido.status
-  const criadoEm = momentoDoPedido(pedido)
-  // Sem saber quando o pedido nasceu, o seguro é continuar esperando uma
-  // decisão de gente — nunca confirmar sozinho. (Cuidado com o atalho
-  // `new Date(null)`: ele dá 1970, um número perfeitamente finito, e faria
-  // qualquer pedido sem created_at nascer "confirmado".)
-  if (criadoEm === null) return 'solicitado'
-  return agoraMs - criadoEm >= JANELA_CONFIRMACAO_MS ? 'confirmado' : 'solicitado'
+  return janelaEncerrada(inicioJanelaAbastecimento(pedido), agoraMs) ? 'confirmado' : 'solicitado'
 }
 
-// created_at em milissegundos, ou null se o campo estiver faltando/ilegível.
-function momentoDoPedido(pedido) {
-  if (!pedido?.created_at) return null
-  const ms = new Date(pedido.created_at).getTime()
-  return Number.isFinite(ms) ? ms : null
+export function inicioJanelaAbastecimento(pedido) {
+  return paraMs(pedido?.created_at)
 }
 
 // Ainda dá pra confirmar ou cancelar? Só enquanto o pedido não tiver
@@ -72,23 +58,19 @@ export function aguardandoDecisao(pedido, agoraMs = Date.now()) {
 }
 
 // Quanto falta (em ms) para a confirmação automática — 0 quando já passou.
-// Usado só para mostrar o tempo restante ao lado dos botões, para a equipe
-// saber que aquela linha tem prazo.
 export function restanteParaConfirmar(pedido, agoraMs = Date.now()) {
   if (!pedido || pedido.status !== 'solicitado') return 0
-  const criadoEm = momentoDoPedido(pedido)
-  if (criadoEm === null) return 0
-  return Math.max(0, criadoEm + JANELA_CONFIRMACAO_MS - agoraMs)
+  return restanteDaJanela(inicioJanelaAbastecimento(pedido), agoraMs)
 }
 
-// "faltam 7 min" / "faltam 40 s" — abaixo de um minuto conta em segundos,
-// senão a contagem ficaria parada em "1 min" pelo minuto inteiro final.
-export function textoRestanteParaConfirmar(restanteMs) {
-  if (restanteMs <= 0) return ''
-  const segundos = Math.ceil(restanteMs / 1000)
-  if (segundos < 60) return `${segundos} s`
-  return `${Math.ceil(segundos / 60)} min`
+// Quando o pedido foi confirmado, para o histórico: o carimbo gravado se
+// alguém clicou, ou o instante calculado se foi o relógio que confirmou.
+export function momentoConfirmacaoAbastecimento(pedido, agoraMs = Date.now()) {
+  if (statusEfetivoAbastecimento(pedido, agoraMs) !== 'confirmado') return null
+  return pedido.confirmado_em || momentoConfirmacaoAutomatica(inicioJanelaAbastecimento(pedido))
 }
+
+export const textoRestanteParaConfirmar = textoRestante
 
 // Rótulos. Os quatro primeiros são o fluxo de hoje; os demais são valores
 // LEGADOS, de pedidos feitos quando o abastecimento ainda tinha cobrança —
@@ -125,23 +107,19 @@ export function classeStatusAbastecimento(status) {
   return status
 }
 
-// Pedido que não pede mais nada de ninguém — sai das listas ativas (a
-// planilha do Painel de Controle e o Diário de Bordo do cliente), mas
-// continua inteiro no banco e no Histórico de Solicitações.
-//
-// 'confirmado' NÃO entra aqui: um pedido confirmado é justamente o que a
-// equipe precisa ver para ir abastecer. Ele sai da planilha pelo tempo
-// (ver JANELA_PLANILHA_MS abaixo), não pelo status.
+// Pedido que não espera mais decisão de ninguém — sai da planilha de
+// trabalho do Painel de Controle, mas continua inteiro no banco, no
+// Histórico de abastecimento da equipe e no Histórico de Solicitações do
+// cliente.
 export function abastecimentoConcluido(status) {
-  return status === 'cancelado' || status === 'pago' || status === 'entregue'
+  return status !== 'solicitado'
 }
 
-// Por quanto tempo um pedido já confirmado continua na planilha do Painel
-// de Controle. Como não existe "entregue" neste fluxo, é o relógio que
-// limpa a lista — senão ela cresceria para sempre. Um dia cobre com folga
-// a rotina da marina, e nada some do banco: o pedido segue no Histórico de
-// Solicitações do cliente e na exportação.
-export const JANELA_PLANILHA_MS = 24 * 60 * 60 * 1000
+// A planilha do Painel de Controle mostra SÓ o que ainda espera decisão.
+// Assim que o pedido é confirmado — pela equipe ou pelo relógio — ele sai
+// dali e passa a viver no "Histórico de abastecimento" (Configurações →
+// Histórico), de onde também sai a planilha exportada. A tela de trabalho
+// fica com o que exige ação, e o registro fica guardado noutro lugar.
 
 // "Completar tanque" — para quando o cliente não sabe quantos litros faltam
 // (só se sabe depois de encher). Vai sem quantidade fechada; usa o campo

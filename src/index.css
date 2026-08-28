@@ -844,12 +844,6 @@ body {
   .topo-logo-area { justify-self: center; margin-top: 2px; }
   .topo-logo { width: 190px; }
   .topo-titulo-area h1 { font-size: 19px; }
-  /* O cabeçalho institucional ganha uma segunda linha aqui (título+ações,
-     depois a logo) — a área rolável do Painel de Controle folga mais espaço
-     de sobra pra essa altura extra, senão o cálculo do desktop (acima)
-     cortaria a rolagem cedo demais e deixaria uma faixa vazia por cima do
-     rodapé fixo. */
-  .painel-controle-rolavel { max-height: calc(100vh - 250px); }
 }
 /* Título de página em Cinzel: um dos "poucos momentos de peso simbólico"
    que a análise recomenda pra a fonte de exibição da marca — cada tela é
@@ -1033,39 +1027,13 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-clima-item { display: flex; align-items: center; gap: 5px; font-size: 15px; font-weight: 700; color: var(--cor-primaria); }
 .painel-clima-item svg { flex-shrink: 0; }
 
-/* Área rolável do Painel de Controle (cabeçalho de relógio/clima, Fila de
-   Rampa, Navegando, Solicitações de combustível — ver .painel-controle-rolavel
-   em TelaVagas.jsx): sozinha ganha rolagem própria quando o volume de
-   notificações/pedidos cresce, em vez de esticar a janela toda — assim o
-   rodapé fixo abaixo nunca é empurrado pra fora da tela, e nunca aparecem
-   duas barras de rolagem (a da janela e a desta área) ao mesmo tempo.
-   max-height é uma estimativa generosa do espaço abaixo do cabeçalho
-   institucional (.topo, em Layout.jsx) e acima do rodapé fixo — escopado só
-   nesta tela de propósito, sem mexer no shell compartilhado com
-   Clientes/Financeiro/Manutenção. padding-bottom garante que a última linha
-   de qualquer tabela nunca fique colada (ou escondida) atrás do rodapé. */
-.painel-controle-rolavel {
-  overflow-y: auto;
-  max-height: calc(100vh - 190px);
-  padding-bottom: 56px;
-}
-
-/* Crédito de marca discreto do Painel de Controle — mesmo gesto tipográfico
-   dos outros rodapés "Developed by/RVinvictus.com.br" do sistema (Cinzel,
-   caixa alta, tracking), só que bem pequeno e sem peso. Fixo na base da
-   tela (sempre visível, independente de quanto a área rolável acima
-   cresça) — fundo sólido + hairline dourada no topo pra nunca deixar uma
-   linha de tabela "passar por baixo" do texto ao rolar. z-index abaixo da
-   sidebar (40) e de qualquer modal (10), acima do conteúdo normal. */
+/* Crédito de marca discreto ao final do Painel de Controle — mesmo gesto
+   tipográfico dos outros rodapés "Developed by/RVinvictus.com.br" do
+   sistema (Cinzel, caixa alta, tracking), só que bem pequeno e sem peso,
+   pra fechar a tela sem competir com a Fila de Rampa/Navegando acima. */
 .painel-controle-rodape {
   display: block;
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: 5;
-  margin: 0;
-  padding: 10px 0;
-  background: var(--cor-fundo);
-  border-top: 1px solid rgba(212,175,55,0.25);
+  margin: 36px 0 4px;
   text-align: center;
   font-family: 'Cinzel', serif;
   font-size: 12px;
@@ -1100,21 +1068,7 @@ button.badge:hover { filter: brightness(0.95); }
    reaproveita a cor terrosa de "aguardando" (Recolhido) ou o verde de
    ".status-navegando" logo acima (Navegando) — mesmas cores que a linha já
    ganha ao sair pra tabela "Navegando" quando é uma descida. */
-/* Sem isso, o <select> sempre renderiza maior/desalinhado que o mesmo .badge
-   usado como <span> não-interativo no Status de Solicitações de combustível
-   (referência) — o "chrome" nativo do navegador (setinha, padding extra,
-   altura mínima do sistema) não some só por herdar o mesmo padding do
-   .badge. appearance:none tira esse chrome; text-align(-last) centraliza o
-   rótulo igual ao texto do badge de referência, que já nasce centralizado
-   por ter padding simétrico. Resultado: a caixa dos dois selos das tabelas
-   "Fila de Rampa"/"Navegando" fica com exatamente a mesma largura, altura e
-   padding do selo de "Solicitações de combustível". */
-.select-status-fila {
-  border: none; cursor: pointer; font-family: inherit;
-  appearance: none; -webkit-appearance: none; -moz-appearance: none;
-  text-align: center; text-align-last: center; -moz-text-align-last: center;
-  line-height: normal;
-}
+.select-status-fila { border: none; cursor: pointer; font-family: inherit; }
 .select-status-fila.status-solicitado { background: #F1E3D6; color: #8B5A2B; }
 .select-status-fila.status-recebido { background: #FFF3C4; color: #8A6D00; }
 .status-resgate-solicitado, .status-resgate-recebido { background: #7A3B33; color: #fff; font-weight: 800; }
@@ -1131,28 +1085,6 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .fila-tabela-acoes { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; }
 .fila-tabela-acoes button.cancelar { background: #F1EAE3; color: #8B5A2B; }
-
-/* Título de seção com uma ação rápida ao lado (ex.: "+" de inserir pedido de
-   combustível, ver .botao-inserir-pedido logo abaixo) — mesma folga vertical
-   do <h2> normal, só ganha o flex pra alinhar o botão à mesma altura. O
-   próprio <h2> aqui dentro nasce com margin:0 (senão o flex descentralizava
-   o título em relação ao botão) — por isso o respiro até a tabela seguinte
-   precisa vir do container, repetindo o mesmo margin-bottom de ".painel-controle
-   h2" (10px): sem isso a seção "Solicitações de combustível" começava colada
-   na tabela, sem o mesmo respiro que "Fila de Rampa" e "Navegando" têm. */
-.painel-titulo-com-acao { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-
-/* Botão de ação rápida discreto (só ícone, sem texto) — pensado pra ficar ao
-   lado de um título de planilha sem competir visualmente com ele. Redondo,
-   sem borda, cor neutra em repouso e só ganha destaque no hover/foco. */
-.botao-inserir-pedido {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; padding: 0; border: none; border-radius: 50%;
-  background: transparent; color: var(--cor-texto-suave); cursor: pointer;
-}
-.botao-inserir-pedido:hover, .botao-inserir-pedido:focus-visible {
-  background: var(--cor-secundaria); color: #fff; outline: none;
-}
 
 /* Botão "Cancelar" de uma descida/subida direto no Diário de Bordo do
    cliente (ver cancelarAgendamentoCliente em TelaClienteDashboard.jsx) —
@@ -1742,45 +1674,21 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .tabela {
   margin-bottom: 18px;
 }
-/* Alinha o selo/seletor de Status das 3 tabelas (Fila de Rampa, Navegando,
-   Solicitações de combustível) numa mesma coluna vertical — sem isso cada
-   tabela distribui a largura das colunas conforme o próprio conteúdo (mais
-   largo ou mais estreito conforme o texto de cada uma), e o Status acaba
-   caindo num "x" horizontal diferente em cada tabela.
-   table-layout:fixed tira essa distribuição por conteúdo; só ".col-status"
-   ganha uma largura própria (a mesma nas 3 tabelas) — as colunas restantes
-   (Pedido, Responsável, Horário...) dividem em partes iguais o espaço que
-   sobra, dentro da própria tabela. Como "Status" é sempre a ÚLTIMA coluna
-   nas 3 (ver TelaVagas.jsx — a coluna de ações/Cancelar-Confirmar virou
-   penúltima só pra isso), o espaço que sobra pra ela é sempre "100% menos a
-   própria largura do Status", nunca depende de quantas colunas cada tabela
-   tem antes dele — por isso a mesma largura fixa já basta pra alinhar as 3,
-   sem precisar mexer na largura de mais nenhuma coluna. */
-.painel-controle .tabela-fila { margin-bottom: 18px; table-layout: fixed; }
-.painel-controle .tabela-fila .col-status { width: 160px; }
-/* O selo de "Navegando" é um <select> (ver linhaNavegando em TelaVagas.jsx)
-   com opções bem mais longas escondidas dentro ("Solicitação de resgate",
-   23 caracteres) — mesmo mostrando só "Navegando" fechado, o navegador
-   reserva a largura do <select> pensando na MAIOR opção da lista, não na
-   selecionada. Resultado: mesmo depois do appearance:none, esse selo saía
-   bem mais largo que o span fixo "Confirmado" de Solicitações de
-   combustível, que não tem esse problema (não é um <select>, só mostra o
-   próprio texto). width:110px explícito tira essa conta do navegador —
-   todo selo de Status (span, <select> ou <button>, os 3 tipos usados nas 3
-   tabelas) passa a ter exatamente a mesma caixa, não importa o que exista
-   escondido dentro dele. display:inline-block é necessário pro <span>
-   (Combustível) aceitar width — <span> puro ignora width/height.
-   Os rótulos mais raros e longos que não cabem numa linha só ("Solicitação
-   de resgate", "Confirmado (fluxo antigo)", "Excedeu retorno") quebram
-   dentro da própria caixa em vez de estourar — .badge força nowrap por
-   padrão (pra não quebrar em nenhum outro lugar do sistema), então essa
-   regra é revertida aqui, escopada só nesta coluna do Painel de Controle. */
-.painel-controle .tabela-fila td.col-status .badge {
-  display: inline-block;
-  box-sizing: border-box;
-  width: 110px;
-  text-align: center;
-  white-space: normal;
+.painel-controle .tabela-fila { margin-bottom: 18px; }
+
+/* Fila de Rampa, Navegando e Solicitações de combustível ficam na mesma
+   tela (a "TV" do Painel de Controle) — as 3 usam o mesmo esquema de 7
+   colunas por largura (ver LARGURA_COLUNAS_TV em TelaVagas.jsx, via
+   <colgroup>), preenchidas com célula vazia onde uma tabela não tem
+   conteúdo pra aquela posição. table-layout: fixed é o que faz o
+   <colgroup> valer — sem isso o navegador ignora as larguras e recalcula
+   cada tabela pelo próprio conteúdo, que é exatamente o desalinhamento que
+   isto resolve. */
+.painel-controle .tabela-fila { table-layout: fixed; }
+.painel-controle .tabela-fila td,
+.painel-controle .tabela-fila th {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
@@ -1795,11 +1703,10 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-controle .linha-sub { line-height: 1.25; }
 .painel-controle .fila-abastecimento-linha { margin-bottom: 2px; }
 
-/* Blocos em grade (quando houver). O rodapé de marca não entra mais aqui —
-   virou position:fixed (ver .painel-controle-rodape acima), então não flui
-   mais depois destes blocos e não precisa de margem própria nesta densidade. */
+/* Blocos em grade (quando houver) e o crédito final. */
 .painel-controle .painel-controle-grid { gap: 14px; margin-bottom: 20px; }
 .painel-controle .painel-controle-grid h3 { margin: 0 0 8px; }
+.painel-controle .painel-controle-rodape { margin: 22px 0 4px; }
 
 /* ---------- Cartão do Diário de Bordo (painel do cliente) ----------
    Ícone e título na primeira linha; o resto (data/detalhe e status) abaixo,
