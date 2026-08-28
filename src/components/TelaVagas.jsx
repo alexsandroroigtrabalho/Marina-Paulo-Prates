@@ -67,7 +67,14 @@ const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve
 // escrito aqui sempre — se não couber tudo na largura da tela, quem
 // aparece é uma barra de rolagem horizontal só daquela tabela, nunca um
 // botão cortado pela metade.
-const LARGURA_COLUNAS_TV = ['180px', '180px', '180px', '180px', '180px', '180px']
+// 220px (não 180px) porque é o que os dois botões da coluna Ações
+// ("Confirmar"/"Recolhido" + "Cancelar", lado a lado, sem quebrar linha)
+// precisam pra caber numa linha só — testado renderizando de verdade: o
+// par mais largo ("Confirmar"/"Cancelar") mede uns 170px de conteúdo, mais
+// os 28px de padding lateral da célula. Como as 6 larguras têm que
+// continuar iguais entre si (ver comentário acima), a coluna que manda no
+// tamanho de todas é essa.
+const LARGURA_COLUNAS_TV = ['220px', '220px', '220px', '220px', '220px', '220px']
 function ColunasTV() {
   return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
@@ -75,6 +82,22 @@ function ColunasTV() {
 const TIPO_AGENDAMENTO_LABEL = {
   retirada: 'Descida',
   retorno: 'Subida',
+}
+
+// Coluna "Pedido em" da planilha de combustível: a quantidade entra junto
+// com a data/hora, no lugar de ocupar uma coluna própria (que saiu — ver
+// comentário na tabela, mais abaixo). Formato próprio, mais compacto que o
+// "toLocaleString" padrão do resto do painel (ano com 2 dígitos, "h" no
+// lugar de ":" nos minutos) — pedido explícito, ex.: "40L em 29/07/26,
+// 12h45".
+function formatoPedidoAbastecimento(p) {
+  const d = new Date(p.created_at)
+  const dia = String(d.getDate()).padStart(2, '0')
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const ano = String(d.getFullYear()).slice(-2)
+  const hora = String(d.getHours()).padStart(2, '0')
+  const minuto = String(d.getMinutes()).padStart(2, '0')
+  return `${textoQuantidade(p)} em ${dia}/${mes}/${ano}, ${hora}h${minuto}`
 }
 
 // A Fila de Rampa segue a mesma ideia do abastecimento (ver
@@ -784,6 +807,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           </tr>
         </thead>
         <tbody>
+          {/* Sem texto de preenchimento ("Nenhuma notificação...") quando
+              vazio — só uma linha em branco, pra manter o fundo branco da
+              planilha visível mesmo sem nenhuma notificação. */}
+          {linhasFila.length === 0 && <tr><td colSpan={6}>&nbsp;</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
@@ -804,6 +831,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           </tr>
         </thead>
         <tbody>
+          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={6}>&nbsp;</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
           {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
         </tbody>
@@ -823,13 +851,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           <tr>
             <th className="col-responsavel">Responsável</th>
             <th>Combustível</th>
-            <th>Quantidade</th>
+            <th></th>
+            {/* A coluna "Quantidade" saiu — a quantidade entra junto com a
+                data na coluna "Pedido em" (ver formatoPedidoAbastecimento),
+                em vez de ocupar uma coluna só pra ela. */}
             <th>Pedido em</th>
             <th>Status</th>
             <th>Ações</th>
           </tr>
         </thead>
         <tbody>
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>&nbsp;</td></tr>}
           {pedidosCombustivel.map((p) => {
             // pedidosCombustivel já vem filtrado só com quem ainda aguarda
             // decisão (ver o filtro logo acima) — os botões aparecem sempre
@@ -841,8 +873,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                   <b>{p.clientes?.nome}</b>{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}
                 </td>
                 <td>{p.combustiveis?.nome || '—'}</td>
-                <td>{textoQuantidade(p)}</td>
-                <td>{new Date(p.created_at).toLocaleString('pt-BR')}</td>
+                <td></td>
+                <td>{formatoPedidoAbastecimento(p)}</td>
                 <td>
                   <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>
                 </td>
