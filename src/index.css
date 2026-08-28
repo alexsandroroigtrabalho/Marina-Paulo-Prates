@@ -1700,8 +1700,8 @@ button.badge:hover { filter: brightness(0.95); }
    estourar pro lado. .fila-tabela-acoes (index.css) tem flex-wrap: wrap
    como rede de segurança pra quando a coluna Ações fica mesmo assim
    estreita demais (janela muito pequena): os dois botões empilham em vez
-   de ficar cortados pela metade — a coluna já nasce com boa folga (22% do
-   total, a maior fatia depois de Responsável) pra isso ser raro. */
+   de ficar cortados pela metade — a coluna já nasce com uma fatia igual às
+   outras 4 (20% do total cada, ver LARGURA_COLUNAS_TV) pra isso ser raro. */
 .painel-controle .tabela-fila {
   table-layout: fixed;
   width: 100%;

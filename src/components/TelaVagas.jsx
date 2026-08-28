@@ -58,10 +58,18 @@ const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve
 // horizontal só daquela tabela como válvula de escape (.tabela-scroll, ver
 // index.css). Isso saiu a pedido — sem barra de rolagem, as 5 colunas
 // dividem 100% da largura sempre, proporcionalmente, e encolhem/crescem
-// juntas com a tela. Responsável e Ações ganham uma fatia maior (nome +
-// embarcação de um lado, dois botões do outro são o que mais precisa de
-// espaço); Status a menor, já que é só um selo curto.
-const LARGURA_COLUNAS_TV = ['26%', '18%', '18%', '16%', '22%']
+// juntas com a tela.
+//
+// As 5 larguras são IGUAIS entre si (20% cada) — mesmo princípio de antes
+// (as 6 larguras em pixel também eram iguais): o espaço entre uma coluna e
+// a próxima precisa ser o mesmo em qualquer ponto da tabela, não maior
+// numa dupla de colunas e menor noutra. Only Responsável foge um pouco
+// dessa régua visualmente porque é a única coluna alinhada à esquerda
+// (.col-responsavel, ver index.css, pedido à parte) — as bordas das
+// colunas ficam igualmente espaçadas mesmo assim, só o texto do cabeçalho
+// "Responsável" não fica centralizado dentro da própria coluna como os
+// outros quatro.
+const LARGURA_COLUNAS_TV = ['20%', '20%', '20%', '20%', '20%']
 function ColunasTV() {
   return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
