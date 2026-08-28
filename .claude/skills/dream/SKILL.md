@@ -1,9 +1,9 @@
 ---
 name: dream
-description: Revisa o contexto recente do projeto Marina Manager (RV Invictus), compara com a memória persistente atual e propõe atualizações (correções, preferências repetidas, fatos novos, memórias desatualizadas, duplicatas). Invocado por /dream, por uma tarefa agendada noturna, ou quando o usuário pedir uma "consolidação de memória" / "revisão do dream".
+description: Revisa o contexto recente do projeto Marina Manager (RV Invictus), compara com a memória persistente atual e propõe atualizações (correções, preferências repetidas, fatos novos, memórias desatualizadas, duplicatas). Invocado por /dream, ou quando o usuário pedir uma "consolidação de memória" / "revisão do dream". Rodagem manual — a tentativa de agendamento automático noturno não vingou neste ambiente, ver nota abaixo.
 ---
 
-# Dream — revisão noturna de memória (Marina Manager)
+# Dream — revisão de memória sob demanda (Marina Manager)
 
 Rotina de consolidação de memória para o projeto Marina Manager / RV Invictus (repo
 `Marina-Paulo-Prates`). Compara o que aconteceu recentemente com o que já está
@@ -17,6 +17,14 @@ nem desta nem de nenhuma conversa anterior. Por isso o Passo 1 aqui usa duas fon
 diferentes — ver abaixo. Todo o resto (índice de memória, propostas pendentes,
 protocolo de aprovação) segue o mesmo desenho.
 
+**Sobre agendamento automático**: chegou a ser criada uma tarefa agendada
+(`dream-nightly-marina-manager`, todo dia às 03:00) pra rodar isso sozinho. Foi
+abandonada — o Cowork nunca mostrou, em lugar nenhum da interface, o pedido de
+aprovação de acesso ao Mac que uma tarefa desse tipo precisa pra funcionar, e uma
+das tentativas de criar a tarefa chegou a sumir sozinha pela interface antes mesmo
+de rodar. Por isso `/dream` aqui é sempre invocado manualmente — o próprio plano B
+que o usuário definiu desde o pedido original, caso o agendamento não funcionasse.
+
 ## Passo 1 — Coletar contexto recente
 
 1. Se este `/dream` estiver sendo chamado DENTRO de uma conversa em andamento sobre
@@ -25,10 +33,10 @@ protocolo de aprovação) segue o mesmo desenho.
 2. Leia sempre `memory/session-log.md` (neste repo): é o registro cumulativo de
    observações — correções, preferências repetidas, fatos novos — que deve ser
    alimentado ao longo do trabalho normal no projeto (não só na hora do /dream).
-   Esse arquivo existe justamente para suprir a falta de uma API de sessões
-   anteriores: numa rodada automática (disparada pela tarefa agendada das 3h, numa
-   sessão nova sem a conversa original), ele é a ÚNICA fonte de "o que aconteceu
-   recentemente" — sem ele, a rodada não tem nada pra revisar.
+   Esse arquivo existe justamente pra suprir a falta de uma API de sessões
+   anteriores, já que aqui `/dream` só roda por pedido manual dentro de uma
+   conversa — sem ele, uma conversa nova sobre o projeto não tem nada de sessões
+   passadas pra revisar além do que está registrado aqui.
 3. Considere apenas entradas de `session-log.md` datadas depois do carimbo
    `Última rodada do dream:` no topo do próprio arquivo (evita reprocessar o que já
    foi revisado).
@@ -141,7 +149,7 @@ Ao receber uma dessas mensagens:
    for código, não é o caso pra estes .md → sincronizar com guarda de mtime →
    commitar, sem dar push).
 4. Remova do `dream-pending.md` os itens aplicados. Se um número pedido não existir
-   mais na lista, avise o usuário em vez de inventar uma ação.
+   mais na lista, avise o usuário em vei de inventar uma ação.
 5. Se depois de aplicar não sobrar nenhum item, apague `dream-pending.md`.
 6. Confirme ao usuário, em poucas linhas, o que foi de fato alterado.
 
@@ -163,6 +171,6 @@ Esta é a peça que substitui a API de sessões: ao trabalhar no Marina Manager 
 só quando o `/dream` for chamado), vale a pena registrar em `memory/session-log.md`
 uma linha curta sempre que: o usuário corrigir algo que Claude tinha assumido
 errado; o usuário repetir uma preferência/regra; ou surgir um fato novo sobre o
-projeto que não está no código nem no README. Sem esse hábito, uma rodada noturna
-automática (sessão nova, sem a conversa original) não tem nada pra revisar além do
+projeto que não está no código nem no README. Sem esse hábito, uma rodada de `/dream`
+chamada numa conversa nova (sem a conversa original) não tem nada pra revisar além do
 que já está gravado.
