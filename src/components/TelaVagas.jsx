@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind, IconTrash } from '@tabler/icons-react'
+import { IconSun, IconCloud, IconCloudRain, IconCloudSnow, IconCloudStorm, IconTemperature, IconWind } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import {
   listarAgendamentos, atualizarStatusAgendamento, atualizarStatusResgate, encerrarNavegacao,
@@ -40,41 +40,28 @@ const INTERVALO_CLIMA_MS = 15 * 60 * 1000
 
 const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve: IconCloudSnow, tempestade: IconCloudStorm }
 
-// Fila de Rampa, Navegando e Solicitações de combustível ficam na mesma
-// tela (a "TV" do Painel de Controle, uma embaixo da outra) — por pedido,
-// as colunas das três precisam bater entre si. Nenhuma das três tem o
-// mesmo conteúdo em todas as colunas, então o esquema é por POSIÇÃO: 6
-// larguras fixas (ver .painel-controle .tabela-fila no index.css, que liga
-// table-layout: fixed pra elas valerem), e cada tabela preenche com uma
-// célula vazia a posição que não tem conteúdo — hoje só a de Ações (a
-// Navegando não tem, a própria seleção de status já age). A 1ª coluna
-// (Pedido, só a Fila de Rampa tinha — Descida/Subida) saiu: ficou
-// redundante depois que a mesma informação passou a aparecer também no
-// selo da coluna Status (ver linhaNotificacao). Responsável é a 1ª coluna
-// agora nas três tabelas, alinhada à esquerda (.col-responsavel, ver
-// index.css) — as outras colunas continuam centralizadas.
+// Fila de Rampa (Rampa), Navegando e Solicitações de combustível
+// (Abastecimento) ficam na mesma tela (a "TV" do Painel de Controle, uma
+// embaixo da outra) — por pedido, as colunas das três precisam bater entre
+// si. Nenhuma das três tem o mesmo conteúdo em todas as colunas, então o
+// esquema é por POSIÇÃO: 5 larguras (ver .painel-controle .tabela-fila no
+// index.css, que liga table-layout: fixed pra elas valerem) — hoje as 5
+// posições têm conteúdo real nas 3 tabelas (Responsável, uma dupla de
+// colunas de data/documentação/combustível, Status, Ações), sem nenhuma
+// célula vazia só de preenchimento (a Navegando ganhou uma coluna Ações de
+// verdade — Recolhido/Cancelar, mesmo padrão das outras duas — no lugar da
+// lixeira solta que ficava colada no selo de Status).
 //
-// As 6 larguras são IGUAIS entre si, de propósito — o espaço horizontal
-// entre uma coluna e a próxima precisa ser o mesmo em qualquer ponto da
-// tabela, não maior numa dupla de colunas e menor noutra.
-//
-// Em pixels, não em porcentagem — de propósito. Porcentagem some com
-// table-layout: fixed + width: 100%: o navegador reparte esses 100% entre
-// as colunas na MESMA proporção informada, então numa janela estreita cada
-// coluna espreme na mesma proporção, cortando texto e até botão inteiro
-// (foi o que aconteceu com "Confirmar"/"Cancelar"). Em pixels + a tabela
-// com width: max-content (ver index.css), cada coluna vale o que está
-// escrito aqui sempre — se não couber tudo na largura da tela, quem
-// aparece é uma barra de rolagem horizontal só daquela tabela, nunca um
-// botão cortado pela metade.
-// 220px (não 180px) porque é o que os dois botões da coluna Ações
-// ("Confirmar"/"Recolhido" + "Cancelar", lado a lado, sem quebrar linha)
-// precisam pra caber numa linha só — testado renderizando de verdade: o
-// par mais largo ("Confirmar"/"Cancelar") mede uns 170px de conteúdo, mais
-// os 28px de padding lateral da célula. Como as 6 larguras têm que
-// continuar iguais entre si (ver comentário acima), a coluna que manda no
-// tamanho de todas é essa.
-const LARGURA_COLUNAS_TV = ['220px', '220px', '220px', '220px', '220px', '220px']
+// Em PORCENTAGEM, não em pixels — ao contrário do esquema anterior. Antes
+// era pixels fixos porque só assim dava pra garantir que os botões de Ações
+// nunca ficassem espremidos numa tela estreita, com uma barra de rolagem
+// horizontal só daquela tabela como válvula de escape (.tabela-scroll, ver
+// index.css). Isso saiu a pedido — sem barra de rolagem, as 5 colunas
+// dividem 100% da largura sempre, proporcionalmente, e encolhem/crescem
+// juntas com a tela. Responsável e Ações ganham uma fatia maior (nome +
+// embarcação de um lado, dois botões do outro são o que mais precisa de
+// espaço); Status a menor, já que é só um selo curto.
+const LARGURA_COLUNAS_TV = ['26%', '18%', '18%', '16%', '22%']
 function ColunasTV() {
   return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
 }
@@ -532,7 +519,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
-        <td></td>
         <td><span className={`badge status-${classeNatureza}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span></td>
         <td className="col-acoes">
           <div className="fila-tabela-acoes">
@@ -634,7 +620,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
-        <td></td>
         <td>
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
             // Cliente cancelou o próprio S.O.S. — mostra "Estou bem", sem
@@ -693,30 +678,25 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             // está, por definição, navegando (só sobra o selo pras duas
             // situações que realmente precisam chamar atenção: S.O.S. ativo,
             // tratado nos ramos acima, ou "Excedeu retorno", classe
-            // diferente de 'navegando' — ver statusNavegando). O seletor com
-            // 4 opções (Recolhido/Cancelar/Solicitação de resgate) já tinha
-            // saído daqui antes. Encerrar a navegação normalmente é o
-            // cliente pedindo a Subida pelo app (Fila de Rampa, com os
-            // botões Recolhido/Cancelar e o prazo de 5min — ver
-            // linhaNotificacao). A lixeira ao lado é só a válvula de escape
-            // pra quando isso não acontece (cliente sem o app à mão,
-            // esqueceu de pedir etc.): apaga a notificação da tela marcando
-            // a navegação como encerrada, mesma ação de "Recolhido" de
-            // sempre (encerrarNavegacaoAcao).
-            <>
-              {status.classe !== 'navegando' && <span className={`badge status-${status.classe}`}>{status.texto}</span>}
-              <button
-                type="button"
-                className="icone-lixeira"
-                title="Apagar notificação (o cliente não pediu a subida pelo app)"
-                onClick={() => encerrarNavegacaoAcao(a, 'recolhido')}
-              >
-                <IconTrash size={16} />
-              </button>
-            </>
+            // diferente de 'navegando' — ver statusNavegando).
+            status.classe !== 'navegando' && <span className={`badge status-${status.classe}`}>{status.texto}</span>
           )}
         </td>
-        <td></td>
+        {/* Coluna Ações própria, igual às outras duas planilhas — a lixeira
+            que ficava colada no selo de Status virou um par de botões
+            normal (Recolhido/Cancelar). Encerrar a navegação normalmente é
+            o cliente pedindo a Subida pelo app (Fila de Rampa, com os
+            mesmos botões e o prazo de 5min — ver linhaNotificacao); esses
+            aqui são a válvula de escape pra quando isso não acontece
+            (cliente sem o app à mão, esqueceu de pedir etc.) ou pra
+            cancelar a navegação direto por aqui. Mesma ação de sempre
+            (encerrarNavegacaoAcao), com a mesma confirmação. */}
+        <td className="col-acoes">
+          <div className="fila-tabela-acoes">
+            <button type="button" onClick={() => encerrarNavegacaoAcao(a, 'recolhido')}>Recolhido</button>
+            <button type="button" className="cancelar" onClick={() => encerrarNavegacaoAcao(a, 'cancelado')}>Cancelar</button>
+          </div>
+        </td>
       </tr>
     )
   }
@@ -732,7 +712,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>—</td>
         <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-        <td></td>
         <td>
           <select
             className="badge select-status-fila status-navegando"
@@ -796,12 +775,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th className="col-responsavel">Responsável</th>
             <th>Horário de manobra</th>
             <th>Documentação</th>
-            <th></th>
-            {/* A coluna "Abastecimento" saiu daqui — foi pro RV Finance. O
-                selo "Status" voltou com outro papel — não é mais ação nem
-                confirmação, só a natureza do pedido (Descida/Subida), sem
-                clique nenhum (ver linhaNotificacao). A coluna "Pedido" saiu
-                de vez — virou redundante com esse mesmo selo. */}
+            {/* O selo "Status" voltou com outro papel — não é mais ação
+                nem confirmação, só a natureza do pedido (Descida/Subida),
+                sem clique nenhum (ver linhaNotificacao). A coluna "Pedido"
+                saiu de vez — virou redundante com esse mesmo selo. */}
             <th>Status</th>
             <th>Ações</th>
           </tr>
@@ -810,7 +787,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           {/* Sem texto de preenchimento ("Nenhuma notificação...") quando
               vazio — só uma linha em branco, pra manter o fundo branco da
               planilha visível mesmo sem nenhuma notificação. */}
-          {linhasFila.length === 0 && <tr><td colSpan={6}>&nbsp;</td></tr>}
+          {linhasFila.length === 0 && <tr><td colSpan={5}>&nbsp;</td></tr>}
           {linhasFila.map((a) => linhaNotificacao(a))}
         </tbody>
       </table>
@@ -825,13 +802,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th className="col-responsavel">Responsável</th>
             <th>Horário de saída</th>
             <th>Horário de retorno</th>
-            <th></th>
             <th>Status</th>
-            <th></th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
-          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={6}>&nbsp;</td></tr>}
+          {naAgua.length === 0 && subidasAvulsas.length === 0 && <tr><td colSpan={5}>&nbsp;</td></tr>}
           {naAgua.map((a) => linhaNavegando(a))}
           {subidasAvulsas.map((a) => linhaSubidaAvulsa(a))}
         </tbody>
@@ -851,7 +827,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           <tr>
             <th className="col-responsavel">Responsável</th>
             <th>Combustível</th>
-            <th></th>
             {/* A coluna "Quantidade" saiu — a quantidade entra junto com a
                 data na coluna "Pedido em" (ver formatoPedidoAbastecimento),
                 em vez de ocupar uma coluna só pra ela. */}
@@ -861,7 +836,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           </tr>
         </thead>
         <tbody>
-          {pedidosCombustivel.length === 0 && <tr><td colSpan={6}>&nbsp;</td></tr>}
+          {pedidosCombustivel.length === 0 && <tr><td colSpan={5}>&nbsp;</td></tr>}
           {pedidosCombustivel.map((p) => {
             // pedidosCombustivel já vem filtrado só com quem ainda aguarda
             // decisão (ver o filtro logo acima) — os botões aparecem sempre
@@ -873,7 +848,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                   <b>{p.clientes?.nome}</b>{p.embarcacoes?.nome ? ` · ${p.embarcacoes.nome}` : ''}
                 </td>
                 <td>{p.combustiveis?.nome || '—'}</td>
-                <td></td>
                 <td>{formatoPedidoAbastecimento(p)}</td>
                 <td>
                   <span className={`badge status-${classeStatusAbastecimento(efetivo)}`}>{labelStatusAbastecimento(efetivo)}</span>

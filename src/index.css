@@ -1671,10 +1671,12 @@ button.badge:hover { filter: brightness(0.95); }
   padding: 11px 16px;
 }
 
-/* Títulos de seção ("Fila de Rampa", "Navegando", "Combustível"): a margem
-   padrão do navegador somava ~40px entre uma tabela e o título seguinte. */
+/* Títulos de seção ("Rampa", "Navegando", "Abastecimento"): a margem padrão
+   do navegador somava ~40px entre uma tabela e o título seguinte. Tamanho
+   um pouco maior que o resto da densidade desta tela, a pedido — 17px
+   ficava pequeno demais pra separar visualmente uma planilha da outra. */
 .painel-controle h2 {
-  font-size: 17px;
+  font-size: 20px;
   margin: 0 0 10px;
 }
 
@@ -1684,56 +1686,32 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .painel-controle .tabela-fila { margin-bottom: 18px; }
 
-/* Fila de Rampa, Navegando e Solicitações de combustível ficam na mesma
-   tela (a "TV" do Painel de Controle) — as 3 usam o mesmo esquema de 7
-   colunas por largura, em PIXELS (ver LARGURA_COLUNAS_TV em TelaVagas.jsx,
-   via <colgroup>), preenchidas com célula vazia onde uma tabela não tem
-   conteúdo pra aquela posição.
+/* Rampa, Navegando e Abastecimento ficam na mesma tela (a "TV" do Painel de
+   Controle) — as 3 usam o mesmo esquema de 5 colunas por largura, em
+   PORCENTAGEM (ver LARGURA_COLUNAS_TV em TelaVagas.jsx, via <colgroup>).
 
    table-layout: fixed é o que faz o <colgroup> valer — sem isso o
    navegador ignora as larguras e recalcula cada tabela pelo próprio
-   conteúdo, que é o desalinhamento que isto resolve. Mas fixed + width:
-   100% span as colunas SEMPRE na mesma proporção informada — numa janela
-   estreita isso espreme todas elas por igual, cortando texto e até botão
-   inteiro (foi o bug do "onfirmar"/"Cancela" cortados). Por isso aqui é
-   width: max-content (a tabela nunca fica mais estreita que a soma das
-   colunas) com min-width: 100% (ainda estica pra preencher telas largas,
-   sem distorcer a proporção) — e .tabela-scroll (ver abaixo) dá rolagem
-   horizontal só daquela tabela nos raros casos em que a tela é mais
-   estreita que a soma das colunas. Nunca mais um botão cortado pela
-   metade. */
+   conteúdo, que é o desalinhamento que isto resolve. width: 100% (não mais
+   max-content) é o que garante a tabela SEMPRE do tamanho exato do
+   container, sem nunca precisar de rolagem horizontal — pedido explícito:
+   as 5 colunas dividem esses 100% sempre na mesma proporção entre si,
+   encolhendo/crescendo juntas com a tela, em vez de manter largura fixa e
+   estourar pro lado. .fila-tabela-acoes (index.css) tem flex-wrap: wrap
+   como rede de segurança pra quando a coluna Ações fica mesmo assim
+   estreita demais (janela muito pequena): os dois botões empilham em vez
+   de ficar cortados pela metade — a coluna já nasce com boa folga (22% do
+   total, a maior fatia depois de Responsável) pra isso ser raro. */
 .painel-controle .tabela-fila {
   table-layout: fixed;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
 }
 .painel-controle .tabela-fila td,
 .painel-controle .tabela-fila th {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Envolve cada <table class="tabela-fila"> — dá rolagem horizontal só
-   daquela tabela (nunca a página toda) nos raros casos em que a soma das
-   colunas passa da largura disponível. É essa rolagem, e não quebra de
-   linha, que resolve o caso raro de tela estreita: os dois botões da
-   coluna Ações (.fila-tabela-acoes, ver index.css) ficam sempre um do lado
-   do outro, numa linha só — nunca um em cima do outro — porque a coluna já
-   nasce larga o bastante pra eles (ver LARGURA_COLUNAS_TV) e o
-   flex-wrap continua nowrap (padrão da regra em index.css). */
-.painel-controle .tabela-scroll { overflow-x: auto; }
-
-/* Lixeira ao lado do selo "Navegando" (tabela Navegando, sem alerta de
-   resgate) — válvula de escape pra encerrar a navegação na mão quando o
-   cliente não pede a Subida pelo app. Discreta por padrão (não é a ação
-   principal daquela linha), fica vermelha só no hover, pra não competir
-   visualmente com o selo de status ao lado. */
-.icone-lixeira {
-  display: inline-flex; align-items: center; justify-content: center;
-  margin-left: 8px; padding: 4px; border: none; background: none;
-  color: var(--cor-texto-suave); cursor: pointer; border-radius: 6px;
-  vertical-align: middle;
-}
-.icone-lixeira:hover { color: #B3472B; background: #FBEAE5; }
+.painel-controle .fila-tabela-acoes { flex-wrap: wrap; }
 
 /* Altura das linhas: 12px → 8px em cima e embaixo. O padding lateral
    continua 14px — apertar o horizontal é que deixaria a tabela confusa. */
