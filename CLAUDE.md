@@ -10,8 +10,12 @@ na skill "dream" (abaixo).
 ## Rotina "dream"
 
 Skill em [.claude/skills/dream/SKILL.md](.claude/skills/dream/SKILL.md), invocada por
-`/dream` ou automaticamente todas as noites às 03:00 (tarefa agendada
-`dream-nightly-marina-manager`).
+`/dream`. Rodagem manual, sob pedido, em qualquer conversa sobre este projeto — a
+tentativa de deixá-la automática (tarefa agendada noturna às 03:00) foi abandonada:
+o ambiente (Cowork) nunca mostrou o pedido de aprovação de acesso ao Mac que uma
+tarefa agendada com dispositivo precisa, e uma das tentativas de tarefa chegou a
+sumir sozinha pela interface. Rodar manualmente era o plano B combinado com o
+usuário desde o início, caso o agendamento automático não funcionasse.
 
 O que ela faz: revisa o contexto recente do projeto (a conversa em andamento, quando
 houver, mais `memory/session-log.md`), compara com a memória atual e propõe
