@@ -262,6 +262,34 @@ function statusAgendamentoDiario(a, ultimaPorEmbarcacao) {
   return { statusLabel: STATUS_LABEL[a.status] || a.status, statusClasse: classeStatusDiario(a.status) }
 }
 
+const FORMATO_DATA_HORA_DIARIO = { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }
+
+// Linha de data/hora do card de uma descida/subida no Diário de Bordo.
+// Enquanto o pedido ainda não foi confirmado, mostra só o horário
+// solicitado (data_hora, digitado pelo cliente ao pedir a descida/subida).
+// Uma vez concluído (status='concluido' — "Navegando" numa descida,
+// "Recolhido" numa subida), o horário que passa a valer é concluido_em: o
+// instante real em que o Administrador clicou o status na Fila de
+// Rampa/Navegando (ver atualizarStatusAgendamento/encerrarNavegacao em
+// lib/db.js) — pode ser bem diferente do que o cliente pediu. Mostra os
+// dois horários juntos quando divergem (mais de 1 minuto de diferença, pra
+// não duplicar a mesma hora quando a equipe registra um "Recolhido" sem
+// pedido prévio do cliente — ver encerrarNavegacao, que grava data_hora e
+// concluido_em iguais nesse caso) — assim o cartão guarda a linha do tempo
+// completa (solicitação inicial + confirmação real) sem precisar abrir o
+// Histórico de solicitações. concluido_em nunca falta aqui: só chega em
+// status='concluido' quem já passou por atualizarStatusAgendamento/
+// encerrarNavegacao, e registros antigos foram preenchidos numa migração
+// (ver comentário de ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js).
+function detalheAgendamentoDiario(a) {
+  const solicitado = `Solicitado: ${new Date(a.data_hora).toLocaleString('pt-BR', FORMATO_DATA_HORA_DIARIO)}`
+  if (a.status !== 'concluido' || !a.concluido_em) return solicitado
+  const rotulo = a.tipo === 'retirada' ? 'Início de navegação' : 'Recolhido em'
+  const linhaConcluido = `${rotulo}: ${new Date(a.concluido_em).toLocaleString('pt-BR', FORMATO_DATA_HORA_DIARIO)}`
+  const divergem = Math.abs(new Date(a.concluido_em).getTime() - new Date(a.data_hora).getTime()) > 60 * 1000
+  return divergem ? `${solicitado} · ${linhaConcluido}` : linhaConcluido
+}
+
 // SeletorAcaoPagamento não existe mais: "Realizar pagamento" e "Pagamento
 // efetuado" saíram com o financeiro. O que voltou foi só o pedido.
 //
@@ -932,9 +960,14 @@ export default function TelaClienteDashboard({ perfil }) {
       id: `ag-${a.id}`,
       icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
       titulo: `${TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}${a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}`,
-      detalhe: new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      detalhe: detalheAgendamentoDiario(a),
       ...statusAgendamentoDiario(a, ultimaPorEmbarcacao),
-      quando: a.data_hora,
+      // concluido_em (quando existe) — não data_hora — pra um item recém
+      // concluído sempre subir pro topo do Diário de Bordo (mais recente
+      // primeiro), mesmo que o cliente tenha digitado um data_hora fora de
+      // ordem ao pedir. Mesmo raciocínio de ultimaMovimentacaoPorEmbarcacao
+      // (lib/agendamentos.js).
+      quando: a.concluido_em || a.data_hora,
       // Só dá pra cancelar enquanto o pedido ainda não saiu do papel
       // ("Solicitado"/"Recebido") — uma vez "Navegando" em diante, virou uma
       // manobra em andamento, e cancelar passa a ser decisão da marina pelo

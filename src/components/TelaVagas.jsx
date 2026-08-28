@@ -333,10 +333,14 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Histórico de manobras: toda descida ou subida já confirmada, mais recente
   // primeiro — vira o registro permanente assim que o operador confirma a
   // notificação na Fila de Rampa (não some quando a embarcação volta, como
-  // acontece com a tabela Navegando).
+  // acontece com a tabela Navegando). Ordena por concluido_em (o instante
+  // real da confirmação), não por data_hora (o que o cliente digitou ao
+  // pedir) — mesmo raciocínio de ultimaMovimentacaoPorEmbarcacao em
+  // lib/agendamentos.js: sem isso, "mais recente primeiro" podia ficar
+  // errado sempre que um cliente tivesse digitado um horário fora de ordem.
   const historicoManobras = agendamentos
     .filter((a) => a.status === 'concluido')
-    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
+    .sort((a, b) => new Date(b.concluido_em || b.data_hora) - new Date(a.concluido_em || a.data_hora))
 
   // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
   // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
@@ -506,7 +510,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return (
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+        {/* concluido_em (não data_hora) — o instante real em que o
+            Administrador clicou "Navegando" na Fila de Rampa, gravado por
+            atualizarStatusAgendamento (ver lib/db.js). data_hora aqui é só o
+            horário que o CLIENTE pediu a descida, que pode ser bem diferente
+            do horário em que a equipe de fato confirmou/liberou a saída —
+            mesmo raciocínio já usado em ultimaMovimentacaoPorEmbarcacao
+            (lib/agendamentos.js) e no Histórico de manobras
+            (ConfiguracoesPainel.jsx). concluido_em nunca é nulo aqui: só
+            chega em "Navegando" quem já tem status='concluido'. */}
+        <td>{new Date(a.concluido_em || a.data_hora).toLocaleString('pt-BR')}</td>
         <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
         <td className="col-status">
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
@@ -692,7 +705,10 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         <thead>
           <tr>
             <th className="col-responsavel">Responsável</th>
-            <th>Horário de saída</th>
+            {/* Renomeado de "Horário de saída" — o valor agora é o instante
+                real do clique em "Navegando" (concluido_em), não mais o
+                horário que o cliente pediu ao solicitar a descida. */}
+            <th>Início de navegação</th>
             <th>Previsão de retorno</th>
             <th className="col-status">Status</th>
           </tr>
