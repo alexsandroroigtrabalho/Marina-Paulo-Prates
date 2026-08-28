@@ -12,8 +12,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
     "@tabler/icons-react": "^3.46.0",
-    "jspdf": "^3.0.1",
-    "jspdf-autotable": "^3.8.4",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
