@@ -96,7 +96,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // abaixo. Só o pedido: não há preço, valor nem pagamento nesta tela.
   const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
   const [documentos, setDocumentos] = useState([])
-  const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
   // Registro manual de pedido de combustível (botão "+" da planilha de
   // solicitações) — ver NovoPedidoAbastecimentoModal.jsx.
@@ -758,24 +757,6 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
           })}
         </tbody>
       </table>
-
-      {agendamentos.some((a) => a.status === 'cancelado') && (
-        <div style={{ marginBottom: 32 }}>
-          <button type="button" className="voltar" onClick={() => setMostrarCancelados(!mostrarCancelados)}>
-            {mostrarCancelados ? 'Ocultar' : 'Ver'} cancelados ({agendamentos.filter((a) => a.status === 'cancelado').length})
-          </button>
-          {mostrarCancelados && (
-            <div className="lista-cards" style={{ marginTop: 10 }}>
-              {agendamentos.filter((a) => a.status === 'cancelado').map((a) => (
-                <div key={a.id} className="cliente-card">
-                  <div className="linha"><b>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</b> — {a.clientes?.nome}{a.embarcacoes?.nome ? ` — ${a.embarcacoes.nome}` : ''}</div>
-                  <div className="linha">{new Date(a.data_hora).toLocaleString('pt-BR')}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       </div>
 
       {/* Assinatura da aplicação, fechando o Painel de Controle: identifica
