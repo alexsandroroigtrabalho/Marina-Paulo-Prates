@@ -380,21 +380,17 @@ export async function atualizarStatusResgate(id, status) {
 
 // Encerra uma navegação direto pela tabela "Navegando" do Painel de
 // Controle, sem esperar o cliente enviar uma Subida pelo app — usado quando
-// o campo Status dessa tabela recebe "Recolhido" (ver TelaVagas.jsx; era
-// "Recolhido" ou "Resgatado" antes — as duas opções foram unificadas numa
-// só, "Recolhido" cumpre a mesma função de encerrar tanto uma navegação
-// comum quanto um S.O.S. em andamento). Cria um agendamento de retorno já
-// concluído, com a mesma consequência de uma Subida confirmada normalmente:
-// tira a embarcação de "Navegando" (ultimaMovimentacaoPorEmbarcacao passa a
-// apontar pro retorno) e limpa o Diário de Bordo ativo do cliente
-// (statusAgendamentoDiario, em TelaClienteDashboard.jsx, já trata qualquer
-// retorno concluído assim). "Cancelado" não cria retorno nenhum — só
-// cancela a própria descida (mesmo efeito do botão "Cancelar" já usado na
-// Fila de Rampa).
-export async function encerrarNavegacao(retirada, motivo) {
-  if (motivo === 'cancelado') {
-    return atualizarStatusAgendamento(retirada.id, 'cancelado')
-  }
+// a coluna Ações dessa tabela recebe "Excluir notificação" (ver
+// excluirNotificacaoNavegando em TelaVagas.jsx; era "Recolhido"/"Resgatado"/
+// "Cancelar" antes — sobrou só esta ação: "Cancelar" saiu a pedido, porque
+// cancelar a própria descida apagava o registro do Histórico de manobras,
+// como se a embarcação nunca tivesse navegado). Cria um agendamento de
+// retorno já concluído, com a mesma consequência de uma Subida confirmada
+// normalmente: tira a embarcação de "Navegando"
+// (ultimaMovimentacaoPorEmbarcacao passa a apontar pro retorno) e limpa o
+// Diário de Bordo ativo do cliente (statusAgendamentoDiario, em
+// TelaClienteDashboard.jsx, já trata qualquer retorno concluído assim).
+export async function encerrarNavegacao(retirada) {
   const agora = new Date().toISOString()
   const { error } = await db.from('agendamentos').insert({
     marina_id: retirada.marina_id,

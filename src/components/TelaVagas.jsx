@@ -358,10 +358,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   }
 
   // Os dois únicos botões da planilha de combustível. Não há nada além
-  // disso: confirmar o abastecimento ou cancelar o pedido. Quem não clicar
-  // em nenhum dos dois em 15 minutos tem o pedido confirmado sozinho pelo
-  // relógio — nada é gravado nesse caso, a regra é derivada de created_at
-  // (ver lib/statusAbastecimento.js).
+  // disso: confirmar que o abastecimento foi feito (rótulo "Abastecido",
+  // mais direto que "Confirmar" pra quem está lendo a planilha) ou cancelar
+  // o pedido. Quem não clicar em nenhum dos dois em 15 minutos tem o pedido
+  // confirmado sozinho pelo relógio — nada é gravado nesse caso, a regra é
+  // derivada de created_at (ver lib/statusAbastecimento.js).
   async function confirmarPedidoAbastecimento(id) {
     try {
       await confirmarAbastecimento(id)
@@ -589,39 +590,42 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     }
   }
 
-  // Encerrar a navegação direto pela tabela "Navegando" (campo Status —
-  // "Recolhido"/"Cancelar", ver linhaNavegando abaixo), sem esperar o
-  // cliente enviar uma Subida pelo app. Confirma antes de agir —
-  // ao contrário do resto da Fila de Rampa, aqui não tem "desfazer" fácil
-  // (cria um retorno novo, ou cancela a descida original).
+  // Encerrar a navegação direto pela tabela "Navegando" (Ações →
+  // "Excluir notificação", ver linhaNavegando abaixo), sem esperar o
+  // cliente enviar uma Subida pelo app. Só existe mais este botão aqui —
+  // "Cancelar" saiu a pedido: a distinção entre "Recolhido" e "Cancelar"
+  // não fazia sentido pra uma embarcação que já está mesmo na água (cancelar
+  // apagava a própria descida do Histórico de manobras, como se nunca
+  // tivesse navegado). "Excluir notificação" sempre finaliza de verdade —
+  // mesmo destino que "Recolhido" tinha antes: cria o retorno concluído (ou
+  // fecha a subida pendente da mesma embarcação, se houver), preserva o
+  // registro no Histórico de manobras, e a notificação some daqui e do
+  // Diário de Bordo do cliente. Confirma antes de agir — não tem "desfazer"
+  // fácil.
   //
   // Quando já existe uma Subida em aberto pra essa embarcação — pedida pelo
   // cliente e ainda esperando na Fila de Rampa ('solicitado'/'confirmado'),
   // ou já em 'navegando' (ver subidasEmAberto/naAgua acima) — fecha esse
-  // registro de verdade em vez de criar um retorno sintético novo: "Recolhido"
-  // conclui a própria subida (ela some da Fila de Rampa e do Diário de Bordo
-  // ativo do cliente na hora, do mesmo jeito que qualquer outro agendamento
-  // concluído); "Cancelar" cancela só essa subida (a embarcação continua
-  // rastreada como na água). Sem isso, marcar "Recolhido" direto por aqui
-  // deixava uma solicitação de subida que o cliente já tivesse enviado
-  // esquecida na Fila de Rampa, pedindo uma manobra que já aconteceu.
+  // registro de verdade em vez de criar um retorno sintético novo. Sem isso,
+  // excluir a notificação direto por aqui deixava uma solicitação de subida
+  // que o cliente já tivesse enviado esquecida na Fila de Rampa, pedindo uma
+  // manobra que já aconteceu.
   //
   // "Resgatado" existia como opção separada de "Recolhido" antes — foi
-  // retirada: "Recolhido" agora cumpre as duas funções (encerrar uma
-  // navegação comum e encerrar um S.O.S. em andamento), sem distinção.
-  const LABEL_ENCERRAR = { recolhido: 'Recolhido', cancelado: 'Cancelado' }
-  async function encerrarNavegacaoAcao(a, motivo) {
+  // retirada: este botão cumpre as duas funções (encerrar uma navegação
+  // comum e encerrar um S.O.S. em andamento), sem distinção.
+  async function excluirNotificacaoNavegando(a) {
     const nome = a.clientes?.nome || 'esse cliente'
-    if (!confirm(`Marcar "${LABEL_ENCERRAR[motivo]}" para ${nome}${a.embarcacoes?.nome ? ` (${a.embarcacoes.nome})` : ''}?`)) return
+    if (!confirm(`Excluir a notificação de ${nome}${a.embarcacoes?.nome ? ` (${a.embarcacoes.nome})` : ''}? O retorno é registrado como concluído.`)) return
     try {
       if (a._subida) {
-        await atualizarStatusAgendamento(a._subida.id, motivo === 'recolhido' ? 'concluido' : 'cancelado')
+        await atualizarStatusAgendamento(a._subida.id, 'concluido')
       } else {
-        await encerrarNavegacao(a, motivo)
+        await encerrarNavegacao(a)
       }
       await carregar()
     } catch (err) {
-      alert('Não foi possível atualizar: ' + err.message)
+      alert('Não foi possível excluir a notificação: ' + err.message)
     }
   }
 
@@ -652,17 +656,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             // Pedido já recebido (ou recolhido): vira um seletor editável,
             // igual ao padrão de status de Manutenção — salva na hora, sem
             // precisar de um botão "Salvar" separado. "Recolhido" aqui é o
-            // mesmo encerramento de sempre (encerrarNavegacaoAcao — cria o
-            // retorno concluído/fecha a subida em aberto, com a mesma
+            // mesmo encerramento de sempre (excluirNotificacaoNavegando —
+            // cria o retorno concluído/fecha a subida em aberto, com a mesma
             // confirmação) e não só uma troca de resgate_status: assim a
             // navegação sai do Diário de Bordo do cliente e da tabela
-            // Navegando igualzinho a um "Recolhido" sem S.O.S. nenhum, em
-            // vez de ficar presa "na água" só com o rótulo mudado.
+            // Navegando igualzinho a "Excluir notificação" sem S.O.S.
+            // nenhum, em vez de ficar presa "na água" só com o rótulo mudado.
             <select
               value={a.resgate_status}
               onChange={(e) => {
                 const valor = e.target.value
-                if (valor === 'recolhido') encerrarNavegacaoAcao(a, 'recolhido')
+                if (valor === 'recolhido') excluirNotificacaoNavegando(a)
                 else definirStatusResgate(a.id, valor)
               }}
               title="Status do resgate"
@@ -698,19 +702,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <span className={`badge status-${status.classe}`}>{status.texto}</span>
           )}
         </td>
-        {/* Coluna Ações própria, igual às outras duas planilhas — a lixeira
-            que ficava colada no selo de Status virou um par de botões
-            normal (Recolhido/Cancelar). Encerrar a navegação normalmente é
-            o cliente pedindo a Subida pelo app (Fila de Rampa, com os
-            mesmos botões e o prazo de 5min — ver linhaNotificacao); esses
-            aqui são a válvula de escape pra quando isso não acontece
-            (cliente sem o app à mão, esqueceu de pedir etc.) ou pra
-            cancelar a navegação direto por aqui. Mesma ação de sempre
-            (encerrarNavegacaoAcao), com a mesma confirmação. */}
+        {/* Coluna Ações própria, igual às outras duas planilhas — só um
+            botão, "Excluir notificação" (Recolhido/Cancelar saíram a
+            pedido). Encerrar a navegação normalmente é o cliente pedindo a
+            Subida pelo app (Fila de Rampa, com seus próprios botões e o
+            prazo de 5min — ver linhaNotificacao); este aqui é a válvula de
+            escape pra quando isso não acontece (cliente sem o app à mão,
+            esqueceu de pedir etc.). Mesma ação de sempre
+            (excluirNotificacaoNavegando), com a mesma confirmação. */}
         <td className="col-acoes">
           <div className="fila-tabela-acoes">
-            <button type="button" onClick={() => encerrarNavegacaoAcao(a, 'recolhido')}>Recolhido</button>
-            <button type="button" className="cancelar" onClick={() => encerrarNavegacaoAcao(a, 'cancelado')}>Cancelar</button>
+            <button type="button" onClick={() => excluirNotificacaoNavegando(a)}>Excluir notificação</button>
           </div>
         </td>
       </tr>
@@ -870,7 +872,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
                 </td>
                 <td className="col-acoes">
                   <div className="fila-tabela-acoes">
-                    <button type="button" onClick={() => confirmarPedidoAbastecimento(p.id)}>Confirmar</button>
+                    <button type="button" onClick={() => confirmarPedidoAbastecimento(p.id)}>Abastecido</button>
                     <button type="button" className="cancelar" onClick={() => cancelarPedidoAbastecimento(p)}>Cancelar</button>
                   </div>
                 </td>
