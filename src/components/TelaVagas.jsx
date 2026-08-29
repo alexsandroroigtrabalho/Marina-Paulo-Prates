@@ -63,12 +63,12 @@ const ICONE_CLIMA = { sol: IconSun, nuvem: IconCloud, chuva: IconCloudRain, neve
 // As 5 larguras são IGUAIS entre si (20% cada) — mesmo princípio de antes
 // (as 6 larguras em pixel também eram iguais): o espaço entre uma coluna e
 // a próxima precisa ser o mesmo em qualquer ponto da tabela, não maior
-// numa dupla de colunas e menor noutra. Only Responsável foge um pouco
-// dessa régua visualmente porque é a única coluna alinhada à esquerda
-// (.col-responsavel, ver index.css, pedido à parte) — as bordas das
-// colunas ficam igualmente espaçadas mesmo assim, só o texto do cabeçalho
-// "Responsável" não fica centralizado dentro da própria coluna como os
-// outros quatro.
+// numa dupla de colunas e menor noutra. Os 5 TÍTULOS ficam todos
+// centralizados dentro da própria coluna, inclusive "Responsável" (que
+// tinha ficado alinhado à esquerda — voltou a centralizar, pra bater com o
+// espaçamento dos outros 4). Só o DADO da coluna Responsável (nome +
+// embarcação, na linha da tabela) continua alinhado à esquerda — regra
+// diferente, à parte, ver .col-responsavel em index.css.
 const LARGURA_COLUNAS_TV = ['20%', '20%', '20%', '20%', '20%']
 function ColunasTV() {
   return <colgroup>{LARGURA_COLUNAS_TV.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
@@ -79,20 +79,29 @@ const TIPO_AGENDAMENTO_LABEL = {
   retorno: 'Subida',
 }
 
-// Coluna "Pedido em" da planilha de combustível: a quantidade entra junto
-// com a data/hora, no lugar de ocupar uma coluna própria (que saiu — ver
-// comentário na tabela, mais abaixo). Formato próprio, mais compacto que o
-// "toLocaleString" padrão do resto do painel (ano com 2 dígitos, "h" no
-// lugar de ":" nos minutos) — pedido explícito, ex.: "40L em 29/07/26,
-// 12h45".
-function formatoPedidoAbastecimento(p) {
-  const d = new Date(p.created_at)
+// Hora no formato "00h00" (sem segundos, "h" no lugar de ":") — pedido
+// explícito, usado nas 3 planilhas da TV no lugar do "toLocaleString"
+// padrão (que trazia segundos e ":", ex. "12:45:00"). `comAno2Digitos`
+// encurta o ano pra 2 dígitos também — usado só na coluna "Pedido" do
+// Abastecimento (ver formatoPedidoAbastecimento), que já tinha esse
+// formato mais compacto por pedido anterior; Rampa e Navegando mantêm o
+// ano com 4 dígitos de sempre.
+function formatarDataHora(iso, comAno2Digitos = false) {
+  const d = new Date(iso)
   const dia = String(d.getDate()).padStart(2, '0')
   const mes = String(d.getMonth() + 1).padStart(2, '0')
-  const ano = String(d.getFullYear()).slice(-2)
+  const ano = comAno2Digitos ? String(d.getFullYear()).slice(-2) : d.getFullYear()
   const hora = String(d.getHours()).padStart(2, '0')
   const minuto = String(d.getMinutes()).padStart(2, '0')
-  return `${textoQuantidade(p)} em ${dia}/${mes}/${ano}, ${hora}h${minuto}`
+  return `${dia}/${mes}/${ano}, ${hora}h${minuto}`
+}
+
+// Coluna "Pedido" da planilha de combustível (era "Pedido em") — a
+// quantidade entra junto com a data/hora, no lugar de ocupar uma coluna
+// própria (que saiu — ver comentário na tabela, mais abaixo). Ex.: "40L em
+// 29/07/26, 12h45".
+function formatoPedidoAbastecimento(p) {
+  return `${textoQuantidade(p)} em ${formatarDataHora(p.created_at, true)}`
 }
 
 // A Fila de Rampa segue a mesma ideia do abastecimento (ver
@@ -525,7 +534,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return (
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+        <td>{formatarDataHora(a.data_hora)}</td>
         <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td><span className={`badge status-${classeNatureza}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span></td>
         <td className="col-acoes">
@@ -626,8 +635,8 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     return (
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-        <td>{a.previsao_retorno ? new Date(a.previsao_retorno).toLocaleString('pt-BR') : 'Sem previsão informada'}</td>
+        <td>{formatarDataHora(a.data_hora)}</td>
+        <td>{a.previsao_retorno ? formatarDataHora(a.previsao_retorno) : 'Sem previsão informada'}</td>
         <td>
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
             // Cliente cancelou o próprio S.O.S. — mostra "Estou bem", sem
@@ -681,13 +690,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
               {status.texto}
             </button>
           ) : (
-            // Navegação normal (sem alerta de resgate em andamento): o selo
-            // "Navegando" saiu — é redundante, qualquer linha parada aqui já
-            // está, por definição, navegando (só sobra o selo pras duas
-            // situações que realmente precisam chamar atenção: S.O.S. ativo,
-            // tratado nos ramos acima, ou "Excedeu retorno", classe
-            // diferente de 'navegando' — ver statusNavegando).
-            status.classe !== 'navegando' && <span className={`badge status-${status.classe}`}>{status.texto}</span>
+            // Navegação normal (sem alerta de resgate em andamento): selo
+            // "Navegando" — voltou a pedido (tinha saído por parecer
+            // redundante, mas faz falta como confirmação visual rápida na
+            // TV). "Excedeu retorno" (2h de atraso) segue mostrando no
+            // lugar dele quando for o caso — ver statusNavegando.
+            <span className={`badge status-${status.classe}`}>{status.texto}</span>
           )}
         </td>
         {/* Coluna Ações própria, igual às outras duas planilhas — a lixeira
@@ -719,7 +727,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>—</td>
-        <td>{new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+        <td>{formatarDataHora(a.data_hora)}</td>
         <td>
           <select
             className="badge select-status-fila status-navegando"
@@ -836,9 +844,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
             <th className="col-responsavel">Responsável</th>
             <th>Combustível</th>
             {/* A coluna "Quantidade" saiu — a quantidade entra junto com a
-                data na coluna "Pedido em" (ver formatoPedidoAbastecimento),
+                data na coluna "Pedido" (ver formatoPedidoAbastecimento),
                 em vez de ocupar uma coluna só pra ela. */}
-            <th>Pedido em</th>
+            <th>Pedido</th>
             <th>Status</th>
             <th>Ações</th>
           </tr>

@@ -77,7 +77,7 @@ export const textoRestanteParaConfirmar = textoRestante
 // continuam no banco e precisam de rótulo aqui para não aparecer o código
 // cru numa linha antiga do Histórico de Solicitações.
 export const STATUS_ABASTECIMENTO_LABEL = {
-  solicitado: 'Aguardando confirmação',
+  solicitado: 'Aguardando',
   confirmado: 'Confirmado',
   cancelado: 'Cancelado',
   // Legados do fluxo com pagamento (nada é reescrito no banco):
@@ -133,8 +133,11 @@ export function ehCompletarTanque(pedido) {
   return pedido?.observacoes === OBSERVACAO_COMPLETAR_TANQUE
 }
 
-// Quantidade para mostrar na planilha e no Diário de Bordo.
+// Quantidade para mostrar na planilha e no Diário de Bordo. Texto mais
+// curto que o marcador interno (OBSERVACAO_COMPLETAR_TANQUE, acima) — esse
+// aqui é só exibição, não precisa repetir "tanque" (o combustível já
+// aparece do lado, na coluna/rótulo de combustível).
 export function textoQuantidade(pedido) {
-  if (ehCompletarTanque(pedido)) return 'Completar tanque'
+  if (ehCompletarTanque(pedido)) return 'Completar'
   return `${Number(pedido?.quantidade_litros || 0).toFixed(0)} L`
 }

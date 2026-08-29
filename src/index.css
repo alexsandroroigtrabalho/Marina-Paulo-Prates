@@ -1706,6 +1706,15 @@ button.badge:hover { filter: brightness(0.95); }
   table-layout: fixed;
   width: 100%;
 }
+/* O título "Responsável" nas 3 planilhas da TV não precisa mais ficar
+   alinhado à esquerda como o resto da coluna (.col-responsavel, regra
+   geral acima, que continua valendo pro DADO — nome + embarcação — e para
+   as outras telas que usam essa mesma coluna, como o Histórico de
+   manobras) — só o cabeçalho aqui volta a centralizar, pra ficar no mesmo
+   espaçamento proporcional dos outros 4 títulos. */
+.painel-controle .tabela-fila th.col-responsavel {
+  text-align: center;
+}
 .painel-controle .tabela-fila td,
 .painel-controle .tabela-fila th {
   overflow: hidden;
