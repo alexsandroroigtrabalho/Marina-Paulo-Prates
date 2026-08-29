@@ -11,36 +11,39 @@ import { inicioJanelaAgendamento } from './agendamentos.js'
 //
 // A equipe tem sempre dois botões — Confirmar (com um rótulo próprio por
 // tipo) e Cancelar. Se ninguém decidir dentro do prazo, o pedido vale como
-// confirmado sozinho. O prazo NÃO é o mesmo para os dois tipos, e o destino
-// do vencimento automático TAMBÉM não é mais o mesmo (esse é o ponto que
-// mudou nesta revisão):
-//   - descida (retirada): 15 minutos. Confirmar (clique no botão
-//     "Navegando", ou o prazo vencer sozinho) leva direto pro status final
-//     'concluido' — a notificação sai da Fila de Rampa e a embarcação
-//     aparece na tabela "Navegando". Aqui clique e vencimento automático
-//     dão exatamente no mesmo lugar.
+// confirmado sozinho — mas "confirmado" NUNCA é a mesma coisa que a manobra
+// ter acontecido de verdade. O prazo é diferente por tipo, mas o
+// comportamento do vencimento automático é o MESMO pros dois agora (ponto
+// que mudou nesta revisão — antes a descida tinha um comportamento
+// diferente da subida):
+//   - descida (retirada): 15 minutos.
 //   - subida (retorno): 5 minutos, mais curto — o cliente já está de volta
-//     ou perto disso quando pede. AQUI clique e vencimento automático NÃO
-//     são mais a mesma coisa:
-//       · clicar "Recolhido" continua sendo o de sempre: vai direto pro
-//         status final 'concluido' — some da Fila de Rampa e, no mesmo
-//         instante, some a embarcação da tabela "Navegando" (ver
-//         ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js).
-//       · já vencer os 5 minutos SEM ninguém clicar não finaliza mais
-//         nada sozinho — só confirma o pedido (o cliente já vê "Solicitação
-//         confirmada" no próprio painel, ver statusAgendamentoDiario em
-//         TelaClienteDashboard.jsx, que já tratava esse status há tempos) e
-//         grava 'confirmado'. A notificação CONTINUA na Fila de Rampa e a
-//         embarcação CONTINUA em "Navegando" até a equipe clicar
-//         "Recolhido" de verdade — só esse clique manual é que apaga a
-//         notificação e tira a embarcação da água. "Cancelar" continua
-//         disponível o tempo todo, mesmo depois de confirmado sozinho (ver
-//         linhaNotificacao em TelaVagas.jsx).
+//     ou perto disso quando pede.
 //
-// Por isso agora tem DOIS destinos possíveis pro vencimento automático,
-// diferente do clique manual (que é sempre 'concluido' pros dois tipos) —
-// ver statusFinalAgendamento (clique) x statusAutoConfirmadoAgendamento
-// (relógio) abaixo.
+// Pros dois tipos, clique manual e vencimento automático NÃO são a mesma
+// coisa:
+//   - clicar no botão da equipe ("Navegando" na descida, "Recolhido" na
+//     subida) é sempre o que finaliza de verdade: vai direto pro status
+//     final 'concluido' — a notificação some da Fila de Rampa, e a
+//     embarcação entra (descida) ou sai (subida) da tabela "Navegando" no
+//     mesmo instante (ver ultimaMovimentacaoPorEmbarcacao em
+//     lib/agendamentos.js).
+//   - já vencer o prazo SEM ninguém clicar não finaliza nada sozinho — só
+//     confirma o pedido pro cliente (que já vê "Solicitação confirmada" no
+//     próprio painel, ver statusAgendamentoDiario em
+//     TelaClienteDashboard.jsx) e grava 'confirmado'. A notificação CONTINUA
+//     na Fila de Rampa (e, no caso da subida, a embarcação CONTINUA em
+//     "Navegando") até a equipe clicar de verdade — só esse clique manual
+//     move a notificação pro destino final. "Cancelar" continua disponível
+//     o tempo todo, mesmo depois de confirmado sozinho (ver linhaNotificacao
+//     em TelaVagas.jsx). Isso existe porque "confirmado" é uma resposta pro
+//     cliente, não uma confirmação de que a equipe já fez a manobra
+//     fisicamente — ninguém deve aparecer em "Navegando" (ou sumir de lá)
+//     só porque um relógio contou até zero.
+//
+// Por isso o destino do vencimento automático (statusAutoConfirmadoAgendamento,
+// abaixo) é sempre 'confirmado', diferente do clique manual
+// (statusFinalAgendamento, sempre 'concluido').
 export const JANELA_DESCIDA_MS = 15 * 60 * 1000
 export const JANELA_SUBIDA_MS = 5 * 60 * 1000
 
@@ -57,12 +60,13 @@ export function statusFinalAgendamento(_tipo) {
   return 'concluido'
 }
 
-// Pra qual status vai quando NINGUÉM decide e o prazo vence sozinho.
-// Descida: igual ao clique, 'concluido'. Subida: 'confirmado' — um status
-// intermediário (não apaga a notificação, não tira a embarcação da água),
-// só o clique manual em "Recolhido" leva ela pro 'concluido' de verdade.
-export function statusAutoConfirmadoAgendamento(tipo) {
-  return tipo === 'retirada' ? 'concluido' : 'confirmado'
+// Pra qual status vai quando NINGUÉM decide e o prazo vence sozinho —
+// sempre 'confirmado', pros dois tipos: um status intermediário (não apaga
+// a notificação da Fila de Rampa, não faz a embarcação entrar nem sair de
+// "Navegando"), só o clique manual da equipe ("Navegando"/"Recolhido") leva
+// ela pro 'concluido' de verdade.
+export function statusAutoConfirmadoAgendamento(_tipo) {
+  return 'confirmado'
 }
 
 // "Navegando" na descida (confirma que o barco entrou na água), "Recolhido"
@@ -98,16 +102,15 @@ export function aguardandoDecisaoAgendamento(a, agoraMs = Date.now()) {
 }
 
 // Ainda deve aparecer na Fila de Rampa? Diferente de aguardandoDecisao: uma
-// subida 'confirmado' (vencida sozinha, sem ninguém ter clicado) não está
-// mais "esperando decisão" (o cliente já foi confirmado, não dá mais pra
-// cancelar pelo app dele), mas AINDA precisa aparecer pra equipe até
-// alguém clicar "Recolhido" — é essa diferença que linhasFilaAtivas usa
-// (lib/filaRampa.js). Só vale pra subida: uma descida nunca fica
-// 'confirmado' por este fluxo (vencer o prazo já finaliza ela direto).
+// notificação 'confirmado' (vencida sozinha, sem ninguém ter clicado) não
+// está mais "esperando decisão" (o cliente já foi confirmado, não dá mais
+// pra cancelar pelo app dele), mas AINDA precisa aparecer pra equipe até
+// alguém clicar "Navegando"/"Recolhido" de verdade — é essa diferença que
+// linhasFilaAtivas usa (lib/filaRampa.js). Vale para os dois tipos: tanto
+// descida quanto subida podem ficar 'confirmado' esperando o clique manual.
 export function aguardandoNaFila(a, agoraMs = Date.now()) {
   const efetivo = statusEfetivoAgendamento(a, agoraMs)
-  if (efetivo === 'solicitado') return true
-  return efetivo === 'confirmado' && a.tipo === 'retorno'
+  return efetivo === 'solicitado' || efetivo === 'confirmado'
 }
 
 // Quanto falta (em ms) para a confirmação automática — 0 quando já passou.

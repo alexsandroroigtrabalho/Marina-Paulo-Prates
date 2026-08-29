@@ -10,9 +10,10 @@ import { aguardandoNaFila } from './statusAgendamento.js'
 
 // Linhas ativas da Fila de Rampa: o que ainda espera decisão inicial da
 // equipe (dois botões, Confirmar/Cancelar, 15min descida/5min subida — ver
-// lib/statusAgendamento.js) OU, só pra subida, o que já confirmou sozinho
-// pelo relógio mas ainda não foi "Recolhido" — esse fica visível
-// indefinidamente até o clique manual (ver aguardandoNaFila). Usa o status
+// lib/statusAgendamento.js) OU, nos dois tipos, o que já confirmou sozinho
+// pelo relógio mas ainda não teve o clique manual ("Navegando"/"Recolhido")
+// — esse fica visível indefinidamente até esse clique (ver aguardandoNaFila).
+// Usa o status
 // EFETIVO, não o gravado: a notificação muda de comportamento na Fila de
 // Rampa no instante exato em que o prazo se esgota, mesmo que a confirmação
 // automática ainda não tenha sido escrita no banco (isso acontece sozinho no

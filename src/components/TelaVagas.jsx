@@ -106,23 +106,25 @@ function formatoPedidoAbastecimento(p) {
 
 // A Fila de Rampa segue a mesma ideia do abastecimento (ver
 // lib/statusAgendamento.js, lib/confirmacaoAutomatica.js): dois botões, e
-// nada de passo intermediário ("Recebido" saiu). Mas o prazo NÃO é o mesmo
-// pros dois tipos, e o rótulo do botão de confirmar muda por tipo (ver
-// labelConfirmarAgendamento):
+// nada de passo intermediário ("Recebido" saiu). O prazo NÃO é o mesmo pros
+// dois tipos, e o rótulo do botão de confirmar muda por tipo (ver
+// labelConfirmarAgendamento) — mas o COMPORTAMENTO é igual pros dois agora:
 //
-//   descida: 15 minutos. Botão "Navegando" — por clique ou pelo relógio,
-//   grava status='concluido' — a notificação sai da Fila de Rampa e a
-//   embarcação aparece na tabela "Navegando".
+//   descida: 15 minutos. Botão "Navegando".
+//   subida: 5 minutos, mais curto. Botão "Recolhido".
 //
-//   subida: 5 minutos, mais curto. Botão "Recolhido" — por clique ou pelo
-//   relógio, grava TAMBÉM status='concluido' (mesmo destino da descida, só
-//   que na retorno). Não existe estado intermediário: confirmar a subida
-//   já É o "Recolhido" — a notificação some da Fila de Rampa e, no mesmo
-//   instante, a embarcação some da tabela "Navegando" (ver
-//   ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js). subidasNavegando/
-//   subidasAvulsas abaixo continuam existindo só como suporte a registros
-//   antigos com status='navegando' (fluxos anteriores) — o fluxo atual
-//   nunca mais grava esse valor.
+// Pros dois: clicar no botão grava status='concluido' — só isso finaliza de
+// verdade, tira a notificação da Fila de Rampa e faz a embarcação
+// entrar (descida) ou sair (subida) da tabela "Navegando" no mesmo instante
+// (ver ultimaMovimentacaoPorEmbarcacao em lib/agendamentos.js). Vencer o
+// prazo sozinho, sem clique, NUNCA finaliza nada — só confirma o pedido pro
+// cliente (grava 'confirmado') e a notificação continua na Fila de Rampa até
+// alguém clicar de verdade. Isso vale tanto pra descida quanto pra subida:
+// nenhuma embarcação entra ou sai de "Navegando" só porque um relógio
+// venceu, sem a equipe confirmar que a manobra aconteceu de fato.
+// subidasNavegando/subidasAvulsas abaixo continuam existindo só como suporte
+// a registros antigos com status='navegando' (fluxos anteriores) — o fluxo
+// atual nunca mais grava esse valor.
 //
 // O critério de "notificação ainda aguardando" mora em lib/filaRampa.js —
 // usado também pelo apito global (SonsPainelAdmin.jsx).
@@ -276,13 +278,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Varre a Fila de Rampa por notificações que já passaram do prazo sem
   // decisão da equipe e grava a confirmação automática sozinha — adiantando
   // o que o pg_cron (marina.auto_confirmar_agendamentos) faria de qualquer
-  // jeito no próprio ciclo dele. O destino NÃO é mais sempre igual ao clique
-  // manual: statusAutoConfirmadoAgendamento devolve 'concluido' pra descida
-  // (igual ao clique) mas 'confirmado' pra subida (diferente do clique em
-  // "Recolhido", que continua indo direto pra 'concluido' — ver
-  // confirmarNotificacao). Falha de uma notificação isolada (rede, corrida
-  // com outra aba) não impede as demais nem trava a tela: cada escrita é
-  // independente, e o cron cobre o que sobrar.
+  // jeito no próprio ciclo dele. O destino NUNCA é igual ao clique manual:
+  // statusAutoConfirmadoAgendamento sempre devolve 'confirmado' (pros dois
+  // tipos), diferente do clique em "Navegando"/"Recolhido", que vai direto
+  // pra 'concluido' — ver confirmarNotificacao. Falha de uma notificação
+  // isolada (rede, corrida com outra aba) não impede as demais nem trava a
+  // tela: cada escrita é independente, e o cron cobre o que sobrar.
   async function autoConfirmarVencidos(lista) {
     const vencidos = lista.filter((a) => a.status === 'solicitado' && !aguardandoDecisaoAgendamento(a))
     await Promise.all(vencidos.map((a) => atualizarStatusAgendamento(a.id, statusAutoConfirmadoAgendamento(a.tipo)).catch(() => {})))
@@ -345,11 +346,12 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // antes — é o que o cliente vê no lugar do pedido cancelado (Diário de
   // Bordo/Histórico de solicitações, ver statusAgendamentoDiario em
   // TelaClienteDashboard.jsx), pra ele saber por que não vai mais acontecer.
-  // Continua disponível mesmo depois da confirmação automática da subida
-  // (status 'confirmado' — ver statusAutoConfirmadoAgendamento): só o clique
-  // em "Recolhido" fecha de vez, "Cancelar" segue como válvula de escape até
-  // lá. Campo vazio é permitido (motivo opcional); cancelar o próprio prompt
-  // (Esc/"Cancelar" do navegador) desiste da ação, não confirma sem motivo.
+  // Continua disponível mesmo depois da confirmação automática (status
+  // 'confirmado' — ver statusAutoConfirmadoAgendamento, vale pros dois
+  // tipos agora): só o clique em "Navegando"/"Recolhido" fecha de vez,
+  // "Cancelar" segue como válvula de escape até lá. Campo vazio é permitido
+  // (motivo opcional); cancelar o próprio prompt (Esc/"Cancelar" do
+  // navegador) desiste da ação, não confirma sem motivo.
   async function cancelarNotificacao(a) {
     const nome = a.clientes?.nome || 'o cliente'
     const motivo = window.prompt(`Motivo do cancelamento (enviado para ${nome}):`, '')
@@ -452,11 +454,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     .filter((p) => !aguardandoDecisao(p, agora.getTime()) && statusEfetivoAbastecimento(p, agora.getTime()) !== 'cancelado')
     .sort((a, b) => new Date(momentoConfirmacaoAbastecimento(b, agora.getTime()) || b.created_at) - new Date(momentoConfirmacaoAbastecimento(a, agora.getTime()) || a.created_at))
 
-  // Histórico de manobras: toda descida ou subida já confirmada, mais recente
-  // primeiro — vira o registro permanente assim que a notificação da Fila
-  // de Rampa é confirmada (pela equipe ou pelo relógio, ver
-  // autoConfirmarVencidos acima; não some quando a embarcação volta, como
-  // acontece com a tabela Navegando).
+  // Histórico de manobras: toda descida ou subida já com status 'concluido',
+  // mais recente primeiro — vira o registro permanente só quando a equipe
+  // clica de verdade no botão da Fila de Rampa ("Navegando"/"Recolhido").
+  // Vencer o prazo sozinho (ver autoConfirmarVencidos acima) NÃO basta —
+  // isso só grava 'confirmado', que ainda não é uma manobra concluída aqui.
+  // Não some quando a embarcação volta, como acontece com a tabela
+  // Navegando.
   const historicoManobras = agendamentos
     .filter((a) => a.status === 'concluido')
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
