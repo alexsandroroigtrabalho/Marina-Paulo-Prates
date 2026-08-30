@@ -28,15 +28,23 @@ import { geocodePorCidade } from '../lib/clima'
 // "Combustível" é outra coisa e por isso ficou: são os tipos que o cliente
 // pode escolher ao pedir abastecimento — nome e ativo/inativo, sem preço nem
 // estoque, que seriam financeiro.
+//
+// Categorias "Despacho", "Manutenção" e "Acessos" saíram por pedido direto da
+// administração (prompt de ajustes gerais RV Invictus) — eram só um relatório
+// de documentos + exportação de planilha (Despacho), uma exportação de
+// planilha avulsa (Manutenção) e um texto informativo estático (Acessos); a
+// funcionalidade de "Agenda da rampa" continua intacta dentro da categoria
+// abaixo, só renomeada de "Agenda" pra "Rampa". Os handlers/props de
+// relatório de despacho (emailRelatorio, onSalvarEmailRelatorio etc.) ainda
+// chegam por prop do componente pai — não foram removidos de lá pra não mexer
+// em TelaVagas.jsx enquanto outra pessoa edita esse arquivo; seguem apenas
+// sem uso aqui dentro.
 const CATEGORIAS = [
   { chave: 'notificacoes', label: 'Notificações' },
   { chave: 'combustivel', label: 'Combustível' },
-  { chave: 'despacho', label: 'Despacho' },
   { chave: 'clientes', label: 'Clientes' },
-  { chave: 'manutencao', label: 'Manutenção' },
-  { chave: 'agenda', label: 'Agenda' },
+  { chave: 'agenda', label: 'Rampa' },
   { chave: 'historico', label: 'Histórico' },
-  { chave: 'acessos', label: 'Acessos' },
 ]
 
 const LOCALIZACAO_CLIMA_VAZIA = { cidade: '', latitude: null, longitude: null, local: '' }
@@ -45,7 +53,11 @@ export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
   // Notificações — aviso sonoro + apitos
   sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
-  // Despacho — relatório automático de documentos
+  apitoCombustivelAtivado, onAlternarApitoCombustivel, salvandoApitoCombustivel,
+  // Despacho — relatório automático de documentos. A categoria "Despacho"
+  // foi removida da UI (ver nota acima do CATEGORIAS), mas os props
+  // continuam chegando do componente pai sem uso aqui — não vale a pena
+  // destrinchar a assinatura de TelaVagas.jsx por isso agora.
   emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
   // Histórico de manobras — antes num modal solto no Painel de Controle,
@@ -264,8 +276,8 @@ export default function ConfiguracoesPainel({
   if (!aberto) return null
 
   return (
-    <div className="modal-fundo config-modal-fundo" onClick={onFechar}>
-      <div className="modal-card config-modal-card" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-fundo configuracoes-modal-dourado" onClick={onFechar}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', maxWidth: 720 }}>
         <h3 style={{ marginTop: 0 }}>Configurações do sistema</h3>
 
         {!ehAdmin && (
@@ -286,14 +298,8 @@ export default function ConfiguracoesPainel({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
               <strong>Tipos de combustível</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                O que o cliente pode escolher ao pedir abastecimento pelo painel dele. Só nome e
-                ligar/desligar — preço, valor e cobrança não existem no RV Marine (são do RV Finance).
-                Desligar um tipo tira ele da lista do cliente sem apagar nada: os pedidos antigos
-                continuam mostrando o nome normalmente.
-              </p>
 
-              <form className="form-inline" onSubmit={adicionarCombustivel} style={{ marginBottom: 12 }}>
+              <form className="form-inline" onSubmit={adicionarCombustivel} style={{ marginBottom: 12, marginTop: 8 }}>
                 <input
                   placeholder="Ex: Gasolina comum" style={{ minWidth: 220 }} disabled={!ehAdmin}
                   value={novoCombustivel} onChange={(e) => setNovoCombustivel(e.target.value)}
@@ -322,23 +328,14 @@ export default function ConfiguracoesPainel({
         {categoria === 'notificacoes' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <strong>Aviso sonoro do Painel de Controle</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Apito ao chegar uma nova notificação de descida/subida na Fila de Rampa, ou um S.O.S.. Vem{' '}
-                <b>ligado por padrão</b> para todos os usuários, e toca em qualquer tela do sistema — não precisa
-                estar com o Painel de Controle aberto. Somente o administrador pode desativar ou reativar — a
-                alteração é salva e aplicada imediatamente em todo o sistema, para todos os perfis conectados.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Aviso sonoro do Painel de Controle</strong>
               <button type="button" onClick={onAlternarSons} disabled={!ehAdmin || salvandoAvisoSonoro}>
-                {salvandoAvisoSonoro ? 'Salvando…' : sonsAtivados ? 'Desabilitar' : 'Habilitar'}
+                {salvandoAvisoSonoro ? 'Salvando…' : sonsAtivados ? '🔕 Desabilitar aviso sonoro' : '🔔 Habilitar aviso sonoro'}
               </button>
             </div>
 
             <div>
-              <strong>Apitos por manobra</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Quantas vezes o sinal sonoro toca ao confirmar cada manobra na Fila de Rampa. Vale para toda a equipe.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Apitos por manobra</strong>
               <form className="form-vertical" onSubmit={onSalvarApitos} style={{ maxWidth: 320 }}>
                 <label>
                   Apitos na saída (descida)
@@ -356,70 +353,21 @@ export default function ConfiguracoesPainel({
               </form>
             </div>
 
-          </div>
-        )}
-
-        {categoria === 'despacho' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <strong>Relatório automático de documentos vencidos</strong>
-              <p className="dica" style={{ margin: '4px 0 14px' }}>
-                Todo dia o sistema confere quem está com TIE, seguro, habilitação do condutor ou vistoria vencidos (ou
-                vencendo em até 1 mês) e envia uma planilha para o e-mail cadastrado abaixo.
-              </p>
-              <form className="form-inline" onSubmit={onSalvarEmailRelatorio} style={{ marginBottom: 8 }}>
-                <input
-                  type="email" required placeholder="e-mail@exemplo.com" style={{ minWidth: 240 }} disabled={!ehAdmin}
-                  value={emailRelatorio} onChange={(e) => onMudarEmailRelatorio(e.target.value)}
-                />
-                <button type="submit" disabled={!ehAdmin || salvandoEmailRelatorio}>{salvandoEmailRelatorio ? 'Salvando…' : 'Salvar e-mail'}</button>
-                <button type="button" onClick={onEnviarRelatorioAgora} disabled={!ehAdmin || enviandoRelatorio || !emailRelatorio}>
-                  {enviandoRelatorio ? 'Enviando…' : 'Enviar relatório agora'}
-                </button>
-              </form>
-              <p className="dica" style={{ margin: 0 }}>
-                {ultimoEnvioRelatorio ? `Último envio: ${new Date(ultimoEnvioRelatorio).toLocaleString('pt-BR')}` : 'Ainda não foi enviado nenhum relatório para este e-mail.'}
-              </p>
-              {mensagemRelatorio && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemRelatorio}</p>}
-            </div>
-
-            <div>
-              <strong>Exportar planilha de despacho</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Baixa uma planilha com todos os dados de despacho, completos e atualizados.
-              </p>
-              <button type="button" onClick={() => exportar(exportarDespachosCsv, 'despacho', 'despacho')} disabled={exportando === 'despacho'}>
-                {exportando === 'despacho' ? 'Exportando…' : 'Exportar planilha de despacho'}
+              <strong style={{ display: 'block', marginBottom: 8 }}>Apito de combustível</strong>
+              <button type="button" onClick={onAlternarApitoCombustivel} disabled={!ehAdmin || salvandoApitoCombustivel}>
+                {salvandoApitoCombustivel ? 'Salvando…' : apitoCombustivelAtivado ? '🔕 Desabilitar apito de combustível' : '🔔 Habilitar apito de combustível'}
               </button>
-              {mensagemExportacao && exportando === '' && (
-                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-              )}
             </div>
+
           </div>
         )}
 
         {categoria === 'clientes' && (
           <div>
-            <strong>Exportar planilha de clientes</strong>
-            <p className="dica" style={{ margin: '4px 0 10px' }}>
-              Baixa uma planilha com todos os dados de clientes cadastrados, completos e atualizados.
-            </p>
+            <strong style={{ display: 'block', marginBottom: 8 }}>Exportar planilha de clientes</strong>
             <button type="button" onClick={() => exportar(exportarClientesCsv, 'clientes', 'clientes')} disabled={exportando === 'clientes'}>
               {exportando === 'clientes' ? 'Exportando…' : 'Exportar planilha de clientes'}
-            </button>
-            {mensagemExportacao && exportando === '' && (
-              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-            )}
-          </div>
-        )}
-        {categoria === 'manutencao' && (
-          <div>
-            <strong>Exportar planilha de manutenção</strong>
-            <p className="dica" style={{ margin: '4px 0 10px' }}>
-              Baixa uma planilha com todos os dados de manutenção, completos e atualizados.
-            </p>
-            <button type="button" onClick={() => exportar(exportarManutencaoCsv, 'manutencao', 'manutenção')} disabled={exportando === 'manutencao'}>
-              {exportando === 'manutencao' ? 'Exportando…' : 'Exportar planilha de manutenção'}
             </button>
             {mensagemExportacao && exportando === '' && (
               <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
@@ -429,12 +377,7 @@ export default function ConfiguracoesPainel({
         {categoria === 'agenda' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <strong>Agenda da rampa</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Horário de funcionamento, intervalo fixo entre solicitações e mensagens de indisponibilidade — usados
-                pra montar os horários que o cliente pode escolher ao pedir uma descida ou subida. Sincronizado com a
-                Agenda do cliente na hora: um horário fora dessas regras não aparece pra ele selecionar.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Agenda da rampa</strong>
               <form className="form-vertical" onSubmit={salvarConfigRampa} style={{ maxWidth: 420, marginBottom: 10 }}>
                 <label>
                   Abertura da rampa
@@ -464,10 +407,7 @@ export default function ConfiguracoesPainel({
               </form>
               {mensagemRampa && <p className="dica" style={{ margin: '0 0 10px', fontWeight: 600 }}>{mensagemRampa}</p>}
 
-              <strong style={{ display: 'block', marginBottom: 4 }}>Períodos de manutenção da rampa</strong>
-              <p className="dica" style={{ margin: '0 0 10px' }}>
-                Enquanto durar, os horários dentro do período ficam indisponíveis pro cliente escolher.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Períodos de manutenção da rampa</strong>
               <form className="form-inline" onSubmit={adicionarManutencao} style={{ marginBottom: 10 }}>
                 <input required type="datetime-local" title="Início" value={formNovaManutencao.inicio} disabled={!ehAdmin}
                   onChange={(e) => setFormNovaManutencao({ ...formNovaManutencao, inicio: e.target.value })} />
@@ -496,11 +436,7 @@ export default function ConfiguracoesPainel({
             </div>
 
             <div>
-              <strong>Localização (previsão do tempo)</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Cidade usada pra mostrar a previsão do tempo no cabeçalho do Painel de Controle. Busque a cidade da
-                marina e confirme antes de salvar — sem isso, o painel mostra a previsão de Torres/RS (padrão).
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Localização (previsão do tempo)</strong>
               <div className="form-inline" style={{ marginBottom: 8 }}>
                 <input
                   placeholder="Cidade, UF (ex: Torres, RS)" style={{ minWidth: 220 }} disabled={!ehAdmin}
@@ -525,10 +461,7 @@ export default function ConfiguracoesPainel({
         {categoria === 'historico' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <strong>Histórico de manobras</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Toda descida e subida já confirmada na Fila de Rampa, mais recente primeiro.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Histórico de manobras</strong>
               <table className="tabela">
                 <thead>
                   <tr>
@@ -556,11 +489,7 @@ export default function ConfiguracoesPainel({
             </div>
 
             <div>
-              <strong>Exportar histórico de manobras</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Baixa uma planilha com o histórico de manobras (descidas e subidas já confirmadas) disponível no
-                momento, com cliente, embarcação ou jet, tipo de manobra, data e horário.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Exportar histórico de manobras</strong>
               <button type="button" onClick={() => exportar(exportarHistoricoManobrasCsv, 'historico_manobras', 'histórico de manobras')} disabled={exportando === 'historico_manobras'}>
                 {exportando === 'historico_manobras' ? 'Exportando…' : 'Exportar histórico de manobras'}
               </button>
@@ -570,12 +499,7 @@ export default function ConfiguracoesPainel({
             </div>
 
             <div>
-              <strong>Histórico de abastecimento</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Todo pedido de combustível já confirmado — pela equipe ou automaticamente, quando os 15 minutos se
-                esgotam sem cancelamento —, mais recente primeiro. Sai da planilha "Solicitações de combustível" do
-                Painel de Controle assim que confirmado; um pedido cancelado não entra aqui.
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Histórico de abastecimento</strong>
               <table className="tabela">
                 <thead>
                   <tr>
@@ -602,11 +526,7 @@ export default function ConfiguracoesPainel({
             </div>
 
             <div>
-              <strong>Exportar histórico de abastecimento</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Baixa uma planilha com todos os pedidos de combustível já confirmados disponíveis no momento, com
-                cliente, embarcação ou jet, combustível, quantidade e os dois horários (pedido e confirmação).
-              </p>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Exportar histórico de abastecimento</strong>
               <button type="button" onClick={() => exportar(exportarHistoricoAbastecimentoCsv, 'historico_abastecimento', 'histórico de abastecimento')} disabled={exportando === 'historico_abastecimento'}>
                 {exportando === 'historico_abastecimento' ? 'Exportando…' : 'Exportar histórico de abastecimento'}
               </button>
@@ -615,13 +535,6 @@ export default function ConfiguracoesPainel({
               )}
             </div>
           </div>
-        )}
-        {categoria === 'acessos' && (
-          <p className="dica">
-            Somente o perfil <b>Administrador</b> pode alterar qualquer configuração desta tela — vale tanto na
-            interface quanto no banco de dados (funcionário e operador não conseguem gravar mudanças aqui mesmo
-            chamando a API diretamente).
-          </p>
         )}
 
         <div className="acoes-modal" style={{ marginTop: 20 }}>

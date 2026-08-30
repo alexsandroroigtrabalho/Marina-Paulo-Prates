@@ -8,7 +8,7 @@ import SonsPainelAdmin from './SonsPainelAdmin'
 // nome de conta de teste/pessoal em nenhuma tela interna. Só faz sentido
 // dentro de RV Marine (as outras 3 aplicações não têm usuário "logado" numa
 // tela de trabalho, são só "Em construção").
-const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Operador' }
+const LABEL_CARGO = { admin: 'Admin', funcionario: 'Funcionário', operador: 'Operador', rv_master: 'RV Master' }
 
 // Nessas telas o cargo some inteiro do cabeçalho (nem "Admin" aparece) — a
 // pedido da administração. Só o Painel de Controle continua mostrando o
@@ -32,6 +32,16 @@ function MenuAcoesPainel({ acoes }) {
 
 export default function Layout({
   children, appSelecionada, setAppSelecionada, telaAtiva, setTelaAtiva, perfil, titulo, acoesPainel,
+  // marinaId: qual marina/escola tocar os apitos (SonsPainelAdmin) — pra
+  // equipe normal é sempre igual a perfil.marina_id (repassado como
+  // fallback abaixo), mas pro rv_master é o tenant que ele escolheu operar
+  // (perfil.marina_id fica sempre vazio pra esse papel).
+  // aoVoltarRvMaster: só existe pro rv_master com um tenant já escolhido —
+  // mostra o botão "Voltar ao RV Master" no cabeçalho, ao lado de Sair.
+  // semSeletorApps: esconde o seletor de aplicações da sidebar — usado só
+  // na TelaRvMaster (escolher uma aplicação antes de escolher o cliente não
+  // faz sentido).
+  marinaId, aoVoltarRvMaster, semSeletorApps,
 }) {
   const app = buscarApp(appSelecionada)
 
@@ -58,7 +68,7 @@ export default function Layout({
           escolhida) pra tocar os apitos configurados mesmo com o
           administrador fora do Painel de Controle — ver
           SonsPainelAdmin.jsx. Não desenha nada (retorna null). */}
-      <SonsPainelAdmin marinaId={perfil?.marina_id} />
+      <SonsPainelAdmin marinaId={marinaId ?? perfil?.marina_id} />
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
           sempre que não há nada de verdade pra navegar — nem aplicação
           escolhida ainda, nem uma das 3 aplicações ainda "Em construção"
@@ -105,7 +115,7 @@ export default function Layout({
               <IconArrowLeft size={14} /> Aplicações
             </button>
           </>
-        ) : (
+        ) : semSeletorApps ? null : (
           // Nenhuma aplicação escolhida ainda: seletor das aplicações RV
           // Invictus no lugar da lista de itens — a MESMA lista, na mesma
           // ordem e com os mesmos nomes que o cliente vê depois do login
@@ -160,6 +170,12 @@ export default function Layout({
               <span className="usuario">{LABEL_CARGO[perfil?.role] || 'Usuário'}</span>
             )}
             <MenuAcoesPainel acoes={acoesPainel} />
+            {aoVoltarRvMaster && (
+              <button type="button" className="botao-sair" title="Voltar ao RV Master" aria-label="Voltar ao RV Master"
+                onClick={(e) => { e.currentTarget.blur(); aoVoltarRvMaster() }}>
+                <IconArrowLeft size={18} />
+              </button>
+            )}
             {/* Sair saiu do menu lateral — agora fica sempre visível aqui,
                 no canto superior direito da página, qualquer que seja a
                 aplicação/tela atual. */}
