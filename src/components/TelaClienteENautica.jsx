@@ -41,6 +41,7 @@ export default function TelaClienteENautica({ perfil }) {
   const [formFaltando, setFormFaltando] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [erroEnvio, setErroEnvio] = useState(null)
+  const [modalMatriculaAberto, setModalMatriculaAberto] = useState(false)
 
   async function carregar() {
     try {
@@ -95,6 +96,7 @@ export default function TelaClienteENautica({ perfil }) {
         clienteId: cliente.id, marinaId: cliente.marina_id, habilitacao, dadosFaltando: formFaltando,
       })
       await carregar()
+      setModalMatriculaAberto(false)
     } catch (err) {
       setErroEnvio(err.message)
     } finally {
@@ -143,25 +145,43 @@ export default function TelaClienteENautica({ perfil }) {
 
       {!cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração.</p>}
 
-      {/* Sem matrícula ainda: formulário de pedido — só pergunta o que falta
-          (ver camposDocumentoFaltando em lib/enautica.js), nada de
-          pagamento. Também cobre o caso de matrícula recusada: o aluno pode
-          mandar um novo pedido. */}
+      {/* Sem matrícula ainda: a tela inicial só oferece 3 botões, um por
+          habilitação (ver HABILITACOES em lib/enautica.js) — escolher um
+          abre o modal de pedido (padrão dourado/navy do resto do RV Marine,
+          .modal-fundo + .modal-card) já com a habilitação decidida, e nele
+          só entram os campos de documento que ainda faltam (ver
+          camposDocumentoFaltando). Também cobre o caso de matrícula
+          recusada: o aluno pode mandar um novo pedido pelos mesmos botões. */}
       {cliente && (!matricula || matricula.status === 'recusada') && (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {matricula?.status === 'recusada' && (
-            <p className="status-texto cancelado" style={{ marginBottom: 12 }}>
+            <p className="status-texto cancelado">
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
             </p>
           )}
-          <form onSubmit={enviarPedido} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <h3 style={{ margin: 0 }}>Pedido de matrícula</h3>
-            <p className="dica">Escolha a habilitação desejada. Os dados abaixo são usados na geração dos seus documentos de matrícula.</p>
+          <h3 style={{ margin: 0 }}>Pedido de matrícula</h3>
+          <p className="dica">Escolha a habilitação desejada para começar.</p>
 
-            <span className="minha-conta-secao-titulo">Habilitação desejada</span>
-            <select value={habilitacao} onChange={(e) => setHabilitacao(e.target.value)} required>
-              {HABILITACOES.map((h) => <option key={h.chave} value={h.chave}>{h.label}</option>)}
-            </select>
+          {HABILITACOES.map((h) => (
+            <button
+              key={h.chave} type="button"
+              className="painel-cliente-btn painel-cliente-btn-primario"
+              onClick={() => { setHabilitacao(h.chave); setFormFaltando({}); setErroEnvio(null); setModalMatriculaAberto(true) }}
+            >
+              {h.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {modalMatriculaAberto && (
+        <div className="modal-fundo" onClick={() => setModalMatriculaAberto(false)}>
+          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarPedido}>
+            <h3>Pedido de matrícula</h3>
+            <p className="dica">
+              Habilitação: <b>{labelHabilitacao(habilitacao)}</b>.
+              {camposFaltando.length > 0 && ' Os dados abaixo são usados na geração dos seus documentos de matrícula.'}
+            </p>
 
             {camposFaltando.map((c) => (
               c.tipo === 'date' ? (
@@ -184,11 +204,12 @@ export default function TelaClienteENautica({ perfil }) {
 
             {erroEnvio && <p className="erro">{erroEnvio}</p>}
 
-            <button type="submit" className="painel-cliente-btn painel-cliente-btn-primario" disabled={enviando}>
-              {enviando ? 'Enviando…' : 'Enviar pedido de matrícula'}
-            </button>
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setModalMatriculaAberto(false)}>Cancelar</button>
+              <button type="submit" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar pedido'}</button>
+            </div>
           </form>
-        </>
+        </div>
       )}
 
       {cliente && matricula?.status === 'pendente' && (

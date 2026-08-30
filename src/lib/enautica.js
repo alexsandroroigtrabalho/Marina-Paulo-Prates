@@ -14,7 +14,7 @@ import { db, dbEnautica } from './supabase'
 export const HABILITACOES = [
   { chave: 'arrais', label: 'Arrais-Amador' },
   { chave: 'motonauta', label: 'Motonauta' },
-  { chave: 'ambas', label: 'Arrais-Amador + Motonauta' },
+  { chave: 'ambas', label: 'Habilitação completa' },
 ]
 
 export function labelHabilitacao(chave) {
