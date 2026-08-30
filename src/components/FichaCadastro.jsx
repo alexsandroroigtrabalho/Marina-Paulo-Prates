@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase, db } from '../lib/supabase'
+import { maskCpf } from '../lib/mascaras'
 
 // Cadastro inicial: cria a CONTA de acesso à plataforma RV Invictus, e nada
 // além disso. Só nome, CPF, e-mail (com confirmação) e senha (com
@@ -115,8 +116,8 @@ export default function FichaCadastro({ onVoltar }) {
 
         <input placeholder="Nome completo" autoComplete="name" required
           value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-        <input placeholder="CPF" inputMode="numeric" required
-          value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
+        <input placeholder="CPF" inputMode="numeric" required maxLength={14}
+          value={form.cpf} onChange={(e) => setForm({ ...form, cpf: maskCpf(e.target.value) })} />
 
         <input type="email" placeholder="E-mail" autoComplete="email" required
           value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />

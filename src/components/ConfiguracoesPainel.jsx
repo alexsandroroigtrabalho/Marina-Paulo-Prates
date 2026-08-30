@@ -28,15 +28,23 @@ import { geocodePorCidade } from '../lib/clima'
 // "Combustível" é outra coisa e por isso ficou: são os tipos que o cliente
 // pode escolher ao pedir abastecimento — nome e ativo/inativo, sem preço nem
 // estoque, que seriam financeiro.
+//
+// Categorias "Despacho", "Manutenção" e "Acessos" saíram por pedido direto da
+// administração (prompt de ajustes gerais RV Invictus) — eram só um relatório
+// de documentos + exportação de planilha (Despacho), uma exportação de
+// planilha avulsa (Manutenção) e um texto informativo estático (Acessos); a
+// funcionalidade de "Agenda da rampa" continua intacta dentro da categoria
+// abaixo, só renomeada de "Agenda" pra "Rampa". Os handlers/props de
+// relatório de despacho (emailRelatorio, onSalvarEmailRelatorio etc.) ainda
+// chegam por prop do componente pai — não foram removidos de lá pra não mexer
+// em TelaVagas.jsx enquanto outra pessoa edita esse arquivo; seguem apenas
+// sem uso aqui dentro.
 const CATEGORIAS = [
   { chave: 'notificacoes', label: 'Notificações' },
   { chave: 'combustivel', label: 'Combustível' },
-  { chave: 'despacho', label: 'Despacho' },
   { chave: 'clientes', label: 'Clientes' },
-  { chave: 'manutencao', label: 'Manutenção' },
-  { chave: 'agenda', label: 'Agenda' },
+  { chave: 'agenda', label: 'Rampa' },
   { chave: 'historico', label: 'Histórico' },
-  { chave: 'acessos', label: 'Acessos' },
 ]
 
 const LOCALIZACAO_CLIMA_VAZIA = { cidade: '', latitude: null, longitude: null, local: '' }
@@ -45,7 +53,10 @@ export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
   // Notificações — aviso sonoro + apitos
   sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
-  // Despacho — relatório automático de documentos
+  // Despacho — relatório automático de documentos. A categoria "Despacho"
+  // foi removida da UI (ver nota acima do CATEGORIAS), mas os props
+  // continuam chegando do componente pai sem uso aqui — não vale a pena
+  // destrinchar a assinatura de TelaVagas.jsx por isso agora.
   emailRelatorio, onMudarEmailRelatorio, onSalvarEmailRelatorio, salvandoEmailRelatorio,
   ultimoEnvioRelatorio, onEnviarRelatorioAgora, enviandoRelatorio, mensagemRelatorio,
   // Histórico de manobras — antes num modal solto no Painel de Controle,
@@ -359,45 +370,6 @@ export default function ConfiguracoesPainel({
           </div>
         )}
 
-        {categoria === 'despacho' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div>
-              <strong>Relatório automático de documentos vencidos</strong>
-              <p className="dica" style={{ margin: '4px 0 14px' }}>
-                Todo dia o sistema confere quem está com TIE, seguro, habilitação do condutor ou vistoria vencidos (ou
-                vencendo em até 1 mês) e envia uma planilha para o e-mail cadastrado abaixo.
-              </p>
-              <form className="form-inline" onSubmit={onSalvarEmailRelatorio} style={{ marginBottom: 8 }}>
-                <input
-                  type="email" required placeholder="e-mail@exemplo.com" style={{ minWidth: 240 }} disabled={!ehAdmin}
-                  value={emailRelatorio} onChange={(e) => onMudarEmailRelatorio(e.target.value)}
-                />
-                <button type="submit" disabled={!ehAdmin || salvandoEmailRelatorio}>{salvandoEmailRelatorio ? 'Salvando…' : 'Salvar e-mail'}</button>
-                <button type="button" onClick={onEnviarRelatorioAgora} disabled={!ehAdmin || enviandoRelatorio || !emailRelatorio}>
-                  {enviandoRelatorio ? 'Enviando…' : 'Enviar relatório agora'}
-                </button>
-              </form>
-              <p className="dica" style={{ margin: 0 }}>
-                {ultimoEnvioRelatorio ? `Último envio: ${new Date(ultimoEnvioRelatorio).toLocaleString('pt-BR')}` : 'Ainda não foi enviado nenhum relatório para este e-mail.'}
-              </p>
-              {mensagemRelatorio && <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemRelatorio}</p>}
-            </div>
-
-            <div>
-              <strong>Exportar planilha de despacho</strong>
-              <p className="dica" style={{ margin: '4px 0 10px' }}>
-                Baixa uma planilha com todos os dados de despacho, completos e atualizados.
-              </p>
-              <button type="button" onClick={() => exportar(exportarDespachosCsv, 'despacho', 'despacho')} disabled={exportando === 'despacho'}>
-                {exportando === 'despacho' ? 'Exportando…' : 'Exportar planilha de despacho'}
-              </button>
-              {mensagemExportacao && exportando === '' && (
-                <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {categoria === 'clientes' && (
           <div>
             <strong>Exportar planilha de clientes</strong>
@@ -406,20 +378,6 @@ export default function ConfiguracoesPainel({
             </p>
             <button type="button" onClick={() => exportar(exportarClientesCsv, 'clientes', 'clientes')} disabled={exportando === 'clientes'}>
               {exportando === 'clientes' ? 'Exportando…' : 'Exportar planilha de clientes'}
-            </button>
-            {mensagemExportacao && exportando === '' && (
-              <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
-            )}
-          </div>
-        )}
-        {categoria === 'manutencao' && (
-          <div>
-            <strong>Exportar planilha de manutenção</strong>
-            <p className="dica" style={{ margin: '4px 0 10px' }}>
-              Baixa uma planilha com todos os dados de manutenção, completos e atualizados.
-            </p>
-            <button type="button" onClick={() => exportar(exportarManutencaoCsv, 'manutencao', 'manutenção')} disabled={exportando === 'manutencao'}>
-              {exportando === 'manutencao' ? 'Exportando…' : 'Exportar planilha de manutenção'}
             </button>
             {mensagemExportacao && exportando === '' && (
               <p className="dica" style={{ margin: '8px 0 0', fontWeight: 600 }}>{mensagemExportacao}</p>
@@ -615,13 +573,6 @@ export default function ConfiguracoesPainel({
               )}
             </div>
           </div>
-        )}
-        {categoria === 'acessos' && (
-          <p className="dica">
-            Somente o perfil <b>Administrador</b> pode alterar qualquer configuração desta tela — vale tanto na
-            interface quanto no banco de dados (funcionário e operador não conseguem gravar mudanças aqui mesmo
-            chamando a API diretamente).
-          </p>
         )}
 
         <div className="acoes-modal" style={{ marginTop: 20 }}>

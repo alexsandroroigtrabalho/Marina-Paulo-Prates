@@ -27,6 +27,7 @@ import { lerConfigRampa, horariosDisponiveis, paraHoraLocal, RAMPA_PADRAO } from
 // TEMA_PADRAO era usado só pelo link de pagamento (TEMA_PADRAO.linkPagamento)
 // dos modais de QR/Pix, que saíram daqui junto com a cobrança.
 import { exportarHistoricoSolicitacoesCsv } from '../lib/exportarPlanilha'
+import { maskCpf, maskTelefone } from '../lib/mascaras'
 
 // Janela de visibilidade do Histórico de Solicitações (engrenagem →
 // Histórico) — registra TODA solicitação do cliente (pendente, cancelada ou
@@ -370,10 +371,8 @@ export default function TelaClienteDashboard({ perfil }) {
   // Cadastro de embarcação dentro de "Minha conta" (ver bloco Embarcações no
   // modal). Salva sozinho, sem depender do "Salvar" dos dados pessoais —
   // são tabelas diferentes (marina.embarcacoes x marina.clientes).
-  // Troca de senha dentro de "Minha conta" — opcional: em branco, o salvar
-  // não mexe na senha. Não fica no formDados porque senha não é coluna de
-  // marina.clientes; vai pro Supabase Auth (supabase.auth.updateUser).
-  const [novaSenha, setNovaSenha] = useState({ senha: '', confirmar: '' })
+  // O campo "Trocar senha" saiu de "Minha conta" a pedido — troca de senha
+  // deixou de ser feita por aqui.
   const [novaEmbarcacao, setNovaEmbarcacao] = useState({ ...EMBARCACAO_NOVA })
   const [salvandoEmbarcacao, setSalvandoEmbarcacao] = useState(false)
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
@@ -782,11 +781,6 @@ export default function TelaClienteDashboard({ perfil }) {
     e.preventDefault()
     if (!cliente) return
 
-    if (novaSenha.senha || novaSenha.confirmar) {
-      if (novaSenha.senha !== novaSenha.confirmar) { alert('As senhas não coincidem.'); return }
-      if (novaSenha.senha.length < 6) { alert('A senha precisa ter pelo menos 6 caracteres.'); return }
-    }
-
     const emailAtual = (cliente.email || '').trim().toLowerCase()
     const emailNovo = (formDados.email || '').trim().toLowerCase()
     const trocouEmail = emailNovo && emailNovo !== emailAtual
@@ -795,21 +789,15 @@ export default function TelaClienteDashboard({ perfil }) {
     try {
       await salvarCliente({ id: cliente.id, ...formDados })
 
-      if (novaSenha.senha) {
-        const { error } = await supabase.auth.updateUser({ password: novaSenha.senha })
-        if (error) throw error
-      }
       if (trocouEmail) {
         const { error } = await supabase.auth.updateUser({ email: emailNovo })
         if (error) throw error
       }
 
-      setNovaSenha({ senha: '', confirmar: '' })
       setModalDadosAberto(false)
       await carregar()
 
       if (trocouEmail) mostrarAviso('Confirme o link enviado ao novo e-mail para passar a entrar com ele.')
-      else if (novaSenha.senha) mostrarAviso('Senha atualizada.')
     } catch (err) {
       alert(err.message)
     } finally {
@@ -1480,8 +1468,8 @@ export default function TelaClienteDashboard({ perfil }) {
               </select>
               <input placeholder="CPF ou RG (opcional)" value={formAutorizado.documento}
                 onChange={(e) => setFormAutorizado({ ...formAutorizado, documento: e.target.value })} />
-              <input placeholder="Telefone (opcional)" value={formAutorizado.telefone}
-                onChange={(e) => setFormAutorizado({ ...formAutorizado, telefone: e.target.value })} />
+              <input placeholder="Telefone (opcional)" inputMode="numeric" maxLength={15} value={formAutorizado.telefone}
+                onChange={(e) => setFormAutorizado({ ...formAutorizado, telefone: maskTelefone(e.target.value) })} />
               <button type="submit" disabled={salvandoAutorizado}>{salvandoAutorizado ? 'Adicionando...' : '+ Adicionar autorizado'}</button>
             </form>
 
@@ -1508,14 +1496,14 @@ export default function TelaClienteDashboard({ perfil }) {
             <p className="dica">Esses dados também aparecem para a administração da marina.</p>
             <input placeholder="Nome completo" required value={formDados.nome}
               onChange={(e) => setFormDados({ ...formDados, nome: e.target.value })} />
-            <input placeholder="CPF" value={formDados.cpf_cnpj}
-              onChange={(e) => setFormDados({ ...formDados, cpf_cnpj: e.target.value })} />
-            <input placeholder="Documento de identidade (RG)" value={formDados.documento_identidade}
+            <input placeholder="CPF" inputMode="numeric" maxLength={14} value={formDados.cpf_cnpj}
+              onChange={(e) => setFormDados({ ...formDados, cpf_cnpj: maskCpf(e.target.value) })} />
+            <input placeholder="Nº da Carteira de Habilitação de Amador (CHA)" value={formDados.documento_identidade}
               onChange={(e) => setFormDados({ ...formDados, documento_identidade: e.target.value })} />
             <input type="email" placeholder="E-mail (login)" value={formDados.email}
               onChange={(e) => setFormDados({ ...formDados, email: e.target.value })} />
-            <input placeholder="Telefone" value={formDados.telefone}
-              onChange={(e) => setFormDados({ ...formDados, telefone: e.target.value })} />
+            <input placeholder="Telefone" inputMode="numeric" maxLength={15} value={formDados.telefone}
+              onChange={(e) => setFormDados({ ...formDados, telefone: maskTelefone(e.target.value) })} />
             <input placeholder="Endereço (rua, bairro)" value={formDados.endereco}
               onChange={(e) => setFormDados({ ...formDados, endereco: e.target.value })} />
             <div className="cadastro-linha-endereco">
@@ -1531,20 +1519,8 @@ export default function TelaClienteDashboard({ perfil }) {
                 na hora em que é adicionada — são tabelas diferentes. A marina
                 também pode cadastrar pelo Painel de Controle; os dois
                 caminhos convivem. */}
-            {/* Senha: em branco, o salvar não mexe nela. Fica junto do resto
-                porque "Minha conta" reúne TODOS os dados do cliente,
-                inclusive os que ele usou pra criar a conta. */}
-            <div className="minha-conta-secao">
-              <p className="minha-conta-secao-titulo">Trocar senha</p>
-              <input type="password" placeholder="Nova senha (deixe em branco para manter)"
-                autoComplete="new-password" value={novaSenha.senha}
-                onChange={(e) => setNovaSenha({ ...novaSenha, senha: e.target.value })} />
-              {novaSenha.senha && (
-                <input type="password" placeholder="Confirmar nova senha"
-                  autoComplete="new-password" value={novaSenha.confirmar}
-                  onChange={(e) => setNovaSenha({ ...novaSenha, confirmar: e.target.value })} />
-              )}
-            </div>
+            {/* O campo "Trocar senha" saiu de "Minha conta" a pedido — troca
+                de senha deixou de ser feita por aqui. */}
 
             <div className="minha-conta-secao">
               <p className="minha-conta-secao-titulo">Embarcações</p>
