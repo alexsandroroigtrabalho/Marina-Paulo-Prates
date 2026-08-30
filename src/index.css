@@ -1263,56 +1263,73 @@ button.badge:hover { filter: brightness(0.95); }
 /* ---------- RV e-Náutica: botões de habilitação (tela de matrícula) ----------
    Arrais-Amador e Motonauta seguem a mesma linguagem do botão "Subida" do
    RV Marine (.painel-cliente-btn-outline): fundo branco, contorno dourado
-   (--dourado-texto), texto no azul-petróleo — com a foto (embarcacao.png /
-   motonauta.png, em public/enautica/) entrando pela direita.
-   IMPORTANTE sobre `background-position`/`background-size` com 2 camadas
-   (degradê + foto): os dois valores da lista têm que corresponder 1:1 às
-   duas camadas de `background-image` — dar só 1 valor (ou um valor com
-   sintaxe inválida, como aconteceu antes com "right -10px center") faz o
-   navegador aplicar o mesmo valor errado nas DUAS camadas, e a foto e o
-   degradê saem desalinhados: é o que causava aquela borda reta aparecendo
-   no meio da foto. Aqui cada camada tem seu próprio par explícito: o
-   degradê sempre cobre a caixa inteira (100% 100%, posição 0 0), só a foto
-   usa o zoom (auto Nx, ancorada à direita). O degradê em si é curto (~28%
-   da largura) e vai a 0 de opacidade rápido — depois disso a foto fica
-   totalmente nítida, sem nenhuma névoa por cima (antes ela ficava
-   "lavada" de branco até quase o fim). Habilitação Completa não leva foto
-   (só texto, centralizado) — continua no azul-petróleo sólido pra se
-   destacar como a opção "premium" das três. */
+   (--dourado-texto), texto no azul-petróleo.
+   A foto (embarcacao.png / motonauta.png, em public/enautica/) e o degradê
+   NÃO são duas camadas de `background` do próprio botão (isso foi tentado
+   antes e sempre acabava desalinhando as camadas — um seam reto exatamente
+   onde a foto devia começar). Em vez disso são dois pseudo-elementos
+   separados, cada um com sua própria caixa:
+     ::after  — só a foto, presa na quina direita (`right:0`), com largura
+                fixa (--enautica-largura-foto) e `background-size: cover`
+                (recorte real, sem distorcer nem esticar, "zoom" de
+                verdade) — cobre até a quina, sem gap nenhum.
+     ::before — só o degradê, ocupando a caixa INTEIRA do botão (`inset:0`),
+                por cima da foto (z-index maior) — como ele nasce branco
+                sólido e termina 100% transparente bem DEPOIS de onde a
+                foto começa (a foto começa em `right: X%`, o degradê só
+                fica transparente perto de `100% - X%`), a transição cai
+                em cima da própria foto, suave, sem sobra de branco nem
+                beirada — e sem lavar a foto inteira de branco.
+   Habilitação Completa não leva foto (só texto, centralizado) — continua
+   no azul-petróleo sólido pra se destacar como a opção "premium". */
 .enautica-botao-habilitacao {
+  /* z-index:0 (não só position:relative) é o que faz o botão abrir um
+     stacking context PRÓPRIO — sem isso, ::before/::after com z-index
+     negativo "escapam" pra trás de tudo (inclusive o fundo da página),
+     ficando completamente invisíveis, porque passam a empilhar contra o
+     stacking context do ANCESTRAL mais próximo, não o do botão. */
+  position: relative; z-index: 0; overflow: hidden;
   display: flex; align-items: center; text-align: left;
   width: 100%; min-height: 92px; padding: 18px 22px; gap: 8px;
   border-radius: 16px; cursor: pointer;
   font-family: inherit; font-weight: 700; font-size: 16px; letter-spacing: 0.01em;
-  background-repeat: no-repeat;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .enautica-botao-habilitacao:hover { transform: translateY(-1px); }
 .enautica-botao-habilitacao:active { transform: translateY(0); }
 .enautica-botao-habilitacao:focus-visible { outline: 2px solid #D4AF37; outline-offset: 2px; }
+.enautica-botao-habilitacao > * { position: relative; z-index: 1; }
 
 .enautica-botao-habilitacao--arrais,
 .enautica-botao-habilitacao--motonauta {
+  --enautica-largura-foto: 58%;
   justify-content: flex-start;
   color: var(--cor-primaria);
   background-color: #fff;
   border: 1px solid var(--dourado-texto);
-  background-position: 0 0, right center;
-  background-size: 100% 100%, auto 175%;
 }
 .enautica-botao-habilitacao--arrais:hover,
 .enautica-botao-habilitacao--motonauta:hover {
   border-color: #D4AF37; box-shadow: 0 4px 16px rgba(140,107,30,0.18);
 }
-.enautica-botao-habilitacao--arrais {
-  background-image:
-    linear-gradient(to right, #fff 0%, #fff 20%, rgba(255,255,255,0) 42%),
-    url('/enautica/embarcacao.png');
+.enautica-botao-habilitacao--arrais::after,
+.enautica-botao-habilitacao--motonauta::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0;
+  width: var(--enautica-largura-foto);
+  background-size: cover; background-repeat: no-repeat; background-position: 62% center;
+  z-index: -2;
 }
-.enautica-botao-habilitacao--motonauta {
-  background-image:
-    linear-gradient(to right, #fff 0%, #fff 20%, rgba(255,255,255,0) 42%),
-    url('/enautica/motonauta.png');
+.enautica-botao-habilitacao--arrais::after { background-image: url('/enautica/embarcacao.png'); }
+.enautica-botao-habilitacao--motonauta::after { background-image: url('/enautica/motonauta.png'); }
+.enautica-botao-habilitacao--arrais::before,
+.enautica-botao-habilitacao--motonauta::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(
+    to right,
+    #fff 0%,
+    #fff calc(100% - var(--enautica-largura-foto) - 6%),
+    rgba(255,255,255,0) calc(100% - var(--enautica-largura-foto) + 16%)
+  );
 }
 
 .enautica-botao-habilitacao--ambas {
@@ -1321,15 +1338,6 @@ button.badge:hover { filter: brightness(0.95); }
   color: #F5F5F0; background: #0D1B2A; border: 1px solid rgba(212,175,55,0.45);
 }
 .enautica-botao-habilitacao--ambas:hover { border-color: #D4AF37; }
-
-/* Tagline abaixo do botão Habilitação Completa — dourada, centralizada,
-   na mesma fonte de leitura usada nas linhas do Diário de Bordo
-   (.diario-lista .linha: Inter, a fonte de corpo padrão, sem itálico) só
-   decorativa (não afeta nenhuma lógica de matrícula). */
-.enautica-slogan {
-  text-align: center; font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  color: var(--dourado-texto); font-size: 14px; margin: -4px 0 0;
-}
 
 /* Diário de Bordo: fonte um pouco maior só aqui — não mexe em .cliente-card
    nem em .status-texto direto porque essas classes são compartilhadas com

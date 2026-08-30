@@ -30,7 +30,6 @@ export const CAMPOS_DOCUMENTO = [
   { chave: 'data_nascimento', label: 'Data de nascimento', tipo: 'date' },
   { chave: 'rg', label: 'RG', tipo: 'text' },
   { chave: 'orgao_expedidor', label: 'Órgão expedidor do RG', tipo: 'text' },
-  { chave: 'data_emissao_rg', label: 'Data de emissão do RG', tipo: 'date' },
   { chave: 'naturalidade', label: 'Naturalidade (cidade onde nasceu)', tipo: 'text' },
   { chave: 'nacionalidade', label: 'Nacionalidade', tipo: 'text' },
   { chave: 'telefone', label: 'Telefone', tipo: 'text' },

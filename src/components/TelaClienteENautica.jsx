@@ -173,14 +173,13 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               {h.label}
             </button>
           ))}
-          <p className="enautica-slogan">Aventure-se e sinta a adrenalina, comece hoje mesmo.</p>
         </div>
       )}
 
       {modalMatriculaAberto && (
         <div className="modal-fundo" onClick={() => setModalMatriculaAberto(false)}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarPedido}>
-            <h3>Pedido de matrícula</h3>
+            <h3>Matrícula</h3>
             <p className="dica">
               Habilitação: <b>{labelHabilitacao(habilitacao)}</b>.
               {camposFaltando.length > 0 && ' Os dados abaixo são usados na geração dos seus documentos de matrícula.'}
