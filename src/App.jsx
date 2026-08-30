@@ -232,7 +232,7 @@ export default function App() {
       )
     }
     const ComponenteCliente = COMPONENTES_CLIENTE[appSelecionada]
-    return <ComponenteCliente perfil={perfil} />
+    return <ComponenteCliente perfil={perfil} onVoltar={() => setAppSelecionada(null)} />
   }
 
   // Admin / funcionário / operador ("nossos clientes" — a equipe da

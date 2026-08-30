@@ -27,7 +27,7 @@ const ABAS_ALUNO = [
   { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
 ]
 
-export default function TelaClienteENautica({ perfil }) {
+export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [cliente, setCliente] = useState(null)
   const [matricula, setMatricula] = useState(null)
   const [marina, setMarina] = useState(null)
@@ -132,7 +132,10 @@ export default function TelaClienteENautica({ perfil }) {
       <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         <strong className="painel-cliente-marina">{marina?.nome || 'RV e-Náutica'}</strong>
-        <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair" onClick={() => supabase.auth.signOut()}>
+        {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
+            (mesmo padrão do "Voltar" nas telas de "Em construção"/"Não
+            contratada" em App.jsx). A sessão do Supabase segue ativa. */}
+        <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair" onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
           <IconLogout size={16} />
         </button>
       </header>
@@ -159,8 +162,7 @@ export default function TelaClienteENautica({ perfil }) {
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
             </p>
           )}
-          <h3 style={{ margin: 0 }}>Pedido de matrícula</h3>
-          <p className="dica">Escolha a habilitação desejada para começar.</p>
+          <h3 style={{ margin: 0 }}>Habilite-se!</h3>
 
           {HABILITACOES.map((h) => (
             <button
@@ -171,6 +173,7 @@ export default function TelaClienteENautica({ perfil }) {
               {h.label}
             </button>
           ))}
+          <p className="enautica-slogan">Mares calmos não formam bons marujos — aventure-se, sinta a adrenalina, comece hoje mesmo.</p>
         </div>
       )}
 
@@ -311,6 +314,8 @@ export default function TelaClienteENautica({ perfil }) {
           )}
         </>
       )}
+
+      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
     </div>
   )
 }

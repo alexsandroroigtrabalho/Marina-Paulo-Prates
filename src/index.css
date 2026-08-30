@@ -1261,32 +1261,64 @@ button.badge:hover { filter: brightness(0.95); }
 }
 
 /* ---------- RV e-Náutica: botões de habilitação (tela de matrícula) ----------
-   Cartão-botão largo com a foto (embarcacao.png / motonauta.png, em
-   public/enautica/) entrando pela direita e se dissolvendo no azul-petróleo
-   do fundo — a mesma foto é a única diferença visual entre as 3
-   habilitações, então cada uma vira um modificador (--arrais/--motonauta/
-   --ambas) que só troca a url() de fundo. O degradê é pintado por cima da
-   foto na mesma propriedade `background` (camadas CSS: a primeira listada
-   fica por cima), então não precisa de elemento nem pseudo-elemento extra
-   pra mascarar a imagem — só a leitura do texto à esquerda, que fica sobre
-   navy sólido, importa. */
+   Arrais-Amador e Motonauta seguem a mesma linguagem do botão "Subida" do
+   RV Marine (.painel-cliente-btn-outline): fundo branco, contorno dourado
+   (--dourado-texto), texto no azul-petróleo — com a foto (embarcacao.png /
+   motonauta.png, em public/enautica/) entrando pela direita e se
+   dissolvendo no branco do botão. O degradê tem vários estágios (não só
+   dois) de propósito — pediram explicitamente pra suavizar a transição
+   entre o branco sólido e a foto, sem beirada reta. Habilitação Completa
+   não leva foto (só texto, centralizado) — continua no azul-petróleo
+   sólido pra se destacar como a opção "premium" das três. */
 .enautica-botao-habilitacao {
-  display: flex; align-items: center; justify-content: flex-start; text-align: left;
-  width: 100%; min-height: 84px; padding: 18px 22px; gap: 8px;
-  border: 1px solid rgba(212,175,55,0.3); border-radius: 16px; cursor: pointer;
-  font-family: inherit; font-weight: 700; font-size: 16px; letter-spacing: 0.01em; color: #F5F5F0;
-  background-repeat: no-repeat; background-position: right center; background-size: auto 100%;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  display: flex; align-items: center; text-align: left;
+  width: 100%; min-height: 92px; padding: 18px 22px; gap: 8px;
+  border-radius: 16px; cursor: pointer;
+  font-family: inherit; font-weight: 700; font-size: 16px; letter-spacing: 0.01em;
+  background-repeat: no-repeat; background-position: right center;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.enautica-botao-habilitacao:hover { border-color: #D4AF37; transform: translateY(-1px); }
+.enautica-botao-habilitacao:hover { transform: translateY(-1px); }
 .enautica-botao-habilitacao:active { transform: translateY(0); }
 .enautica-botao-habilitacao:focus-visible { outline: 2px solid #D4AF37; outline-offset: 2px; }
+
 .enautica-botao-habilitacao--arrais,
-.enautica-botao-habilitacao--ambas {
-  background-image: linear-gradient(to right, #0D1B2A 0%, #0D1B2A 40%, rgba(13,27,42,0.2) 92%), url('/enautica/embarcacao.png');
+.enautica-botao-habilitacao--motonauta {
+  justify-content: flex-start;
+  color: var(--cor-primaria);
+  background-color: #fff;
+  border: 1px solid var(--dourado-texto);
+  background-size: auto 165%;
+}
+.enautica-botao-habilitacao--arrais:hover,
+.enautica-botao-habilitacao--motonauta:hover {
+  border-color: #D4AF37; box-shadow: 0 4px 16px rgba(140,107,30,0.18);
+}
+.enautica-botao-habilitacao--arrais {
+  background-image:
+    linear-gradient(to right, #fff 0%, #fff 22%, rgba(255,255,255,0.9) 38%, rgba(255,255,255,0.6) 55%, rgba(255,255,255,0.25) 72%, rgba(255,255,255,0) 92%),
+    url('/enautica/embarcacao.png');
+  background-position: right -10px center, right center;
 }
 .enautica-botao-habilitacao--motonauta {
-  background-image: linear-gradient(to right, #0D1B2A 0%, #0D1B2A 40%, rgba(13,27,42,0.2) 92%), url('/enautica/motonauta.png');
+  background-image:
+    linear-gradient(to right, #fff 0%, #fff 22%, rgba(255,255,255,0.9) 38%, rgba(255,255,255,0.6) 55%, rgba(255,255,255,0.25) 72%, rgba(255,255,255,0) 92%),
+    url('/enautica/motonauta.png');
+  background-position: right -25px center, right center;
+}
+
+.enautica-botao-habilitacao--ambas {
+  justify-content: center; text-align: center;
+  min-height: 60px;
+  color: #F5F5F0; background: #0D1B2A; border: 1px solid rgba(212,175,55,0.45);
+}
+.enautica-botao-habilitacao--ambas:hover { border-color: #D4AF37; }
+
+/* Tagline abaixo do botão Habilitação Completa — dourado, itálico,
+   centralizada; só decorativa (não afeta nenhuma lógica de matrícula). */
+.enautica-slogan {
+  text-align: center; font-style: italic; color: var(--dourado-texto);
+  font-size: 13px; margin: -4px 0 0;
 }
 
 /* Diário de Bordo: fonte um pouco maior só aqui — não mexe em .cliente-card
