@@ -1793,3 +1793,152 @@ button.badge:hover { filter: brightness(0.95); }
 @media (max-width: 380px) {
   .painel-cliente .diario-item-corpo { padding-left: 0; }
 }
+
+/* ============================================================
+   CONFIGURAÇÕES DO PAINEL DE CONTROLE NA ESTÉTICA DA MARCA
+   ------------------------------------------------------------
+   Mesmo tratamento visual dos painéis do cliente acima (ver bloco
+   "PAINÉIS DO CLIENTE NA ESTÉTICA DE ENTRADA"): azul-petróleo com trama de
+   losangos, título em Cinzel dourado, campos de vidro fosco com fio
+   dourado, botão ônix com borda dourada — pedido de unificação visual
+   entre os dois lados do sistema (prompt de ajustes gerais RV Invictus,
+   categoria "Design System, UI/UX e Limpeza de Interface").
+
+   Escopo próprio (`.configuracoes-modal-dourado`, aplicado só no
+   modal-fundo de ConfiguracoesPainel.jsx) em vez de reaproveitar
+   `.painel-cliente`: aqui as regras não duplicam por preguiça, duplicam
+   porque as duas telas têm formas diferentes — o modal de Configurações
+   tem várias categorias com botões soltos (Adicionar, Salvar, Exportar,
+   toggles de apito) fora de um .acoes-modal único, então o botão base
+   dourado precisa de uma regra genérica que o painel do cliente não tinha
+   (lá, praticamente todo botão vive dentro de .acoes-modal). As cores e
+   fontes são as mesmas; o texto de `<strong>` (cabeçalho de cada seção
+   aqui) não precisa de regra própria — herda a cor clara do .modal-card
+   abaixo, igual a qualquer <p>/<label> sem cor própria. */
+.configuracoes-modal-dourado { background: rgba(13,27,42,0.55); }
+.configuracoes-modal-dourado .modal-card {
+  scrollbar-width: thin; scrollbar-color: rgba(212,175,55,0.45) transparent;
+}
+.configuracoes-modal-dourado .modal-card::-webkit-scrollbar { width: 8px; }
+.configuracoes-modal-dourado .modal-card::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.4); border-radius: 999px; }
+.configuracoes-modal-dourado .modal-card::-webkit-scrollbar-track { background: transparent; }
+
+.configuracoes-modal-dourado .modal-card {
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 500px 300px at 50% -25%, rgba(212,175,55,0.14), transparent 62%),
+    repeating-linear-gradient(45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px),
+    repeating-linear-gradient(-45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px);
+  border: 1px solid rgba(212,175,55,0.34);
+  box-shadow: 0 22px 54px rgba(0,0,0,0.45);
+  color: #F5F5F0;
+}
+.configuracoes-modal-dourado .modal-card h3 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700; font-size: 18px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: #D4AF37; text-align: center; margin: 0 0 2px;
+}
+.configuracoes-modal-dourado .modal-card .dica {
+  font-family: 'Montserrat', sans-serif; font-size: 11.5px; color: rgba(245,245,240,0.6);
+}
+
+/* Campos: idênticos aos do painel do cliente. */
+.configuracoes-modal-dourado .modal-card input,
+.configuracoes-modal-dourado .modal-card select,
+.configuracoes-modal-dourado .modal-card textarea {
+  background: rgba(245,245,240,0.05);
+  border: 1px solid rgba(212,175,55,0.32);
+  border-radius: 10px;
+  color: #F5F5F0;
+  font-family: 'Montserrat', sans-serif;
+}
+.configuracoes-modal-dourado .modal-card input::placeholder,
+.configuracoes-modal-dourado .modal-card textarea::placeholder { color: rgba(245,245,240,0.4); }
+.configuracoes-modal-dourado .modal-card input:focus,
+.configuracoes-modal-dourado .modal-card select:focus,
+.configuracoes-modal-dourado .modal-card textarea:focus {
+  outline: none; border-color: #D4AF37; background: rgba(245,245,240,0.08);
+}
+.configuracoes-modal-dourado .modal-card select option { background: #0D1B2A; color: #F5F5F0; }
+
+/* Abas de categoria (Notificações/Combustível/Clientes/Rampa/Histórico) —
+   exclusivas deste modal, não existem no painel do cliente. */
+.configuracoes-modal-dourado .modal-card .abas button {
+  background: rgba(245,245,240,0.05); border: 1px solid rgba(212,175,55,0.25);
+  color: rgba(245,245,240,0.65);
+}
+.configuracoes-modal-dourado .modal-card .abas button.ativo {
+  background: #0B0B0D; border-color: #D4AF37; color: #D4AF37;
+}
+
+/* Cartões de lista (tipos de combustível cadastrados). */
+.configuracoes-modal-dourado .modal-card .cliente-card {
+  background: rgba(245,245,240,0.04);
+  border: 1px solid rgba(212,175,55,0.3);
+  box-shadow: none;
+  color: #F5F5F0;
+}
+.configuracoes-modal-dourado .modal-card .cliente-card .linha { color: #F5F5F0; }
+.configuracoes-modal-dourado .modal-card .cliente-card .linha b { color: rgba(245,245,240,0.6); }
+
+/* Caixa de marcar — mesmo redesenho do painel do cliente. */
+.configuracoes-modal-dourado .modal-card .opcao-checkbox { color: rgba(245,245,240,0.85); font-family: 'Montserrat', sans-serif; font-size: 13px; }
+.configuracoes-modal-dourado .modal-card .opcao-checkbox input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 17px; height: 17px; flex-shrink: 0;
+  background: rgba(245,245,240,0.05);
+  border: 1px solid rgba(212,175,55,0.45);
+  border-radius: 5px;
+  display: grid; place-content: center;
+  cursor: pointer;
+}
+.configuracoes-modal-dourado .modal-card .opcao-checkbox input[type="checkbox"]::before {
+  content: ''; width: 9px; height: 9px; border-radius: 2px;
+  transform: scale(0); transition: transform 120ms ease-in-out;
+  background: #D4AF37;
+}
+.configuracoes-modal-dourado .modal-card .opcao-checkbox input[type="checkbox"]:checked { border-color: #D4AF37; }
+.configuracoes-modal-dourado .modal-card .opcao-checkbox input[type="checkbox"]:checked::before { transform: scale(1); }
+.configuracoes-modal-dourado .modal-card .opcao-checkbox input[type="checkbox"]:focus-visible { outline: 2px solid #D4AF37; outline-offset: 2px; }
+
+/* Botão base: aqui, ao contrário do painel do cliente, a maioria dos
+   botões (Adicionar, Salvar, Buscar cidade, Exportar, toggles de apito,
+   Remover) vive solta dentro de cada categoria, não dentro de um único
+   .acoes-modal — por isso o estilo "ônix + dourado" precisa ser a regra
+   genérica de qualquer <button>, não só de .acoes-modal button. */
+.configuracoes-modal-dourado .modal-card button {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; font-size: 13px; letter-spacing: 0.02em;
+  background: #0B0B0D; border: 1px solid #D4AF37; color: #D4AF37;
+  padding: 8px 16px; border-radius: 10px; cursor: pointer;
+}
+.configuracoes-modal-dourado .modal-card button:hover:not(:disabled) { background: #151519; border-color: #e2c260; color: #e2c260; }
+.configuracoes-modal-dourado .modal-card button:disabled { opacity: 0.5; cursor: default; }
+/* O botão único de fechar o modal (.acoes-modal) fica em contorno, igual
+   ao "Cancelar" do painel do cliente — não é uma ação de salvar. */
+.configuracoes-modal-dourado .modal-card .acoes-modal button {
+  background: transparent; border: 1.5px solid rgba(212,175,55,0.5); color: #D4AF37;
+}
+.configuracoes-modal-dourado .modal-card .acoes-modal button:hover:not(:disabled) { background: rgba(212,175,55,0.08); }
+
+/* Links discretos ("Voltar" não existe aqui, mas o padrão fica pronto se
+   algum dia precisar). */
+.configuracoes-modal-dourado .modal-card .voltar,
+.configuracoes-modal-dourado .modal-card button.voltar { background: none; border: none; color: rgba(245,245,240,0.6); padding: 4px; }
+.configuracoes-modal-dourado .modal-card .voltar:hover,
+.configuracoes-modal-dourado .modal-card button.voltar:hover { color: #D4AF37; }
+
+/* Tabelas (períodos de manutenção, histórico de manobras/abastecimento). */
+.configuracoes-modal-dourado .modal-card .tabela { background: rgba(245,245,240,0.04); box-shadow: none; }
+.configuracoes-modal-dourado .modal-card .tabela th {
+  background: rgba(245,245,240,0.06); color: rgba(245,245,240,0.55);
+}
+.configuracoes-modal-dourado .modal-card .tabela th, .configuracoes-modal-dourado .modal-card .tabela td {
+  border-bottom: 1px solid rgba(212,175,55,0.16); color: #F5F5F0;
+}
+
+/* Selos de status (usados no histórico de manobras/abastecimento e no
+   aviso de acesso não-admin). */
+.configuracoes-modal-dourado .modal-card .status-texto.em-dia { color: #9BC77A; }
+.configuracoes-modal-dourado .modal-card .status-texto.pendente { color: #E0A25E; }
+.configuracoes-modal-dourado .modal-card .status-texto.cancelado { color: rgba(245,245,240,0.5); }

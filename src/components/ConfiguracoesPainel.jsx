@@ -276,7 +276,7 @@ export default function ConfiguracoesPainel({
   if (!aberto) return null
 
   return (
-    <div className="modal-fundo" onClick={onFechar}>
+    <div className="modal-fundo configuracoes-modal-dourado" onClick={onFechar}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto', maxWidth: 720 }}>
         <h3 style={{ marginTop: 0 }}>Configurações do sistema</h3>
 
