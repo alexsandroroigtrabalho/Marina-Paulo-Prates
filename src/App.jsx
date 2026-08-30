@@ -48,6 +48,23 @@ const COMPONENTES_CLIENTE = {
 
 const PAPEIS_INTERNOS = ['admin', 'funcionario', 'operador']
 
+// rv_master (super-admin da RV Invictus, ver migração
+// rv_master_tenant_management) é tratado à parte de PAPEIS_INTERNOS: entra
+// na mesma área da equipe, mas sem marina_id fixo — em vez disso escolhe
+// qual marina/escola operar (ver EscolherMarinaRvMaster abaixo). Acesso de
+// verdade aos dados (não só a tela) depende de policy própria em cada
+// tabela — hoje só enautica.matriculas/agendamentos/certificados e SELECT
+// em marina.clientes têm essa policy (migração
+// rv_master_acesso_teste_enautica, escopo combinado com o Alex: só o
+// necessário pra testar Matrículas do e-Náutica). Outras tabelas do schema
+// marina (embarcacoes, agendamentos da Rampa, laudos, despachos...) ainda
+// não têm — o Painel de Controle e outras telas do RV Marine aparecem
+// vazios/bloqueados pra este papel até isso ser decidido com quem está
+// construindo o RV Master de verdade.
+function ehRvMaster(perfil) {
+  return perfil?.role === 'rv_master'
+}
+
 export default function App() {
   const [sessao, setSessao] = useState(null)
   const [perfil, setPerfil] = useState(null)
@@ -88,6 +105,15 @@ export default function App() {
   // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
   // usuário, em vez de botões fixos em cima da Fila de Rampa.
   const [acoesVagas, setAcoesVagas] = useState(null)
+  // Só para rv_master: qual marina/escola ele escolheu operar nesta sessão
+  // de tela (não é salvo em lugar nenhum — escolhe de novo a cada login).
+  // null = ainda não escolheu.
+  const [marinaEscolhidaRvMaster, setMarinaEscolhidaRvMaster] = useState(null)
+  const [listaMarinasRvMaster, setListaMarinasRvMaster] = useState(null)
+
+  // marina_id "efetivo" pra tudo que vem depois: da equipe normal (via
+  // perfil) ou da escolha manual do rv_master.
+  const marinaIdEfetivo = ehRvMaster(perfil) ? marinaEscolhidaRvMaster : perfil?.marina_id
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -107,11 +133,20 @@ export default function App() {
   }, [sessao])
 
   useEffect(() => {
-    if (!perfil?.marina_id) { setNomeMarina(null); setAppsContratadosEquipe(null); return }
-    buscarMarina(perfil.marina_id)
+    if (!marinaIdEfetivo) { setNomeMarina(null); setAppsContratadosEquipe(null); return }
+    buscarMarina(marinaIdEfetivo)
       .then((m) => { setNomeMarina(m?.nome || null); setAppsContratadosEquipe(m?.apps_contratados || ['marine']) })
       .catch(() => { setNomeMarina(null); setAppsContratadosEquipe(['marine']) })
-  }, [perfil?.marina_id])
+  }, [marinaIdEfetivo])
+
+  // Lista de marinas/escolas pro seletor do rv_master (marina.marinas tem
+  // policy própria liberando SELECT geral pra esse papel — ver migração do
+  // colega, rv_master_tenant_management).
+  useEffect(() => {
+    if (!ehRvMaster(perfil) || marinaEscolhidaRvMaster) return
+    db.from('marinas').select('id, nome').order('nome').then(({ data }) => setListaMarinasRvMaster(data || []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perfil])
 
   // Quais aplicações o CLIENTE pode de fato acessar (não só ver na
   // vitrine): `apps_contratados` da marina/escola do PRÓPRIO cliente — não
@@ -167,7 +202,7 @@ export default function App() {
   // nenhuma alteração); as demais mostram "Em construção", com volta pra
   // seleção. A sessão do Supabase não é tocada em nenhum desses passos —
   // trocar de aplicação é só estado de tela, o usuário segue logado.
-  if (!PAPEIS_INTERNOS.includes(perfil.role)) {
+  if (!PAPEIS_INTERNOS.includes(perfil.role) && !ehRvMaster(perfil)) {
     if (!appSelecionada) {
       return <SelecaoAplicacoes onSelecionar={setAppSelecionada} />
     }
@@ -204,7 +239,28 @@ export default function App() {
   }
 
   // Admin / funcionário / operador ("nossos clientes" — a equipe da
-  // marina): shell interno com sidebar.
+  // marina) OU rv_master testando uma marina específica: shell interno com
+  // sidebar. rv_master escolhe a marina/escola antes de mais nada — sem
+  // isso não há `marinaIdEfetivo` pra passar pra nenhuma tela.
+  if (ehRvMaster(perfil) && !marinaEscolhidaRvMaster) {
+    return (
+      <div className="tela-central">
+        <div className="card-login" style={{ maxWidth: 360 }}>
+          <h1 className="login-titulo" style={{ fontSize: 20 }}>Escolha uma marina/escola</h1>
+          <p className="dica">Conta rv_master — acesso de teste, só para enautica.matriculas e afins (ver comentário em App.jsx). Escolha em qual tenant operar.</p>
+          {listaMarinasRvMaster === null && <p>Carregando…</p>}
+          {listaMarinasRvMaster?.length === 0 && <p>Nenhuma marina cadastrada.</p>}
+          <div className="lista-cards">
+            {listaMarinasRvMaster?.map((m) => (
+              <button key={m.id} type="button" className="painel-card" style={{ width: '100%' }} onClick={() => setMarinaEscolhidaRvMaster(m.id)}>
+                {m.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Nenhuma aplicação escolhida ainda: sidebar mostra o seletor,
   // conteúdo mostra só a marca d'água convidando a escolher uma. Sem
@@ -225,7 +281,7 @@ export default function App() {
   // `apps_contratados` — o seletor da sidebar continua mostrando todas
   // (vitrine). Só verifica depois de carregar (evita um flash da tela
   // trancada antes do dado chegar).
-  if (appsContratadosEquipe && !appsContratadosEquipe.includes(appSelecionada)) {
+  if (!ehRvMaster(perfil) && appsContratadosEquipe && !appsContratadosEquipe.includes(appSelecionada)) {
     return (
       <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo={nomeCompleto(app)}>
         <PaginaMarcaDagua texto="Esta aplicação não faz parte do seu plano atual. Fale com a RV Invictus para contratar." />
@@ -260,7 +316,7 @@ export default function App() {
       acoesPainel={telaDaApp === 'vagas' ? acoesVagas : null}
     >
       <Componente
-        marinaId={perfil?.marina_id} perfil={perfil}
+        marinaId={marinaIdEfetivo} perfil={perfil}
         onAcoes={telaDaApp === 'vagas' ? setAcoesVagas : undefined}
       />
     </Layout>
