@@ -15,6 +15,9 @@ import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
+import TelaMatriculasENautica from './components/TelaMatriculasENautica'
+import TelaClienteENautica from './components/TelaClienteENautica'
+import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
 
 // Catálogo de telas da área administrativa: chave → componente e título.
 // QUAL aplicação mostra QUAIS telas é decidido em lib/apps.js (campo
@@ -31,6 +34,16 @@ const TELAS = {
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
+  matriculas: { titulo: 'Matrículas', Componente: TelaMatriculasENautica },
+}
+
+// Qual componente mostrar pro CLIENTE FINAL em cada aplicação com
+// `clientePronto: true` (lib/apps.js) — equivalente ao TELAS acima, só que
+// pro lado do cliente em vez da equipe. Cada aplicação nova com experiência
+// de cliente só precisa de uma linha aqui.
+const COMPONENTES_CLIENTE = {
+  marine: TelaClienteDashboard,
+  enautica: TelaClienteENautica,
 }
 
 const PAPEIS_INTERNOS = ['admin', 'funcionario', 'operador']
@@ -45,6 +58,11 @@ export default function App() {
   // enquanto carrega; TELAS.vagas.titulo abaixo cai no nome de referência
   // só nesse intervalo bem curto.
   const [nomeMarina, setNomeMarina] = useState(null)
+  // apps_contratados da própria marina/escola (equipe interna) — mesma
+  // trava do lado do cliente, aqui pro lado da equipe: a marina/escola só
+  // acessa de verdade o que contratou, mesmo enxergando a lista completa no
+  // seletor (vitrine). null enquanto carrega.
+  const [appsContratadosEquipe, setAppsContratadosEquipe] = useState(null)
   const [carregando, setCarregando] = useState(true)
   // true quando o usuário chegou pelo link de "Esqueci minha senha" (evento
   // 'PASSWORD_RECOVERY' do Supabase Auth, disparado ao abrir o link do
@@ -89,9 +107,29 @@ export default function App() {
   }, [sessao])
 
   useEffect(() => {
-    if (!perfil?.marina_id) { setNomeMarina(null); return }
-    buscarMarina(perfil.marina_id).then((m) => setNomeMarina(m?.nome || null)).catch(() => setNomeMarina(null))
+    if (!perfil?.marina_id) { setNomeMarina(null); setAppsContratadosEquipe(null); return }
+    buscarMarina(perfil.marina_id)
+      .then((m) => { setNomeMarina(m?.nome || null); setAppsContratadosEquipe(m?.apps_contratados || ['marine']) })
+      .catch(() => { setNomeMarina(null); setAppsContratadosEquipe(['marine']) })
   }, [perfil?.marina_id])
+
+  // Quais aplicações o CLIENTE pode de fato acessar (não só ver na
+  // vitrine): `apps_contratados` da marina/escola do PRÓPRIO cliente — não
+  // de `perfil.marina_id`, que fica vazio pra quem se cadastrou sozinho
+  // (ver marina.clientes.marina_id, preenchido no autocadastro). Só é
+  // buscado pra quem não é da equipe interna; fica `null` (ainda
+  // carregando) até resolver, e `['marine']` — o padrão da coluna no banco
+  // — se o cliente ainda nem tem uma linha em `clientes`.
+  const [appsContratadosCliente, setAppsContratadosCliente] = useState(null)
+  useEffect(() => {
+    if (!perfil || PAPEIS_INTERNOS.includes(perfil.role)) { setAppsContratadosCliente(null); return }
+    db.from('clientes').select('marina_id').eq('user_id', perfil.id).maybeSingle()
+      .then(({ data: cli }) => {
+        if (!cli?.marina_id) { setAppsContratadosCliente(['marine']); return }
+        return buscarMarina(cli.marina_id).then((m) => setAppsContratadosCliente(m?.apps_contratados || ['marine']))
+      })
+      .catch(() => setAppsContratadosCliente(['marine']))
+  }, [perfil])
 
   // Trocar de aplicação precisa reposicionar a tela ativa: cada aplicação
   // tem o seu próprio conjunto (lib/apps.js). Sem isto, sair do RV Marine
@@ -133,9 +171,18 @@ export default function App() {
     if (!appSelecionada) {
       return <SelecaoAplicacoes onSelecionar={setAppSelecionada} />
     }
-    // `clientePronto` (não a lista de telas): RV Finance e RV Manut já
-    // existem para a equipe da marina, mas ainda não têm experiência para o
-    // cliente final — para ele continuam "Em construção".
+    // A lista de aplicações continua mostrando TODAS (vitrine/marketing, a
+    // pedido explícito) — quem decide se o acesso de verdade é liberado é
+    // este bloco, em duas travas independentes:
+    //   1) `clientePronto`: a aplicação já tem experiência pronta para o
+    //      cliente final (RV Finance e RV Manut ainda não têm — "Em
+    //      construção" pra ele, mesmo já existindo pra equipe).
+    //   2) `apps_contratados` da marina/escola do próprio cliente: mesmo
+    //      pronta, só quem contratou entra — as demais mostram
+    //      AplicacaoNaoContratada em vez do conteúdo de verdade. Só a RV
+    //      Master mexe nessa lista (trava no banco); o cliente nunca gerencia
+    //      isso sozinho.
+    if (appsContratadosCliente === null) return <div className="tela-central">Carregando...</div>
     if (!buscarApp(appSelecionada)?.clientePronto) {
       return (
         <AplicacaoEmConstrucao
@@ -144,7 +191,16 @@ export default function App() {
         />
       )
     }
-    return <TelaClienteDashboard perfil={perfil} />
+    if (!appsContratadosCliente.includes(appSelecionada)) {
+      return (
+        <AplicacaoNaoContratada
+          app={buscarApp(appSelecionada)}
+          onVoltar={() => setAppSelecionada(null)}
+        />
+      )
+    }
+    const ComponenteCliente = COMPONENTES_CLIENTE[appSelecionada]
+    return <ComponenteCliente perfil={perfil} />
   }
 
   // Admin / funcionário / operador ("nossos clientes" — a equipe da
@@ -162,9 +218,23 @@ export default function App() {
     )
   }
 
-  // Aplicações ainda sem telas (NautDoc, e-Náutica, Enge, Stock): só o
-  // título escolhido na sidebar e "Em construção" com a marca d'água.
   const app = buscarApp(appSelecionada)
+
+  // Mesma trava do lado do cliente (ver bloco acima), agora pro lado da
+  // equipe: a marina/escola só entra de verdade nas aplicações do próprio
+  // `apps_contratados` — o seletor da sidebar continua mostrando todas
+  // (vitrine). Só verifica depois de carregar (evita um flash da tela
+  // trancada antes do dado chegar).
+  if (appsContratadosEquipe && !appsContratadosEquipe.includes(appSelecionada)) {
+    return (
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo={nomeCompleto(app)}>
+        <PaginaMarcaDagua texto="Esta aplicação não faz parte do seu plano atual. Fale com a RV Invictus para contratar." />
+      </Layout>
+    )
+  }
+
+  // Aplicações ainda sem telas (NautDoc, Enge, Stock): só o título
+  // escolhido na sidebar e "Em construção" com a marca d'água.
   if (!temTelas(app)) {
     return (
       <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo={nomeCompleto(app)}>

@@ -1,0 +1,190 @@
+import { useEffect, useState } from 'react'
+import { IconLogout, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle } from '@tabler/icons-react'
+import { supabase, db } from '../lib/supabase'
+import { buscarMarina } from '../lib/db'
+import {
+  HABILITACOES, labelHabilitacao, camposDocumentoFaltando, buscarMinhaMatricula, enviarMatricula,
+} from '../lib/enautica'
+
+// Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
+// cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
+// logo no topo, header com o nome do tenant + sair. Sem NENHUMA etapa de
+// pagamento (ao contrário do AlunoFlow.jsx original do rsnautica) — o único
+// "gate" é a matrícula ser aprovada pela equipe da escola.
+//
+// Aulas/Agenda/Certificados ainda não têm conteúdo de verdade (chegam nas
+// próximas fases, já com o schema do banco pronto — ver enautica.agendamentos
+// / .certificados) — mostrados como "Em construção", mesma convenção já
+// usada no resto da plataforma (AplicacaoEmConstrucao.jsx), só que dentro da
+// própria aba em vez de tela cheia, já que a matrícula deste aluno está
+// aprovada.
+const ABAS_ALUNO = [
+  { chave: 'aulas', label: 'Aulas preparatórias', Icone: IconPlayerPlay },
+  { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
+  { chave: 'certs', label: 'Meus certificados', Icone: IconCertificate },
+  { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
+]
+
+export default function TelaClienteENautica({ perfil }) {
+  const [cliente, setCliente] = useState(null)
+  const [matricula, setMatricula] = useState(null)
+  const [marina, setMarina] = useState(null)
+  const [erroCarregamento, setErroCarregamento] = useState(null)
+  const [aba, setAba] = useState('aulas')
+
+  const [habilitacao, setHabilitacao] = useState('arrais')
+  const [formFaltando, setFormFaltando] = useState({})
+  const [enviando, setEnviando] = useState(false)
+  const [erroEnvio, setErroEnvio] = useState(null)
+
+  async function carregar() {
+    try {
+      const { data: cli, error: erroCli } = await db.from('clientes').select('*').eq('user_id', perfil.id).maybeSingle()
+      if (erroCli) throw erroCli
+      setCliente(cli)
+      setErroCarregamento(null)
+      if (!cli) return
+      const [mat, mar] = await Promise.all([
+        buscarMinhaMatricula(cli.id),
+        buscarMarina(cli.marina_id),
+      ])
+      setMatricula(mat)
+      setMarina(mar)
+    } catch (err) {
+      setErroCarregamento(err.message)
+    }
+  }
+
+  useEffect(() => { carregar() }, [perfil?.id])
+
+  // Realtime: a aprovação/recusa feita pela equipe da escola aparece na hora,
+  // sem precisar recarregar a página — mesmo padrão do RV Marine.
+  useEffect(() => {
+    if (!cliente?.id) return
+    const canal = supabase
+      .channel(`enautica-minha-matricula-${cliente.id}`)
+      .on('postgres_changes', { event: '*', schema: 'enautica', table: 'matriculas', filter: `cliente_id=eq.${cliente.id}` }, () => carregar())
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cliente?.id])
+
+  async function enviarPedido(e) {
+    e.preventDefault()
+    setErroEnvio(null)
+    setEnviando(true)
+    try {
+      await enviarMatricula({
+        clienteId: cliente.id, marinaId: cliente.marina_id, habilitacao, dadosFaltando: formFaltando,
+      })
+      await carregar()
+    } catch (err) {
+      setErroEnvio(err.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const camposFaltando = cliente ? camposDocumentoFaltando(cliente) : []
+
+  return (
+    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
+      <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
+        <strong className="painel-cliente-marina">{marina?.nome || 'RV e-Náutica'}</strong>
+        <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair" onClick={() => supabase.auth.signOut()}>
+          <IconLogout size={16} />
+        </button>
+      </header>
+
+      {erroCarregamento && (
+        <div className="erro" style={{ marginBottom: 12 }}>
+          Não foi possível atualizar seus dados agora ({erroCarregamento}). Tente recarregar a página.
+        </div>
+      )}
+
+      {!cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração.</p>}
+
+      {/* Sem matrícula ainda: formulário de pedido — só pergunta o que falta
+          (ver camposDocumentoFaltando em lib/enautica.js), nada de
+          pagamento. Também cobre o caso de matrícula recusada: o aluno pode
+          mandar um novo pedido. */}
+      {cliente && (!matricula || matricula.status === 'recusada') && (
+        <>
+          {matricula?.status === 'recusada' && (
+            <p className="status-texto cancelado" style={{ marginBottom: 12 }}>
+              Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
+            </p>
+          )}
+          <form onSubmit={enviarPedido} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <h3 style={{ margin: 0 }}>Pedido de matrícula</h3>
+            <p className="dica">Escolha a habilitação desejada. Os dados abaixo são usados na geração dos seus documentos de matrícula.</p>
+
+            <span className="minha-conta-secao-titulo">Habilitação desejada</span>
+            <select value={habilitacao} onChange={(e) => setHabilitacao(e.target.value)} required>
+              {HABILITACOES.map((h) => <option key={h.chave} value={h.chave}>{h.label}</option>)}
+            </select>
+
+            {camposFaltando.map((c) => (
+              c.tipo === 'date' ? (
+                <div key={c.chave} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span className="minha-conta-secao-titulo">{c.label}</span>
+                  <input
+                    type="date" required
+                    value={formFaltando[c.chave] || ''}
+                    onChange={(e) => setFormFaltando({ ...formFaltando, [c.chave]: e.target.value })}
+                  />
+                </div>
+              ) : (
+                <input
+                  key={c.chave} type="text" required placeholder={c.label}
+                  value={formFaltando[c.chave] || ''}
+                  onChange={(e) => setFormFaltando({ ...formFaltando, [c.chave]: e.target.value })}
+                />
+              )
+            ))}
+
+            {erroEnvio && <p className="erro">{erroEnvio}</p>}
+
+            <button type="submit" className="painel-cliente-btn painel-cliente-btn-primario" disabled={enviando}>
+              {enviando ? 'Enviando…' : 'Enviar pedido de matrícula'}
+            </button>
+          </form>
+        </>
+      )}
+
+      {cliente && matricula?.status === 'pendente' && (
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <p className="status-texto pendente">Matrícula em análise</p>
+          <p className="dica">Seu pedido para <b>{labelHabilitacao(matricula.habilitacao)}</b> está aguardando aprovação da escola. Você será avisado assim que a decisão sair.</p>
+        </div>
+      )}
+
+      {cliente && matricula?.status === 'aprovada' && (
+        <>
+          <div className="abas" style={{ flexWrap: 'wrap' }}>
+            {ABAS_ALUNO.map((a) => (
+              <button key={a.chave} className={aba === a.chave ? 'ativo' : ''} onClick={() => setAba(a.chave)}>
+                <a.Icone size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> {a.label}
+              </button>
+            ))}
+          </div>
+
+          {aba !== 'dados' && (
+            <p className="dica" style={{ textAlign: 'center', marginTop: 24 }}>Em construção — chega em breve.</p>
+          )}
+
+          {aba === 'dados' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="linha"><b>Nome:</b> {cliente.nome}</div>
+              <div className="linha"><b>E-mail:</b> {cliente.email || '—'}</div>
+              <div className="linha"><b>Telefone:</b> {cliente.telefone || '—'}</div>
+              <div className="linha"><b>Habilitação matriculada:</b> {labelHabilitacao(matricula.habilitacao)}</div>
+              <p className="dica">Edição dos dados pessoais chega numa próxima fase.</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}

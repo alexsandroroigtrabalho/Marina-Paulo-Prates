@@ -40,7 +40,15 @@ export const APLICACOES = [
     ],
   },
   { chave: 'nautdoc', prefixo: 'RV', nome: 'NautDoc', clientePronto: false, telas: [] },
-  { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', clientePronto: false, telas: [] },
+  // e-Náutica: sem NADA de pagamento/plano (diferente do rsnautica antigo,
+  // que foi desligado) — o "gate" de acesso do aluno é a matrícula ser
+  // aprovada pela equipe da escola (ver src/lib/enautica.js), não um
+  // pagamento. Aulas/Agenda/Certificados ainda não têm tela própria —
+  // "Matrículas" é a primeira (aprovar/recusar pedidos); o restante chega
+  // nas próximas fases, já com o schema do banco pronto.
+  { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', clientePronto: true, telas: [
+    { chave: 'matriculas', label: 'Matrículas' },
+  ] },
   { chave: 'enge', prefixo: 'RV', nome: 'Enge', clientePronto: false, telas: [] },
   {
     chave: 'manut', prefixo: 'RV', nome: 'Manut', clientePronto: false,
