@@ -1264,18 +1264,27 @@ button.badge:hover { filter: brightness(0.95); }
    Arrais-Amador e Motonauta seguem a mesma linguagem do botão "Subida" do
    RV Marine (.painel-cliente-btn-outline): fundo branco, contorno dourado
    (--dourado-texto), texto no azul-petróleo — com a foto (embarcacao.png /
-   motonauta.png, em public/enautica/) entrando pela direita e se
-   dissolvendo no branco do botão. O degradê tem vários estágios (não só
-   dois) de propósito — pediram explicitamente pra suavizar a transição
-   entre o branco sólido e a foto, sem beirada reta. Habilitação Completa
-   não leva foto (só texto, centralizado) — continua no azul-petróleo
-   sólido pra se destacar como a opção "premium" das três. */
+   motonauta.png, em public/enautica/) entrando pela direita.
+   IMPORTANTE sobre `background-position`/`background-size` com 2 camadas
+   (degradê + foto): os dois valores da lista têm que corresponder 1:1 às
+   duas camadas de `background-image` — dar só 1 valor (ou um valor com
+   sintaxe inválida, como aconteceu antes com "right -10px center") faz o
+   navegador aplicar o mesmo valor errado nas DUAS camadas, e a foto e o
+   degradê saem desalinhados: é o que causava aquela borda reta aparecendo
+   no meio da foto. Aqui cada camada tem seu próprio par explícito: o
+   degradê sempre cobre a caixa inteira (100% 100%, posição 0 0), só a foto
+   usa o zoom (auto Nx, ancorada à direita). O degradê em si é curto (~28%
+   da largura) e vai a 0 de opacidade rápido — depois disso a foto fica
+   totalmente nítida, sem nenhuma névoa por cima (antes ela ficava
+   "lavada" de branco até quase o fim). Habilitação Completa não leva foto
+   (só texto, centralizado) — continua no azul-petróleo sólido pra se
+   destacar como a opção "premium" das três. */
 .enautica-botao-habilitacao {
   display: flex; align-items: center; text-align: left;
   width: 100%; min-height: 92px; padding: 18px 22px; gap: 8px;
   border-radius: 16px; cursor: pointer;
   font-family: inherit; font-weight: 700; font-size: 16px; letter-spacing: 0.01em;
-  background-repeat: no-repeat; background-position: right center;
+  background-repeat: no-repeat;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .enautica-botao-habilitacao:hover { transform: translateY(-1px); }
@@ -1288,7 +1297,8 @@ button.badge:hover { filter: brightness(0.95); }
   color: var(--cor-primaria);
   background-color: #fff;
   border: 1px solid var(--dourado-texto);
-  background-size: auto 165%;
+  background-position: 0 0, right center;
+  background-size: 100% 100%, auto 175%;
 }
 .enautica-botao-habilitacao--arrais:hover,
 .enautica-botao-habilitacao--motonauta:hover {
@@ -1296,15 +1306,13 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .enautica-botao-habilitacao--arrais {
   background-image:
-    linear-gradient(to right, #fff 0%, #fff 22%, rgba(255,255,255,0.9) 38%, rgba(255,255,255,0.6) 55%, rgba(255,255,255,0.25) 72%, rgba(255,255,255,0) 92%),
+    linear-gradient(to right, #fff 0%, #fff 20%, rgba(255,255,255,0) 42%),
     url('/enautica/embarcacao.png');
-  background-position: right -10px center, right center;
 }
 .enautica-botao-habilitacao--motonauta {
   background-image:
-    linear-gradient(to right, #fff 0%, #fff 22%, rgba(255,255,255,0.9) 38%, rgba(255,255,255,0.6) 55%, rgba(255,255,255,0.25) 72%, rgba(255,255,255,0) 92%),
+    linear-gradient(to right, #fff 0%, #fff 20%, rgba(255,255,255,0) 42%),
     url('/enautica/motonauta.png');
-  background-position: right -25px center, right center;
 }
 
 .enautica-botao-habilitacao--ambas {
@@ -1314,11 +1322,13 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .enautica-botao-habilitacao--ambas:hover { border-color: #D4AF37; }
 
-/* Tagline abaixo do botão Habilitação Completa — dourado, itálico,
-   centralizada; só decorativa (não afeta nenhuma lógica de matrícula). */
+/* Tagline abaixo do botão Habilitação Completa — dourada, centralizada,
+   na mesma fonte de leitura usada nas linhas do Diário de Bordo
+   (.diario-lista .linha: Inter, a fonte de corpo padrão, sem itálico) só
+   decorativa (não afeta nenhuma lógica de matrícula). */
 .enautica-slogan {
-  text-align: center; font-style: italic; color: var(--dourado-texto);
-  font-size: 13px; margin: -4px 0 0;
+  text-align: center; font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--dourado-texto); font-size: 14px; margin: -4px 0 0;
 }
 
 /* Diário de Bordo: fonte um pouco maior só aqui — não mexe em .cliente-card

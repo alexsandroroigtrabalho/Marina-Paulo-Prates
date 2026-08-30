@@ -128,7 +128,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   }
 
   return (
-    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
+    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         <strong className="painel-cliente-marina">{marina?.nome || 'RV e-Náutica'}</strong>
@@ -162,7 +162,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
             </p>
           )}
-          <h3 style={{ margin: 0 }}>Habilite-se!</h3>
+          <p className="dica" style={{ textAlign: 'center', margin: 0 }}>Habilite-se!</p>
 
           {HABILITACOES.map((h) => (
             <button
@@ -173,7 +173,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               {h.label}
             </button>
           ))}
-          <p className="enautica-slogan">Mares calmos não formam bons marujos — aventure-se, sinta a adrenalina, comece hoje mesmo.</p>
+          <p className="enautica-slogan">Aventure-se e sinta a adrenalina, comece hoje mesmo.</p>
         </div>
       )}
 
@@ -315,7 +315,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
         </>
       )}
 
-      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
+      <a className="pagina-cliente-rodape" style={{ marginTop: 'auto' }} href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
     </div>
   )
 }
