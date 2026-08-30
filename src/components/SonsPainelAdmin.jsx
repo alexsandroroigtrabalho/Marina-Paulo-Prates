@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarAgendamentos, buscarMarina } from '../lib/db'
+import { listarAgendamentos, listarPedidosAbastecimento, buscarMarina } from '../lib/db'
 import {
   destravarAudioNaProximaInteracao, tocarSinalDescida, tocarSinalRetorno,
-  tocarApitoSos, tocarAlarmeCancelamentoSos,
+  tocarApitoSos, tocarAlarmeCancelamentoSos, tocarApitoCombustivel,
 } from '../lib/sons'
 import { ultimaMovimentacaoPorEmbarcacao } from '../lib/agendamentos'
 import { linhasFilaAtivas } from '../lib/filaRampa'
@@ -27,21 +27,24 @@ const INTERVALO_ATUALIZACAO_MS = 10000
 // tabelas (as duas convivem: aqui só decide SE/QUANDO toca um apito, lá só
 // desenha a tabela — nenhuma delas mexe na outra).
 //
-// Cobre os 4 apitos que já existiam (descida, retorno, S.O.S. em loop,
-// cancelamento de S.O.S. — lógica idêntica à que saiu de TelaVagas.jsx).
-// O apito de combustível saiu daqui: o módulo de abastecimento passou para
-// o RV Finance, então não há mais pedido de abastecimento a acompanhar nesta
-// aplicação — junto dele saiu a busca/assinatura de pedidos_abastecimento,
-// que existia só para dispará-lo.
+// Cobre os mesmos 4 apitos que já existiam (descida, retorno, S.O.S. em
+// loop, cancelamento de S.O.S. — lógica idêntica à que saiu de
+// TelaVagas.jsx) mais o apito de combustível (toca quando chega um pedido
+// de abastecimento novo — inclusive um registrado manualmente pela equipe
+// via NovoPedidoAbastecimentoModal.jsx — ver enviarAbastecimento em
+// TelaClienteDashboard.jsx e solicitarAbastecimento em lib/db.js).
 export default function SonsPainelAdmin({ marinaId }) {
   const [sonsAtivados, setSonsAtivados] = useState(true)
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
+  const [apitoCombustivelAtivado, setApitoCombustivelAtivado] = useState(true)
   const [agendamentos, setAgendamentos] = useState([])
+  const [pedidosAbastecimento, setPedidosAbastecimento] = useState([])
 
   const cargasCompletadasRef = useRef(0)
   const idsConhecidosFilaRef = useRef(null)
   const alarmeResgateRef = useRef(null)
   const resgateStatusConhecidoRef = useRef(null)
+  const idsConhecidosPedidosRef = useRef(null)
 
   // Destrava o áudio na primeira interação da sessão inteira (clique/tecla/
   // toque em qualquer tela administrativa) — mesmo helper que já existia em
@@ -49,10 +52,10 @@ export default function SonsPainelAdmin({ marinaId }) {
   // sempre, em vez de só dentro do Painel de Controle.
   useEffect(() => { destravarAudioNaProximaInteracao() }, [])
 
-  // Configuração da marina (aviso sonoro geral e apitos por manobra) — mesma
-  // fonte marinas.config_json que Configurações → Notificações lê/grava (ver
-  // ConfiguracoesPainel.jsx/TelaVagas.jsx); só leitura aqui, a edição
-  // continua exclusivamente na tela de Configurações.
+  // Configuração da marina (aviso sonoro geral, apitos por manobra, apito de
+  // combustível) — mesma fonte marinas.config_json que Configurações →
+  // Notificações lê/grava (ver ConfiguracoesPainel.jsx/TelaVagas.jsx); só
+  // leitura aqui, a edição continua exclusivamente na tela de Configurações.
   function carregarConfig() {
     if (!marinaId) return
     buscarMarina(marinaId).then((m) => {
@@ -62,15 +65,16 @@ export default function SonsPainelAdmin({ marinaId }) {
         retorno: cfg.apitosRetorno ?? APITOS_PADRAO.retorno,
       })
       setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
+      setApitoCombustivelAtivado(cfg.apitoCombustivelAtivado ?? true)
     })
   }
   useEffect(() => { carregarConfig() }, [marinaId])
 
   async function carregar() {
     if (!marinaId) return
-    // Só agendamentos: os pedidos de abastecimento eram buscados aqui apenas
-    // para o apito de combustível, que saiu com o módulo para o RV Finance.
-    setAgendamentos(await listarAgendamentos(marinaId))
+    const [a, p] = await Promise.all([listarAgendamentos(marinaId), listarPedidosAbastecimento(marinaId)])
+    setAgendamentos(a)
+    setPedidosAbastecimento(p)
     cargasCompletadasRef.current += 1
   }
   useEffect(() => { carregar() }, [marinaId])
@@ -85,6 +89,7 @@ export default function SonsPainelAdmin({ marinaId }) {
       .channel(`sons-globais-${marinaId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'marinas', filter: `id=eq.${marinaId}` }, () => carregarConfig())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'agendamentos', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .subscribe()
     const polling = setInterval(carregar, INTERVALO_ATUALIZACAO_MS)
     return () => { supabase.removeChannel(canal); clearInterval(polling) }
@@ -151,8 +156,28 @@ export default function SonsPainelAdmin({ marinaId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resgateStatusAtualChave, sonsAtivados])
 
-  // O acompanhamento de novos pedidos de abastecimento ficava aqui, só para
-  // disparar o apito de combustível — saiu com o módulo para o RV Finance.
+  // Novo pedido de combustível (normal ou "Completar tanque" — os dois
+  // entram como 'solicitado', ver enviarAbastecimento em
+  // TelaClienteDashboard.jsx, e o mesmo vale pro registro manual da equipe
+  // via NovoPedidoAbastecimentoModal.jsx): apito de dois tons
+  // (tocarApitoCombustivel), configurável à parte do aviso sonoro geral (ver
+  // Configurações → Notificações → "Apito de combustível" em
+  // ConfiguracoesPainel.jsx), mas ainda sujeito ao interruptor geral — se o
+  // aviso sonoro estiver desabilitado, nenhum apito toca, nem este.
+  const idsPedidosAtualChave = pedidosAbastecimento.map((p) => p.id).sort().join(',')
+  useEffect(() => {
+    const idsAtuais = new Set(pedidosAbastecimento.map((p) => p.id))
+    if (idsConhecidosPedidosRef.current === null || cargasCompletadasRef.current <= 1) {
+      idsConhecidosPedidosRef.current = idsAtuais
+      return
+    }
+    const novos = pedidosAbastecimento.some((p) => !idsConhecidosPedidosRef.current.has(p.id))
+    if (novos && sonsAtivados && apitoCombustivelAtivado) {
+      tocarApitoCombustivel()
+    }
+    idsConhecidosPedidosRef.current = idsAtuais
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsPedidosAtualChave, sonsAtivados, apitoCombustivelAtivado])
 
   return null
 }

@@ -53,6 +53,7 @@ export default function ConfiguracoesPainel({
   aberto, onFechar, ehAdmin, marinaId,
   // Notificações — aviso sonoro + apitos
   sonsAtivados, onAlternarSons, salvandoAvisoSonoro, formApitos, onMudarApitos, onSalvarApitos, salvandoApitos,
+  apitoCombustivelAtivado, onAlternarApitoCombustivel, salvandoApitoCombustivel,
   // Despacho — relatório automático de documentos. A categoria "Despacho"
   // foi removida da UI (ver nota acima do CATEGORIAS), mas os props
   // continuam chegando do componente pai sem uso aqui — não vale a pena
@@ -365,6 +366,19 @@ export default function ConfiguracoesPainel({
                   {salvandoApitos ? 'Salvando…' : 'Salvar'}
                 </button>
               </form>
+            </div>
+
+            <div>
+              <strong>Apito de combustível</strong>
+              <p className="dica" style={{ margin: '4px 0 10px' }}>
+                Apito próprio (diferente dos de manobra) ao chegar um novo pedido de abastecimento — inclusive um
+                registrado manualmente pela equipe (botão "+" da planilha de Abastecimento) — também toca em
+                qualquer tela, independente do aviso sonoro acima (dá pra manter um ligado e o outro desligado).
+                Vem <b>ligado por padrão</b>.
+              </p>
+              <button type="button" onClick={onAlternarApitoCombustivel} disabled={!ehAdmin || salvandoApitoCombustivel}>
+                {salvandoApitoCombustivel ? 'Salvando…' : apitoCombustivelAtivado ? '🔕 Desabilitar apito de combustível' : '🔔 Habilitar apito de combustível'}
+              </button>
             </div>
 
           </div>

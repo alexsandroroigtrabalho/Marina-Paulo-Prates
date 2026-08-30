@@ -154,7 +154,11 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   const [configApitos, setConfigApitos] = useState(APITOS_PADRAO)
   const [formApitos, setFormApitos] = useState(APITOS_PADRAO)
   const [salvandoApitos, setSalvandoApitos] = useState(false)
-  // Apito de combustível: toca (em SonsPainelAdmin.jsx, sempre montado)
+  // Apito de combustível: configurável à parte do aviso sonoro geral acima —
+  // quem toca é SonsPainelAdmin.jsx (sempre montado), esta tela só lê/grava
+  // a configuração (Configurações → Notificações → "Apito de combustível").
+  const [apitoCombustivelAtivado, setApitoCombustivelAtivado] = useState(true)
+  const [salvandoApitoCombustivel, setSalvandoApitoCombustivel] = useState(false)
 
   // Configurações do sistema — todas centralizadas no Painel de Controle
   // (ver ConfiguracoesPainel.jsx). A mensalidade e o cadastro de
@@ -183,6 +187,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       setConfigApitos(apitos)
       setFormApitos(apitos)
       setSonsAtivados(cfg.avisoSonoroAtivado ?? true)
+      setApitoCombustivelAtivado(cfg.apitoCombustivelAtivado ?? true)
       setEmailRelatorio(cfg.emailRelatorioDocumentos || '')
       setUltimoEnvioRelatorio(cfg.ultimoEnvioRelatorioDocumentos || null)
       // Localidade do clima (ver lib/clima.js) — configurada pelo
@@ -504,6 +509,23 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       alert('Não foi possível salvar o aviso sonoro: ' + err.message)
     } finally {
       setSalvandoAvisoSonoro(false)
+    }
+  }
+
+  // Apito de combustível — independente do aviso sonoro geral acima (dá pra
+  // manter um ligado e o outro desligado). Mesmo padrão de gravação em
+  // marinas.config_json, mesma restrição a admin.
+  async function alternarApitoCombustivel() {
+    if (!ehAdmin || salvandoApitoCombustivel) return
+    const novoValor = !apitoCombustivelAtivado
+    setSalvandoApitoCombustivel(true)
+    try {
+      await atualizarConfigMarina(marinaId, { apitoCombustivelAtivado: novoValor })
+      setApitoCombustivelAtivado(novoValor)
+    } catch (err) {
+      alert('Não foi possível salvar o apito de combustível: ' + err.message)
+    } finally {
+      setSalvandoApitoCombustivel(false)
     }
   }
 
@@ -924,6 +946,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         sonsAtivados={sonsAtivados}
         onAlternarSons={alternarAvisoSonoro}
         salvandoAvisoSonoro={salvandoAvisoSonoro}
+        apitoCombustivelAtivado={apitoCombustivelAtivado}
+        onAlternarApitoCombustivel={alternarApitoCombustivel}
+        salvandoApitoCombustivel={salvandoApitoCombustivel}
         formApitos={formApitos}
         onMudarApitos={setFormApitos}
         onSalvarApitos={salvarConfigApitos}
