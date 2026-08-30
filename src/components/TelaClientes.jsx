@@ -5,11 +5,11 @@ import { supabase } from '../lib/supabase'
 // lib/db.js e a tabela `cobrancas` segue no banco, com os dados intactos.
 import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao } from '../lib/db'
 import { statusAcessoCliente } from '../lib/statusPagamento'
-import { maskTelefone } from '../lib/mascaras'
+import { maskCpf, maskTelefone } from '../lib/mascaras'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
-const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', endereco: '', observacoes: '' }
+const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', documento_identidade: '', endereco: '', observacoes: '' }
 
 export default function TelaClientes({ marinaId }) {
   const [clientes, setClientes] = useState([])
@@ -221,7 +221,8 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha"><b>Telefone:</b> {c.telefone || '—'}</div>
                   <div className="linha"><b>E-mail:</b> {c.email || '—'}</div>
                   <div className="linha"><b>Endereço:</b> {c.endereco || '—'}</div>
-                  <div className="linha"><b>Carteira de habilitação:</b> {c.cpf_cnpj || '—'}</div>
+                  <div className="linha"><b>CPF:</b> {c.cpf_cnpj || '—'}</div>
+                  <div className="linha"><b>CHA:</b> {c.documento_identidade || '—'}</div>
                   <div className="linha">
                     <b>Embarcações:</b> {embarcacoesDoCliente(c.id).map((e) => e.nome).join(' · ') || '—'}
                   </div>
@@ -277,8 +278,10 @@ export default function TelaClientes({ marinaId }) {
             onChange={(e) => setFormCliente({ ...formCliente, email: e.target.value })} />
           <input placeholder="Telefone" inputMode="numeric" maxLength={15} value={formCliente.telefone}
             onChange={(e) => setFormCliente({ ...formCliente, telefone: maskTelefone(e.target.value) })} />
-          <input placeholder="Carteira de habilitação / CPF" value={formCliente.cpf_cnpj}
-            onChange={(e) => setFormCliente({ ...formCliente, cpf_cnpj: e.target.value })} />
+          <input placeholder="CPF" inputMode="numeric" maxLength={14} value={formCliente.cpf_cnpj}
+            onChange={(e) => setFormCliente({ ...formCliente, cpf_cnpj: maskCpf(e.target.value) })} />
+          <input placeholder="Nº da Carteira de Habilitação de Amador (CHA)" value={formCliente.documento_identidade}
+            onChange={(e) => setFormCliente({ ...formCliente, documento_identidade: e.target.value })} />
           <input placeholder="Endereço completo" value={formCliente.endereco}
             onChange={(e) => setFormCliente({ ...formCliente, endereco: e.target.value })} />
           <input placeholder="Observações (opcional)" value={formCliente.observacoes}
