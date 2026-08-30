@@ -48,6 +48,8 @@ export const APLICACOES = [
   // nas próximas fases, já com o schema do banco pronto.
   { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', clientePronto: true, telas: [
     { chave: 'matriculas', label: 'Matrículas' },
+    { chave: 'enauticaAgenda', label: 'Agenda' },
+    { chave: 'enauticaCertificados', label: 'Certificados' },
   ] },
   { chave: 'enge', prefixo: 'RV', nome: 'Enge', clientePronto: false, telas: [] },
   {

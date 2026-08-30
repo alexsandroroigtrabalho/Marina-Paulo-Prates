@@ -16,6 +16,8 @@ import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 import TelaMatriculasENautica from './components/TelaMatriculasENautica'
+import TelaAgendaEscolaENautica from './components/TelaAgendaEscolaENautica'
+import TelaCertificadosEscolaENautica from './components/TelaCertificadosEscolaENautica'
 import TelaClienteENautica from './components/TelaClienteENautica'
 import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
 import TelaRvMaster from './components/TelaRvMaster'
@@ -36,6 +38,8 @@ const TELAS = {
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
   matriculas: { titulo: 'Matrículas', Componente: TelaMatriculasENautica },
+  enauticaAgenda: { titulo: 'Agenda', Componente: TelaAgendaEscolaENautica },
+  enauticaCertificados: { titulo: 'Certificados', Componente: TelaCertificadosEscolaENautica },
 }
 
 // Qual componente mostrar pro CLIENTE FINAL em cada aplicação com

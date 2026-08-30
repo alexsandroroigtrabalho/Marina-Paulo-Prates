@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase, db } from '../lib/supabase'
-import { maskCpf } from '../lib/mascaras'
+import { resolverMarinaPeloSublink } from '../lib/tenant'
 
 // Cadastro inicial: cria a CONTA de acesso à plataforma RV Invictus, e nada
 // além disso. Só nome, CPF, e-mail (com confirmação) e senha (com
@@ -60,7 +60,13 @@ export default function FichaCadastro({ onVoltar }) {
       })
       if (error) throw error
 
-      const marinaId = import.meta.env.VITE_MARINA_ID // marina padrão configurada no .env
+      // Sublink de cliente (ex: prates.rvinvictus.com.br) manda em quem é a
+      // marina/escola deste cadastro; fora de um sublink de verdade (domínio
+      // principal, localhost, preview), cai no .env de sempre — ver
+      // lib/tenant.js pro porquê disso ainda depender dos passos manuais
+      // pendentes no Vercel/Registro.br.
+      const marinaDoSublink = await resolverMarinaPeloSublink()
+      const marinaId = marinaDoSublink?.id || import.meta.env.VITE_MARINA_ID
       const { error: erroCliente } = await db.from('clientes').insert({
         marina_id: marinaId,
         user_id: data.user?.id,
@@ -116,8 +122,8 @@ export default function FichaCadastro({ onVoltar }) {
 
         <input placeholder="Nome completo" autoComplete="name" required
           value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-        <input placeholder="CPF" inputMode="numeric" required maxLength={14}
-          value={form.cpf} onChange={(e) => setForm({ ...form, cpf: maskCpf(e.target.value) })} />
+        <input placeholder="CPF" inputMode="numeric" required
+          value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
 
         <input type="email" placeholder="E-mail" autoComplete="email" required
           value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />

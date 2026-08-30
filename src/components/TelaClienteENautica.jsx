@@ -4,6 +4,8 @@ import { supabase, db } from '../lib/supabase'
 import { buscarMarina } from '../lib/db'
 import {
   HABILITACOES, labelHabilitacao, camposDocumentoFaltando, buscarMinhaMatricula, enviarMatricula,
+  modulosAulaComVideo, aulasConcluidas, alternarAulaConcluida,
+  listarMeusAgendamentos, listarMeusCertificados, labelTipoAgendamento,
 } from '../lib/enautica'
 
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
@@ -31,6 +33,9 @@ export default function TelaClienteENautica({ perfil }) {
   const [marina, setMarina] = useState(null)
   const [erroCarregamento, setErroCarregamento] = useState(null)
   const [aba, setAba] = useState('aulas')
+  const [agendamentos, setAgendamentos] = useState([])
+  const [certificados, setCertificados] = useState([])
+  const [concluidas, setConcluidas] = useState(() => new Set())
 
   const [habilitacao, setHabilitacao] = useState('arrais')
   const [formFaltando, setFormFaltando] = useState({})
@@ -44,12 +49,17 @@ export default function TelaClienteENautica({ perfil }) {
       setCliente(cli)
       setErroCarregamento(null)
       if (!cli) return
-      const [mat, mar] = await Promise.all([
+      const [mat, mar, ags, certs] = await Promise.all([
         buscarMinhaMatricula(cli.id),
         buscarMarina(cli.marina_id),
+        listarMeusAgendamentos(cli.id),
+        listarMeusCertificados(cli.id),
       ])
       setMatricula(mat)
       setMarina(mar)
+      setAgendamentos(ags)
+      setCertificados(certs)
+      setConcluidas(aulasConcluidas(cli.id))
     } catch (err) {
       setErroCarregamento(err.message)
     }
@@ -64,6 +74,13 @@ export default function TelaClienteENautica({ perfil }) {
     const canal = supabase
       .channel(`enautica-minha-matricula-${cliente.id}`)
       .on('postgres_changes', { event: '*', schema: 'enautica', table: 'matriculas', filter: `cliente_id=eq.${cliente.id}` }, () => carregar())
+      // Certificados filtram por cliente_id igual matrículas; agendamentos
+      // não têm essa coluna (é `alunos_ids`, um array — não dá pra filtrar
+      // no `filter:` do realtime), então escuta a tabela inteira da escola
+      // e recarrega, deixando o RLS/query decidir o que é meu na hora do
+      // `carregar()`. Tráfego baixo (poucos agendamentos por escola).
+      .on('postgres_changes', { event: '*', schema: 'enautica', table: 'certificados', filter: `cliente_id=eq.${cliente.id}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'enautica', table: 'agendamentos' }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,6 +103,27 @@ export default function TelaClienteENautica({ perfil }) {
   }
 
   const camposFaltando = cliente ? camposDocumentoFaltando(cliente) : []
+
+  function marcarAula(moduloId, concluida) {
+    setConcluidas(alternarAulaConcluida(cliente.id, moduloId, concluida))
+  }
+
+  function baixarCertificado(cert) {
+    const conteudo = `CERTIFICADO DE CONCLUSÃO\n\n`
+      + `Aluno: ${cliente.nome}\n`
+      + `Habilitação: ${labelHabilitacao(cert.habilitacao)}\n`
+      + `Escola: ${marina?.nome || ''}\n`
+      + `Data de emissão: ${new Date(`${cert.data_emissao}T12:00`).toLocaleDateString('pt-BR')}\n\n`
+      + `Este certificado comprova a conclusão do curso náutico pela escola credenciada.\n`
+      + `A habilitação oficial é emitida separadamente pela Marinha do Brasil e disponibilizada na sua conta Gov.br.`
+    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Certificado_${labelHabilitacao(cert.habilitacao).replace(/\s+/g, '_')}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
@@ -170,8 +208,75 @@ export default function TelaClienteENautica({ perfil }) {
             ))}
           </div>
 
-          {aba !== 'dados' && (
-            <p className="dica" style={{ textAlign: 'center', marginTop: 24 }}>Em construção — chega em breve.</p>
+          {aba === 'aulas' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {modulosAulaComVideo(marina).map((m) => (
+                <div key={m.id} className="cliente-card">
+                  <div className="cabecalho-cliente">
+                    <div className="titulo-cliente"><span className="nome">{m.titulo}</span></div>
+                  </div>
+                  <div className="linha">{m.desc}</div>
+                  {m.youtubeId ? (
+                    <div className="cliente-card-acoes">
+                      <a
+                        className="botao-secundario" style={{ textDecoration: 'none' }}
+                        href={`https://www.youtube.com/watch?v=${m.youtubeId}`} target="_blank" rel="noopener noreferrer"
+                      >
+                        Assistir aula
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="dica" style={{ margin: '6px 0 0' }}>Conteúdo em preparação pela escola.</p>
+                  )}
+                  <label className="opcao-checkbox" style={{ marginTop: 8 }}>
+                    <input type="checkbox" checked={concluidas.has(m.id)} onChange={(e) => marcarAula(m.id, e.target.checked)} />
+                    Marcar como concluída
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {aba === 'agenda' && (
+            <div className="lista-cards">
+              {agendamentos.length === 0 && <p className="dica" style={{ textAlign: 'center' }}>Nenhum compromisso marcado ainda.</p>}
+              {agendamentos.map((ag) => (
+                <div key={ag.id} className="cliente-card">
+                  <div className="cabecalho-cliente">
+                    <div className="titulo-cliente"><span className="nome">{labelTipoAgendamento(ag.tipo)}</span></div>
+                  </div>
+                  <div className="linha">
+                    {new Date(`${ag.data}T12:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {ag.hora}
+                  </div>
+                  <div className="linha"><b>Local:</b> {ag.local}</div>
+                  <div className={`status-texto ${ag.status === 'confirmado' ? 'em-dia' : ag.status === 'concluido' ? '' : 'cancelado'}`}>
+                    {ag.status === 'confirmado' ? 'Confirmado' : ag.status === 'concluido' ? 'Concluído' : 'Cancelado'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {aba === 'certs' && (
+            <div className="lista-cards">
+              <p className="dica">
+                Este é um recibo interno da escola, não o documento oficial — sua habilitação náutica é emitida
+                pela Marinha do Brasil e chega automaticamente na sua conta Gov.br depois da aprovação.
+              </p>
+              {certificados.length === 0 && <p className="dica" style={{ textAlign: 'center' }}>Nenhum certificado disponível ainda.</p>}
+              {certificados.map((c) => (
+                <div key={c.id} className="cliente-card">
+                  <div className="cabecalho-cliente">
+                    <div className="titulo-cliente"><span className="nome">{labelHabilitacao(c.habilitacao)}</span></div>
+                  </div>
+                  <div className="linha"><b>Emitido em:</b> {new Date(`${c.data_emissao}T12:00`).toLocaleDateString('pt-BR')}</div>
+                  <div className="linha"><b>Status:</b> {c.status === 'entregue' ? 'Entregue' : 'Disponível'}</div>
+                  <div className="cliente-card-acoes">
+                    <button type="button" className="botao-secundario" onClick={() => baixarCertificado(c)}>Baixar certificado</button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
           {aba === 'dados' && (
