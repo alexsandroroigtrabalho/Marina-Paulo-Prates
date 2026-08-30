@@ -1260,6 +1260,35 @@ button.badge:hover { filter: brightness(0.95); }
   background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-primaria);
 }
 
+/* ---------- RV e-Náutica: botões de habilitação (tela de matrícula) ----------
+   Cartão-botão largo com a foto (embarcacao.png / motonauta.png, em
+   public/enautica/) entrando pela direita e se dissolvendo no azul-petróleo
+   do fundo — a mesma foto é a única diferença visual entre as 3
+   habilitações, então cada uma vira um modificador (--arrais/--motonauta/
+   --ambas) que só troca a url() de fundo. O degradê é pintado por cima da
+   foto na mesma propriedade `background` (camadas CSS: a primeira listada
+   fica por cima), então não precisa de elemento nem pseudo-elemento extra
+   pra mascarar a imagem — só a leitura do texto à esquerda, que fica sobre
+   navy sólido, importa. */
+.enautica-botao-habilitacao {
+  display: flex; align-items: center; justify-content: flex-start; text-align: left;
+  width: 100%; min-height: 84px; padding: 18px 22px; gap: 8px;
+  border: 1px solid rgba(212,175,55,0.3); border-radius: 16px; cursor: pointer;
+  font-family: inherit; font-weight: 700; font-size: 16px; letter-spacing: 0.01em; color: #F5F5F0;
+  background-repeat: no-repeat; background-position: right center; background-size: auto 100%;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.enautica-botao-habilitacao:hover { border-color: #D4AF37; transform: translateY(-1px); }
+.enautica-botao-habilitacao:active { transform: translateY(0); }
+.enautica-botao-habilitacao:focus-visible { outline: 2px solid #D4AF37; outline-offset: 2px; }
+.enautica-botao-habilitacao--arrais,
+.enautica-botao-habilitacao--ambas {
+  background-image: linear-gradient(to right, #0D1B2A 0%, #0D1B2A 40%, rgba(13,27,42,0.2) 92%), url('/enautica/embarcacao.png');
+}
+.enautica-botao-habilitacao--motonauta {
+  background-image: linear-gradient(to right, #0D1B2A 0%, #0D1B2A 40%, rgba(13,27,42,0.2) 92%), url('/enautica/motonauta.png');
+}
+
 /* Diário de Bordo: fonte um pouco maior só aqui — não mexe em .cliente-card
    nem em .status-texto direto porque essas classes são compartilhadas com
    as telas da equipe (TelaClientes/TelaFinanceiro/TelaVagas). */

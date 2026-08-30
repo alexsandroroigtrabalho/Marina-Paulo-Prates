@@ -165,7 +165,7 @@ export default function TelaClienteENautica({ perfil }) {
           {HABILITACOES.map((h) => (
             <button
               key={h.chave} type="button"
-              className="painel-cliente-btn painel-cliente-btn-primario"
+              className={`enautica-botao-habilitacao enautica-botao-habilitacao--${h.chave}`}
               onClick={() => { setHabilitacao(h.chave); setFormFaltando({}); setErroEnvio(null); setModalMatriculaAberto(true) }}
             >
               {h.label}
