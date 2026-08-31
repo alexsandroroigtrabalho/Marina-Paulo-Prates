@@ -1398,16 +1398,17 @@ button.badge:hover { filter: brightness(0.95); }
      duas destoam entre si (e do card branco). Dessaturar um pouco as duas
      junto de um leve escurecido aproxima o "peso" visual das duas fotos. */
   filter: saturate(0.82) brightness(0.97);
-  /* O fade agora é DIAGONAL, não mais reto da esquerda pra direita: a linha
-     de 0% (totalmente transparente) passa pelo centro vertical da borda
-     esquerda da foto, e a de 100% (opaca) passa pelo centro horizontal da
-     borda superior — "to top right" é o jeito da própria sintaxe do
-     gradiente calcular esse ângulo sozinho a partir do formato real da
-     caixa da foto (ela é bem mais larga que alta), sem precisar de um
-     ângulo fixo em graus que ia ficar errado toda vez que a largura da
-     foto mudar (mobile vs. desktop, ou um redimensionamento no meio). */
-  mask-image: linear-gradient(to top right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
-  -webkit-mask-image: linear-gradient(to top right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
+  /* Voltou a ser um fade HORIZONTAL (era diagonal, "to top right"): testei o
+     diagonal lado a lado com o horizontal (harness com a foto de verdade) e,
+     nessa caixa bem mais larga que alta (a foto do botão), o ângulo que o
+     "to top right" calcula sozinho fica tão perto da vertical que a
+     transição parecia quase um corte reto, sem neblina nenhuma — só um
+     probleminha de trigonometria numa caixa desse formato, não um efeito
+     visual de verdade. Horizontal (to right) é o que de fato deixa a borda
+     esquerda esfumaçada em toda a altura da foto, sobre foto clara ou
+     escura (testado nas duas). */
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
 }
 /* .webp em vez do .png original: mesma foto, redimensionada pro tamanho
    real que aparece na tela (o PNG original era 1536×1024 — muito maior que
