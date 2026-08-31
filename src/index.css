@@ -946,6 +946,35 @@ body {
 /* Coluna Responsável (Fila de Rampa, Navegando, Histórico de manobras): fica
    alinhada à esquerda — nome + embarcação lê melhor assim do que centralizado. */
 .tabela th.col-responsavel, .tabela td.col-responsavel { text-align: left; }
+/* Coluna Indicador (Painel de Controle do rv_master, ver
+   TelaPainelControleRvMaster.jsx): mesmo motivo do Responsável acima — o
+   nome do indicador lê melhor alinhado à esquerda que centralizado. */
+.tabela th.col-indicador, .tabela td.col-indicador { text-align: left; }
+
+/* ---------- Painel de Controle do rv_master: gráficos de pizza ----------
+   TelaPainelControleRvMaster.jsx — abaixo da tabela de indicadores. Cada
+   gráfico é um conic-gradient em CSS puro (sem biblioteca de gráficos): um
+   círculo colorido em fatias proporcionais + a legenda ao lado, no mesmo
+   cartão branco com sombra que o resto do sistema usa (.stat-card,
+   .cliente-card) — só que aqui em blocos que crescem/quebram linha
+   (flex-wrap) conforme a largura da tela. */
+.rvmaster-tabela-stats { margin-bottom: 28px; }
+.rvmaster-pizzas { display: flex; flex-wrap: wrap; gap: 20px; }
+.rvmaster-pizza-bloco {
+  display: flex; align-items: center; gap: 18px;
+  background: var(--cor-card); border-radius: var(--raio); box-shadow: var(--sombra);
+  padding: 18px 22px; flex: 1 1 260px; min-width: 240px;
+}
+.rvmaster-pizza { width: 96px; height: 96px; border-radius: 50%; flex-shrink: 0; }
+.rvmaster-pizza-titulo { font-size: 13px; font-weight: 700; color: var(--cor-texto); margin: 0 0 8px; }
+.rvmaster-pizza-legenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.rvmaster-pizza-legenda li { font-size: 12.5px; color: var(--cor-texto-suave); display: flex; align-items: center; gap: 6px; }
+.rvmaster-pizza-legenda b { color: var(--cor-texto); }
+.rvmaster-pizza-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.rvmaster-pizza-pct { color: var(--cor-texto-suave); }
+@media (max-width: 480px) {
+  .rvmaster-pizza-bloco { flex-direction: column; align-items: flex-start; text-align: left; }
+}
 
 /* Raio reduzido (era 20px/pill) — mesmo princípio institucional dos botões,
    selo/rótulo em vez de "bolha" arredondada. */

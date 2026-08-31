@@ -116,14 +116,15 @@ export default function Layout({
             </button>
           </>
         ) : semSeletorApps ? (
-          // Tela do rv_master ANTES de escolher um cliente (TelaRvMaster —
-          // "Painel de Controle" no título, ver App.jsx): mesma composição
-          // "título fixo + lista de telas" das demais aplicações (linha 81
-          // acima), com "RV MASTER" no lugar do nome do tenant — afinal,
-          // pro rv_master, esta É a aplicação dele (a ferramenta da própria
-          // RV Invictus, não um cliente). TELAS_RV_MASTER vem de
-          // lib/apps.js (hoje só "Painel de Controle", mas já no mesmo
-          // formato dinâmico das outras — cresce sem mexer aqui).
+          // Tela do rv_master ANTES de escolher um cliente (App.jsx): mesma
+          // composição "título fixo + lista de telas" das demais aplicações
+          // (linha 81 acima), com "RV MASTER" no lugar do nome do tenant —
+          // afinal, pro rv_master, esta É a aplicação dele (a ferramenta da
+          // própria RV Invictus, não um cliente). TELAS_RV_MASTER vem de
+          // lib/apps.js ("Painel de Controle" e "Clientes" hoje) — lista de
+          // verdade clicável, igual à de qualquer outra aplicação (`telaAtiva`/
+          // `setTelaAtiva` são os MESMOS props que a `app.telas.map` acima já
+          // usa, só que aqui pro conjunto de telas do rv_master).
           // `.nav-rvmaster` carrega o mesmo margin-top:auto que .nav-voltar
           // usa nas outras aplicações, pra empurrar o rodapé (RVinvictus.com.br)
           // pro fundo de verdade da sidebar — sem isso ele ficava colado
@@ -132,7 +133,13 @@ export default function Layout({
             <p className="app-titulo">RV MASTER</p>
             <nav className="nav-rvmaster">
               {TELAS_RV_MASTER.map(({ chave, label }) => (
-                <div key={chave} className="nav-item ativo nav-item-estatico">{label}</div>
+                <button
+                  key={chave}
+                  className={`nav-item ${telaAtiva === chave ? 'ativo' : ''}`}
+                  onClick={(e) => { setTelaAtiva(chave); e.currentTarget.blur() }}
+                >
+                  {label}
+                </button>
               ))}
             </nav>
           </>

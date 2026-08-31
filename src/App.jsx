@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, db } from './lib/supabase'
 import { TEMA_PADRAO } from './lib/tema'
 import { buscarMarina } from './lib/db'
-import { buscarApp, nomeCompleto, temTelas, primeiraTela } from './lib/apps'
+import { buscarApp, nomeCompleto, temTelas, primeiraTela, TELAS_RV_MASTER } from './lib/apps'
 import Home from './components/Home'
 import FichaCadastro from './components/FichaCadastro'
 import RedefinirSenha from './components/RedefinirSenha'
@@ -21,6 +21,7 @@ import TelaCertificadosEscolaENautica from './components/TelaCertificadosEscolaE
 import TelaClienteENautica from './components/TelaClienteENautica'
 import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
 import TelaRvMaster from './components/TelaRvMaster'
+import TelaPainelControleRvMaster from './components/TelaPainelControleRvMaster'
 import AcessoSuspenso from './components/AcessoSuspenso'
 import { tenantSuspenso } from './lib/rvMaster'
 
@@ -119,8 +120,15 @@ export default function App() {
   // Só para rv_master: qual cliente (marina/escola) ele escolheu operar
   // nesta sessão de tela (não é salvo em lugar nenhum — escolhe de novo a
   // cada login, ou ao clicar em "Voltar ao RV Master"). null = ainda não
-  // escolheu — mostra a TelaRvMaster.jsx (painel de controle dos clientes).
+  // escolheu — mostra a área própria do rv_master (TELAS_RV_MASTER abaixo).
   const [marinaEscolhidaRvMaster, setMarinaEscolhidaRvMaster] = useState(null)
+  // Qual tela da área própria do rv_master está ativa (TELAS_RV_MASTER, em
+  // lib/apps.js: "painel" ou "clientes") — estado dedicado, separado do
+  // `telaAtiva` do RV Marine (linha abaixo), mesmo as duas telas às vezes
+  // compartilhando a mesma chave ("clientes" existe nos dois conjuntos) —
+  // evita qualquer mistura entre "em qual tela da aplicação-tenant a equipe
+  // estava" e "em qual tela da PRÓPRIA área do rv_master ele estava".
+  const [telaAtivaRvMaster, setTelaAtivaRvMaster] = useState('painel')
 
   // marina_id "efetivo" pra tudo que vem depois: da equipe normal (via
   // perfil) ou da escolha manual do rv_master.
@@ -274,13 +282,27 @@ export default function App() {
   // sidebar. rv_master escolhe a marina/escola antes de mais nada — sem
   // isso não há `marinaIdEfetivo` pra passar pra nenhuma tela.
   if (ehRvMaster(perfil) && !marinaEscolhidaRvMaster) {
-    // Título do CABEÇALHO virou "Painel de Controle" (era "RV Master") —
-    // o nome "RV MASTER" continua existindo, só que agora como o rótulo da
-    // aplicação na SIDEBAR (ver Layout.jsx, mesmo lugar onde aparece "RV
-    // MARINE"/"RV E-NÁUTICA" pras outras aplicações escolhidas).
+    // Duas telas próprias do rv_master (TELAS_RV_MASTER, lib/apps.js):
+    // "painel" = números agregados de todos os clientes (tabela + gráficos
+    // de pizza, TelaPainelControleRvMaster.jsx, só leitura) e "clientes" =
+    // a gestão cliente por cliente que já existia (cards, cadastrar,
+    // ligar/desligar aplicação, suspender — TelaRvMaster.jsx, sem nenhuma
+    // mudança de conteúdo, só o rótulo do menu que passou a ser "Clientes"
+    // em vez de "Painel de Controle"). Mesmo fallback que `telaDaApp` usa
+    // mais abaixo pra RV Marine: se `telaAtivaRvMaster` não bater com
+    // nenhuma chave válida (ex.: ainda no valor inicial de outra sessão),
+    // volta pro Painel de Controle em vez de quebrar.
+    const telaRvMasterValida = TELAS_RV_MASTER.some((t) => t.chave === telaAtivaRvMaster) ? telaAtivaRvMaster : 'painel'
+    const tituloRvMaster = TELAS_RV_MASTER.find((t) => t.chave === telaRvMasterValida)?.label
     return (
-      <Layout appSelecionada={null} setAppSelecionada={escolherApp} perfil={perfil} titulo="Painel de Controle" semSeletorApps>
-        <TelaRvMaster onEntrarComoTenant={setMarinaEscolhidaRvMaster} />
+      <Layout
+        appSelecionada={null} setAppSelecionada={escolherApp} perfil={perfil}
+        telaAtiva={telaRvMasterValida} setTelaAtiva={setTelaAtivaRvMaster}
+        titulo={tituloRvMaster} semSeletorApps
+      >
+        {telaRvMasterValida === 'clientes'
+          ? <TelaRvMaster onEntrarComoTenant={setMarinaEscolhidaRvMaster} />
+          : <TelaPainelControleRvMaster />}
       </Layout>
     )
   }

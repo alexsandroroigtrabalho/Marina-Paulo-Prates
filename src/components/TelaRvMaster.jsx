@@ -7,14 +7,16 @@ import {
 
 const NOVO_CLIENTE_VAZIO = { nome: '', slug: '', apps: ['marine'] }
 
-// Painel do RV Master: primeira tela de quem loga como rv_master (ver
-// App.jsx, ehRvMaster) — lista todos os clientes da RV Invictus (marinas e
-// escolas náuticas, cada linha de marina.marinas é um tenant), com o
-// sublink previsto, as aplicações contratadas e um resumo de uso por
-// aplicação. Escolher um tenant aqui ("Entrar como esta marina/escola")
-// leva pro mesmo painel interno que a equipe daquele tenant usa
-// normalmente — mesmo fluxo que já existia, só que agora com esta vitrine
-// na frente em vez de uma lista seca.
+// Aba "Clientes" da área do rv_master (TELAS_RV_MASTER, lib/apps.js — a
+// outra aba é "Painel de Controle", TelaPainelControleRvMaster.jsx, só
+// números agregados). Aqui é a gestão de verdade, cliente por cliente: lista
+// todos os clientes da RV Invictus (marinas e escolas náuticas, cada linha
+// de marina.marinas é um tenant), com o sublink previsto, as aplicações
+// contratadas e um resumo de uso por aplicação, além de cadastrar um cliente
+// novo e suspender/reativar acesso. Escolher um tenant aqui ("Entrar como
+// esta marina/escola") leva pro mesmo painel interno que a equipe daquele
+// tenant usa normalmente — mesmo fluxo que já existia, só que agora com
+// esta vitrine na frente em vez de uma lista seca.
 export default function TelaRvMaster({ onEntrarComoTenant }) {
   const [tenants, setTenants] = useState(null)
   const [erro, setErro] = useState(null)
