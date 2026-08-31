@@ -1264,22 +1264,30 @@ button.badge:hover { filter: brightness(0.95); }
    Arrais-Amador e Motonauta seguem a mesma linguagem do botão "Subida" do
    RV Marine (.painel-cliente-btn-outline): fundo branco, contorno dourado
    (--dourado-texto), texto no azul-petróleo.
-   A foto (embarcacao.png / motonauta.png, em public/enautica/) e o degradê
-   NÃO são duas camadas de `background` do próprio botão (isso foi tentado
-   antes e sempre acabava desalinhando as camadas — um seam reto exatamente
-   onde a foto devia começar). Em vez disso são dois pseudo-elementos
-   separados, cada um com sua própria caixa:
-     ::after  — só a foto, presa na quina direita (`right:0`), com largura
-                fixa (--enautica-largura-foto) e `background-size: cover`
-                (recorte real, sem distorcer nem esticar, "zoom" de
-                verdade) — cobre até a quina, sem gap nenhum.
-     ::before — só o degradê, ocupando a caixa INTEIRA do botão (`inset:0`),
-                por cima da foto (z-index maior) — como ele nasce branco
-                sólido e termina 100% transparente bem DEPOIS de onde a
-                foto começa (a foto começa em `right: X%`, o degradê só
-                fica transparente perto de `100% - X%`), a transição cai
-                em cima da própria foto, suave, sem sobra de branco nem
-                beirada — e sem lavar a foto inteira de branco.
+
+   A foto (embarcacao.png / motonauta.png, em public/enautica/) é um único
+   pseudo-elemento (::after), preso na quina direita (`right:0`), com
+   largura fixa (--enautica-largura-foto) e `background-size: cover`
+   (recorte real, sem distorcer nem esticar).
+
+   A transição NÃO é mais uma segunda camada de degradê branco PINTADA POR
+   CIMA da foto (abordagem anterior, com dois pseudo-elementos coordenados
+   por calc()) — aquilo dependia do conteúdo da própria foto: onde a foto
+   já era clara (céu, casco branco do barco), a "pintura" branca ficava
+   quase invisível e a faixa toda parecia sumir; onde a foto era escura
+   (casco/água), sobrava uma quebra perceptível bem na entrada da foto,
+   mesmo com a faixa de transição matematicamente larga. Em telas
+   diferentes (a largura da foto muda no mobile — ver media query abaixo)
+   isso também exigia recalcular os dois em conjunto.
+
+   Agora é uma MÁSCARA (mask-image) na própria foto: a foto vai sumindo
+   (alpha) da esquerda pra direita, revelando o fundo branco do botão por
+   trás — não uma segunda camada de tinta. O resultado não depende do que
+   tem na foto (clara ou escura, sempre a mesma curva de transparência) e
+   as coordenadas do gradiente da máscara são relativas à CAIXA DA PRÓPRIA
+   FOTO (0% = a borda esquerda dela), não ao botão inteiro — então a faixa
+   de fade acompanha sozinha qualquer largura de foto, sem precisar
+   recalcular nada para o mobile.
    Habilitação Completa não leva foto (só texto, centralizado) — continua
    no azul-petróleo sólido pra se destacar como a opção "premium". */
 .enautica-botao-habilitacao {
@@ -1329,29 +1337,19 @@ button.badge:hover { filter: brightness(0.95); }
   content: ''; position: absolute; top: 0; right: 0; bottom: 0;
   width: var(--enautica-largura-foto);
   background-size: cover; background-repeat: no-repeat; background-position: 62% center;
-  z-index: -2;
+  z-index: -1;
   /* Uma foto é um pôr do sol quente, a outra é cinza/nublada — sem isto as
      duas destoam entre si (e do card branco). Dessaturar um pouco as duas
      junto de um leve escurecido aproxima o "peso" visual das duas fotos. */
   filter: saturate(0.82) brightness(0.97);
+  /* O fade em si: 0% (borda esquerda DA FOTO) totalmente transparente,
+     crescendo até opaca perto da metade dela — sempre relativo à própria
+     caixa da foto, então continua correto em qualquer largura. */
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 24%, black 52%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 24%, black 52%);
 }
 .enautica-botao-habilitacao--arrais::after { background-image: url('/enautica/embarcacao.png'); }
 .enautica-botao-habilitacao--motonauta::after { background-image: url('/enautica/motonauta.png'); }
-.enautica-botao-habilitacao--arrais::before,
-.enautica-botao-habilitacao--motonauta::before {
-  content: ''; position: absolute; inset: 0; z-index: -1;
-  /* Faixa de transição mais larga (antes: 22% do botão, quase um corte seco
-     assim que a foto entrava) e com um degrau intermediário pra suavizar a
-     curva — a foto emerge do branco aos poucos, não "liga" na metade do
-     caminho. */
-  background: linear-gradient(
-    to right,
-    #fff 0%,
-    #fff calc(100% - var(--enautica-largura-foto) - 10%),
-    rgba(255,255,255,0.55) calc(100% - var(--enautica-largura-foto) + 6%),
-    rgba(255,255,255,0) calc(100% - var(--enautica-largura-foto) + 28%)
-  );
-}
 
 .enautica-botao-habilitacao--ambas {
   justify-content: center; text-align: center;
