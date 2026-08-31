@@ -352,8 +352,13 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMinhaC
   )
 }
 
-export default function TelaClienteDashboard({ perfil }) {
+export default function TelaClienteDashboard({ perfil, onVoltar }) {
   const [cliente, setCliente] = useState(null)
+  // Enquanto true, ainda não sabemos se existe cadastro ou não — evita
+  // piscar "Seu cadastro ainda está em análise" durante a primeira busca
+  // (ver useEffect/carregar abaixo), mesma técnica usada no RV e-Náutica
+  // (TelaClienteENautica.jsx).
+  const [carregando, setCarregando] = useState(true)
   const [embarcacoes, setEmbarcacoes] = useState([])
   const [agendamentos, setAgendamentos] = useState([])
   const [laudos, setLaudos] = useState([])
@@ -502,6 +507,8 @@ export default function TelaClienteDashboard({ perfil }) {
       // dar pra tentar de novo (ex: recarregando a página) em vez de ficar
       // com um painel em branco sem explicação.
       setErroCarregamento(err.message)
+    } finally {
+      setCarregando(false)
     }
   }
 
@@ -1177,8 +1184,12 @@ export default function TelaClienteDashboard({ perfil }) {
           <strong className="painel-cliente-marina">Marina Paulo Prates</strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
+              (mesmo padrão do RV e-Náutica e do "Voltar" nas telas de "Em
+              construção"/"Não contratada" em App.jsx). A sessão do
+              Supabase segue ativa. */}
           <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair"
-            onClick={() => supabase.auth.signOut()}>
+            onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
             <IconLogout size={16} />
           </button>
           {cliente && (
@@ -1201,7 +1212,7 @@ export default function TelaClienteDashboard({ perfil }) {
         </div>
       )}
 
-      {!cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração da marina.</p>}
+      {!carregando && !cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração da marina.</p>}
 
       {cliente && (
         <>

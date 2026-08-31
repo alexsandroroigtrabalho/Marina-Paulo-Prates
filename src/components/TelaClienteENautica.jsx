@@ -7,6 +7,7 @@ import {
   modulosAulaComVideo, aulasConcluidas, alternarAulaConcluida,
   listarMeusAgendamentos, listarMeusCertificados, labelTipoAgendamento,
 } from '../lib/enautica'
+import { maskData, dataMascaradaParaIso } from '../lib/mascaras'
 
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
 // cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
@@ -29,6 +30,13 @@ const ABAS_ALUNO = [
 
 export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [cliente, setCliente] = useState(null)
+  // Enquanto true, ainda não sabemos se existe cadastro ou não — usado só
+  // pra não piscar "Seu cadastro ainda está em análise" durante a primeira
+  // busca (ver useEffect/carregar abaixo): sem isso, `cliente` começa como
+  // `null` e esse aviso aparecia por uma fração de segundo em TODO
+  // carregamento, mesmo quando o cadastro já existe e vai aparecer no
+  // instante seguinte.
+  const [carregando, setCarregando] = useState(true)
   const [matricula, setMatricula] = useState(null)
   const [marina, setMarina] = useState(null)
   const [erroCarregamento, setErroCarregamento] = useState(null)
@@ -63,6 +71,8 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
       setConcluidas(aulasConcluidas(cli.id))
     } catch (err) {
       setErroCarregamento(err.message)
+    } finally {
+      setCarregando(false)
     }
   }
 
@@ -90,10 +100,20 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   async function enviarPedido(e) {
     e.preventDefault()
     setErroEnvio(null)
+    // Data de nascimento chega mascarada (dd/mm/aaaa) — a coluna no banco é
+    // `date` e espera aaaa-mm-dd. Convertida aqui, na saída, pra não mexer
+    // no formato que o resto da tela usa (dadosFaltando/formFaltando ficam
+    // sempre com o texto mascarado, igual o aluno está vendo).
+    const dadosFaltando = { ...formFaltando }
+    if (dadosFaltando.data_nascimento) {
+      const iso = dataMascaradaParaIso(dadosFaltando.data_nascimento)
+      if (!iso) { setErroEnvio('Data de nascimento inválida.'); return }
+      dadosFaltando.data_nascimento = iso
+    }
     setEnviando(true)
     try {
       await enviarMatricula({
-        clienteId: cliente.id, marinaId: cliente.marina_id, habilitacao, dadosFaltando: formFaltando,
+        clienteId: cliente.id, marinaId: cliente.marina_id, habilitacao, dadosFaltando,
       })
       await carregar()
       setModalMatriculaAberto(false)
@@ -146,7 +166,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
         </div>
       )}
 
-      {!cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração.</p>}
+      {!carregando && !cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração.</p>}
 
       {/* Sem matrícula ainda: a tela inicial só oferece 3 botões, um por
           habilitação (ver HABILITACOES em lib/enautica.js) — escolher um
@@ -162,8 +182,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
             </p>
           )}
-          <p className="dica" style={{ textAlign: 'center', margin: 0 }}>Habilite-se!</p>
-
           {HABILITACOES.map((h) => (
             <button
               key={h.chave} type="button"
@@ -178,30 +196,26 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
       {modalMatriculaAberto && (
         <div className="modal-fundo" onClick={() => setModalMatriculaAberto(false)}>
-          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={enviarPedido}>
+          <form className="modal-card modal-card--matricula" onClick={(e) => e.stopPropagation()} onSubmit={enviarPedido}>
             <h3>Matrícula</h3>
-            <p className="dica">
-              Habilitação: <b>{labelHabilitacao(habilitacao)}</b>.
-              {camposFaltando.length > 0 && ' Os dados abaixo são usados na geração dos seus documentos de matrícula.'}
-            </p>
 
+            {/* Sem texto explicativo aqui (removido a pedido) — os campos
+                abaixo são só os que faltam no cadastro do cliente (ver
+                camposDocumentoFaltando em lib/enautica.js); a data de
+                nascimento usa uma máscara dd/mm/aaaa em vez do seletor
+                nativo <input type="date">, que destoa do tema escuro deste
+                modal. O rótulo de cada campo vira só o placeholder — nada
+                de título fora do preenchimento. */}
             {camposFaltando.map((c) => (
-              c.tipo === 'date' ? (
-                <div key={c.chave} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span className="minha-conta-secao-titulo">{c.label}</span>
-                  <input
-                    type="date" required
-                    value={formFaltando[c.chave] || ''}
-                    onChange={(e) => setFormFaltando({ ...formFaltando, [c.chave]: e.target.value })}
-                  />
-                </div>
-              ) : (
-                <input
-                  key={c.chave} type="text" required placeholder={c.label}
-                  value={formFaltando[c.chave] || ''}
-                  onChange={(e) => setFormFaltando({ ...formFaltando, [c.chave]: e.target.value })}
-                />
-              )
+              <input
+                key={c.chave} type="text" required inputMode={c.tipo === 'date' ? 'numeric' : undefined}
+                placeholder={c.tipo === 'date' ? 'Data de nascimento (dd/mm/aaaa)' : c.label}
+                value={formFaltando[c.chave] || ''}
+                onChange={(e) => setFormFaltando({
+                  ...formFaltando,
+                  [c.chave]: c.tipo === 'date' ? maskData(e.target.value) : e.target.value,
+                })}
+              />
             ))}
 
             {erroEnvio && <p className="erro">{erroEnvio}</p>}
@@ -210,6 +224,12 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               <button type="button" onClick={() => setModalMatriculaAberto(false)}>Cancelar</button>
               <button type="submit" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar pedido'}</button>
             </div>
+
+            {/* Rodapé DENTRO do card (não só no fim da página, atrás do
+                modal): "Matrícula" é o modal mais provável de precisar de
+                rolagem (vários campos de documento faltando de uma vez) —
+                sem isto o link só reaparecia se o aluno fechasse o modal. */}
+            <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
           </form>
         </div>
       )}

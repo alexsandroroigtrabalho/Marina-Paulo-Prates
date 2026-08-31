@@ -1312,23 +1312,44 @@ button.badge:hover { filter: brightness(0.95); }
 .enautica-botao-habilitacao--motonauta:hover {
   border-color: #D4AF37; box-shadow: 0 4px 16px rgba(140,107,30,0.18);
 }
+
+/* Em telas estreitas (celular pequeno, ~320-360px), a foto fixa em 58% do
+   botão sobrava pouco espaço pro texto — "Arrais-Amador" encostava (às
+   vezes até por cima) na faixa de transição/foto. Encolhe a foto e o texto
+   um pouco só nessa faixa de largura, sem mexer em telas maiores. */
+@media (max-width: 400px) {
+  .enautica-botao-habilitacao--arrais,
+  .enautica-botao-habilitacao--motonauta {
+    --enautica-largura-foto: 44%;
+  }
+  .enautica-botao-habilitacao { font-size: 14px; padding: 16px 18px; }
+}
 .enautica-botao-habilitacao--arrais::after,
 .enautica-botao-habilitacao--motonauta::after {
   content: ''; position: absolute; top: 0; right: 0; bottom: 0;
   width: var(--enautica-largura-foto);
   background-size: cover; background-repeat: no-repeat; background-position: 62% center;
   z-index: -2;
+  /* Uma foto é um pôr do sol quente, a outra é cinza/nublada — sem isto as
+     duas destoam entre si (e do card branco). Dessaturar um pouco as duas
+     junto de um leve escurecido aproxima o "peso" visual das duas fotos. */
+  filter: saturate(0.82) brightness(0.97);
 }
 .enautica-botao-habilitacao--arrais::after { background-image: url('/enautica/embarcacao.png'); }
 .enautica-botao-habilitacao--motonauta::after { background-image: url('/enautica/motonauta.png'); }
 .enautica-botao-habilitacao--arrais::before,
 .enautica-botao-habilitacao--motonauta::before {
   content: ''; position: absolute; inset: 0; z-index: -1;
+  /* Faixa de transição mais larga (antes: 22% do botão, quase um corte seco
+     assim que a foto entrava) e com um degrau intermediário pra suavizar a
+     curva — a foto emerge do branco aos poucos, não "liga" na metade do
+     caminho. */
   background: linear-gradient(
     to right,
     #fff 0%,
-    #fff calc(100% - var(--enautica-largura-foto) - 6%),
-    rgba(255,255,255,0) calc(100% - var(--enautica-largura-foto) + 16%)
+    #fff calc(100% - var(--enautica-largura-foto) - 10%),
+    rgba(255,255,255,0.55) calc(100% - var(--enautica-largura-foto) + 6%),
+    rgba(255,255,255,0) calc(100% - var(--enautica-largura-foto) + 28%)
   );
 }
 
@@ -1613,6 +1634,17 @@ button.badge:hover { filter: brightness(0.95); }
   border: 1px solid rgba(212,175,55,0.34);
   box-shadow: 0 22px 54px rgba(0,0,0,0.45);
   color: #F5F5F0;
+}
+
+/* Modal de matrícula (RV e-Náutica): sem o texto explicativo que ocupava
+   espaço antes, o card genérico (340px, teto de 620px de altura) ficava
+   com sobra vazia pra só 1-2 campos — um pouco menor aqui, do jeito que o
+   conteúdo real pede. */
+.painel-cliente .modal-card.modal-card--matricula {
+  width: 300px;
+  padding: 20px;
+  height: auto;
+  max-height: min(calc(100vh - var(--topo-painel) - 20px), 480px);
 }
 
 /* Título do painel: mesmo gesto de "ENTRAR"/"CRIAR CONTA". */

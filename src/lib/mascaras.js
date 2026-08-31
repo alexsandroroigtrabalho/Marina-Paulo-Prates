@@ -40,3 +40,28 @@ export function maskTelefone(valor) {
     .replace(/(\d{2})(\d)/, '($1) $2')
     .replace(/(\d{5})(\d{1,4})$/, '$1-$2')
 }
+
+// dd/mm/aaaa — usada no lugar do seletor nativo <input type="date"> em
+// telas onde ele destoa do resto do formulário (ex.: modal de matrícula do
+// RV e-Náutica, fundo escuro — o calendário nativo do navegador não
+// acompanha o tema). Mesma técnica das duas máscaras acima: só dígitos,
+// remontada do zero a cada tecla.
+export function maskData(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8)
+  return digitos
+    .replace(/(\d{2})(\d)/, '$1/$2')
+    .replace(/(\d{2})(\d)/, '$1/$2')
+}
+
+// "dd/mm/aaaa" -> "aaaa-mm-dd" (formato que uma coluna `date` do Postgres
+// espera). Devolve null se a data ainda não estiver completa/válida — quem
+// chama decide o que fazer (normalmente: barrar o envio com uma mensagem,
+// em vez de mandar uma data quebrada pro banco).
+export function dataMascaradaParaIso(valor) {
+  const m = String(valor || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!m) return null
+  const [, dia, mes, ano] = m
+  const data = new Date(`${ano}-${mes}-${dia}T12:00`)
+  if (Number.isNaN(data.getTime()) || data.getUTCDate() !== Number(dia) || data.getUTCMonth() + 1 !== Number(mes)) return null
+  return `${ano}-${mes}-${dia}`
+}
