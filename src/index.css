@@ -1265,7 +1265,7 @@ button.badge:hover { filter: brightness(0.95); }
    RV Marine (.painel-cliente-btn-outline): fundo branco, contorno dourado
    (--dourado-texto), texto no azul-petróleo.
 
-   A foto (embarcacao.png / motonauta.png, em public/enautica/) é um único
+   A foto (embarcacao.webp / motonauta.webp, em public/enautica/) é um único
    pseudo-elemento (::after), preso na quina direita (`right:0`), com
    largura fixa (--enautica-largura-foto) e `background-size: cover`
    (recorte real, sem distorcer nem esticar).
@@ -1356,8 +1356,14 @@ button.badge:hover { filter: brightness(0.95); }
   mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 12%, black 30%);
   -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 12%, black 30%);
 }
-.enautica-botao-habilitacao--arrais::after { background-image: url('/enautica/embarcacao.png'); }
-.enautica-botao-habilitacao--motonauta::after { background-image: url('/enautica/motonauta.png'); }
+/* .webp em vez do .png original: mesma foto, redimensionada pro tamanho
+   real que aparece na tela (o PNG original era 1536×1024 — muito maior que
+   qualquer exibição possível deste botão, mesmo em tela retina) e
+   recomprimida — 2,4-2,7MB caíram pra ~90KB cada, sem perda visível de
+   qualidade (comparei lado a lado). Suporte a .webp é universal nos
+   navegadores usados hoje, não precisa de fallback. */
+.enautica-botao-habilitacao--arrais::after { background-image: url('/enautica/embarcacao.webp'); }
+.enautica-botao-habilitacao--motonauta::after { background-image: url('/enautica/motonauta.webp'); }
 
 .enautica-botao-habilitacao--ambas {
   justify-content: center; text-align: center;
