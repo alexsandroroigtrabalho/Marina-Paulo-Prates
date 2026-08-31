@@ -148,7 +148,14 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   }
 
   return (
-    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    // minHeight em dvh (não vh): no celular, 100vh conta a altura da tela
+    // INTEIRA, incluindo a área que a barra de ferramentas do navegador
+    // ocupa quando está visível — como o rodapé abaixo usa marginTop:'auto'
+    // pra ficar colado no fim desta coluna, ele acabava "empurrado" pra
+    // baixo da barra, fora da área visível, e só aparecia rolando a
+    // página. 100dvh é a altura realmente visível AGORA (já descontando a
+    // barra), então o rodapé sobe junto e fica visível sem precisar rolar.
+    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         <strong className="painel-cliente-marina">{marina?.nome || 'RV e-Náutica'}</strong>

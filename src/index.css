@@ -1318,21 +1318,21 @@ button.badge:hover { filter: brightness(0.95); }
 
 .enautica-botao-habilitacao--arrais,
 .enautica-botao-habilitacao--motonauta {
-  /* 60% (era 58%) — o primeiro teste (num preview HTML avulso, com a fonte
-     de fallback do navegador) sugeria que dava pra ir bem além disso, mas
-     esse preview usava uma fonte mais estreita que a real do site; testado
-     de novo direto no CSS compilado (fonte real), 60% é o maior valor que
-     ainda cabe numa linha só — por isso também baixei a fonte pra 15px
-     (era 16px) só nestes dois botões, o resto do sistema não muda. */
-  --enautica-largura-foto: 60%;
-  font-size: 15px;
+  /* 64% (era 60%) — a largura real da caixa de conteúdo aqui NUNCA passa de
+     432px (o card do e-Náutica é max-width:480px com padding:24px dos dois
+     lados, TelaClienteENautica.jsx) — testei 64%/14px direto nessa largura
+     (o pior caso real, o card nunca fica mais largo que isso em nenhuma
+     tela) e "Arrais-Amador" ainda cabe numa linha só; baixei a fonte pra
+     14px (era 15px) pra abrir essa margem sem arriscar quebra. */
+  --enautica-largura-foto: 64%;
+  font-size: 14px;
   /* Texto centralizado na faixa BRANCA (entre a borda esquerda do botão e
      onde a foto começa), não no botão inteiro — daí o padding-right extra
      do tamanho da própria foto: isso encolhe a "área útil" do flexbox pra
      só a faixa branca, e é dentro dela que justify-content:center centraliza. */
   justify-content: center;
   text-align: center;
-  padding-right: calc(var(--enautica-largura-foto) + 20px);
+  padding-right: calc(var(--enautica-largura-foto) + 16px);
   color: var(--cor-primaria);
   background-color: #fff;
   border: 1px solid var(--dourado-texto);
@@ -1349,15 +1349,15 @@ button.badge:hover { filter: brightness(0.95); }
 @media (max-width: 400px) {
   .enautica-botao-habilitacao--arrais,
   .enautica-botao-habilitacao--motonauta {
-    /* 46% (era 44%) — testado com a fonte real (não a de fallback do
-       preview) direto num celular de 320px, o mais estreito que existe em
-       uso normal hoje (iPhone SE/Android de entrada): 54% e até 50%
-       quebravam "Arrais-Amador" em duas linhas nessa largura. 46% com a
-       fonte reduzida pra 13px (linha de baixo) foi o maior valor seguro. */
-    --enautica-largura-foto: 46%;
-    padding-right: calc(var(--enautica-largura-foto) + 12px);
+    /* 50% (era 46%) — testado de novo num celular de 320px (o mais estreito
+       em uso normal hoje), com a fonte real do site: com 12px (linha
+       abaixo, era 13px) "Arrais-Amador" ainda cabe numa linha só; sem
+       baixar a fonte, 50% já quebrava o texto em duas linhas nessa
+       largura. */
+    --enautica-largura-foto: 50%;
+    padding-right: calc(var(--enautica-largura-foto) + 10px);
   }
-  .enautica-botao-habilitacao { font-size: 13px; padding-top: 15px; padding-bottom: 15px; padding-left: 16px; }
+  .enautica-botao-habilitacao { font-size: 12px; padding-top: 15px; padding-bottom: 15px; padding-left: 16px; }
 }
 .enautica-botao-habilitacao--arrais::after,
 .enautica-botao-habilitacao--motonauta::after {
@@ -1369,11 +1369,16 @@ button.badge:hover { filter: brightness(0.95); }
      duas destoam entre si (e do card branco). Dessaturar um pouco as duas
      junto de um leve escurecido aproxima o "peso" visual das duas fotos. */
   filter: saturate(0.82) brightness(0.97);
-  /* O fade em si: 0% (borda esquerda DA FOTO) totalmente transparente,
-     crescendo até opaca em 44% dela — um pouco mais larga/suave que a
-     versão anterior (12%→30%), sempre relativo à própria caixa da foto. */
-  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
+  /* O fade agora é DIAGONAL, não mais reto da esquerda pra direita: a linha
+     de 0% (totalmente transparente) passa pelo centro vertical da borda
+     esquerda da foto, e a de 100% (opaca) passa pelo centro horizontal da
+     borda superior — "to top right" é o jeito da própria sintaxe do
+     gradiente calcular esse ângulo sozinho a partir do formato real da
+     caixa da foto (ela é bem mais larga que alta), sem precisar de um
+     ângulo fixo em graus que ia ficar errado toda vez que a largura da
+     foto mudar (mobile vs. desktop, ou um redimensionamento no meio). */
+  mask-image: linear-gradient(to top right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
+  -webkit-mask-image: linear-gradient(to top right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
 }
 /* .webp em vez do .png original: mesma foto, redimensionada pro tamanho
    real que aparece na tela (o PNG original era 1536×1024 — muito maior que
