@@ -72,10 +72,13 @@ export default function Layout({
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
           sempre que não há nada de verdade pra navegar — nem aplicação
           escolhida ainda, nem uma das 3 aplicações ainda "Em construção"
-          (todas menos o RV Marine). Só volta ao
-          comportamento dinâmico normal (esconde/revela por hover) dentro
-          do RV Marine, que é a única com telas de verdade. */}
-      <aside className={`sidebar ${appSelecionada !== 'marine' ? 'sidebar-fixa' : ''}`}>
+          (todas menos o RV Marine). Volta ao comportamento dinâmico normal
+          (esconde/revela por hover) dentro do RV Marine E também na área
+          própria do rv_master (`semSeletorApps`) — as duas têm telas de
+          verdade pra navegar, então o menu se comporta como qualquer outra
+          aplicação com conteúdo, não como a vitrine "escolha uma aplicação"
+          (essa sim continua sempre aberta, sem precisar de hover). */}
+      <aside className={`sidebar ${appSelecionada !== 'marine' && !semSeletorApps ? 'sidebar-fixa' : ''}`}>
         <img src="/rv-invictus-logo-dourado.png" alt="RV Invictus" className="sidebar-logo" />
 
         {app ? (
@@ -124,11 +127,13 @@ export default function Layout({
           // lib/apps.js ("Painel de Controle" e "Clientes" hoje) — lista de
           // verdade clicável, igual à de qualquer outra aplicação (`telaAtiva`/
           // `setTelaAtiva` são os MESMOS props que a `app.telas.map` acima já
-          // usa, só que aqui pro conjunto de telas do rv_master).
-          // `.nav-rvmaster` carrega o mesmo margin-top:auto que .nav-voltar
-          // usa nas outras aplicações, pra empurrar o rodapé (RVinvictus.com.br)
-          // pro fundo de verdade da sidebar — sem isso ele ficava colado
-          // embaixo da logo, com um vão vazio enorme até o fim da tela.
+          // usa, só que aqui pro conjunto de telas do rv_master). A lista
+          // fica NO TOPO (logo abaixo do título), sem margin-top:auto — quem
+          // empurra o rodapé (RVinvictus.com.br) pro fundo de verdade da
+          // sidebar é o `<div className="nav-rvmaster-espaco">` isolado
+          // depois dela, não a lista em si (mesmo papel que `.nav-voltar`
+          // cumpre lá em cima, só que aqui sem nenhum botão de "voltar" de
+          // verdade — o rv_master não tem uma tela "acima" da própria dele). */}
           <>
             <p className="app-titulo">RV MASTER</p>
             <nav className="nav-rvmaster">
@@ -142,6 +147,7 @@ export default function Layout({
                 </button>
               ))}
             </nav>
+            <div className="nav-rvmaster-espaco" aria-hidden="true" />
           </>
         ) : (
           // Nenhuma aplicação escolhida ainda: seletor das aplicações RV

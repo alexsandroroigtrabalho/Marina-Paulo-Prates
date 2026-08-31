@@ -644,12 +644,16 @@ body {
 .nav-item-estatico { cursor: default; }
 
 /* Sidebar do rv_master antes de escolher um cliente (Layout.jsx, "RV
-   MASTER"): igual ao `margin-top: auto` de .nav-voltar (ver mais abaixo) —
-   empurra a lista de telas pro fundo da sidebar, deixando o rodapé
-   (RVinvictus.com.br) logo abaixo dela, sem vão vazio no meio. Classe
-   própria (não reaproveita .nav-voltar) porque aqui não é um botão de
-   "voltar", é a própria lista de telas. */
-.nav-rvmaster { margin-top: auto; }
+   MASTER"): a lista de telas ("Painel de Controle"/"Clientes") fica NO TOPO
+   da sidebar, logo abaixo do título — por isso, ao contrário da versão
+   anterior, `.nav-rvmaster` NÃO leva margin-top:auto (isso a empurraria pra
+   baixo). Quem empurra o rodapé (RVinvictus.com.br) pro fundo de verdade da
+   sidebar agora é o espaçador isolado abaixo, `.nav-rvmaster-espaco` — o
+   mesmo papel que `.nav-voltar` cumpre nas outras aplicações, só que aqui
+   sem nenhum botão de "voltar" de verdade (o rv_master não tem uma tela
+   "acima" da própria dele). */
+.nav-rvmaster { margin-top: 0; }
+.nav-rvmaster-espaco { margin-top: auto; }
 
 /* Título da aplicação escolhida (RV Marine, RV NautDoc, RV e-Náutica,
    RV Enge, RV Manut, RV Stock, RV Finance) — rótulo fixo, não clicável,
