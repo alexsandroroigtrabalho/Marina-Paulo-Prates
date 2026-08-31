@@ -224,12 +224,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               <button type="button" onClick={() => setModalMatriculaAberto(false)}>Cancelar</button>
               <button type="submit" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar pedido'}</button>
             </div>
-
-            {/* Rodapé DENTRO do card (não só no fim da página, atrás do
-                modal): "Matrícula" é o modal mais provável de precisar de
-                rolagem (vários campos de documento faltando de uma vez) —
-                sem isto o link só reaparecia se o aluno fechasse o modal. */}
-            <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
           </form>
         </div>
       )}

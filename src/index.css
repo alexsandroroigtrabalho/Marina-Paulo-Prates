@@ -1310,7 +1310,14 @@ button.badge:hover { filter: brightness(0.95); }
 
 .enautica-botao-habilitacao--arrais,
 .enautica-botao-habilitacao--motonauta {
-  --enautica-largura-foto: 58%;
+  /* 60% (era 58%) — o primeiro teste (num preview HTML avulso, com a fonte
+     de fallback do navegador) sugeria que dava pra ir bem além disso, mas
+     esse preview usava uma fonte mais estreita que a real do site; testado
+     de novo direto no CSS compilado (fonte real), 60% é o maior valor que
+     ainda cabe numa linha só — por isso também baixei a fonte pra 15px
+     (era 16px) só nestes dois botões, o resto do sistema não muda. */
+  --enautica-largura-foto: 60%;
+  font-size: 15px;
   /* Texto centralizado na faixa BRANCA (entre a borda esquerda do botão e
      onde a foto começa), não no botão inteiro — daí o padding-right extra
      do tamanho da própria foto: isso encolhe a "área útil" do flexbox pra
@@ -1334,10 +1341,15 @@ button.badge:hover { filter: brightness(0.95); }
 @media (max-width: 400px) {
   .enautica-botao-habilitacao--arrais,
   .enautica-botao-habilitacao--motonauta {
-    --enautica-largura-foto: 44%;
-    padding-right: calc(var(--enautica-largura-foto) + 14px);
+    /* 46% (era 44%) — testado com a fonte real (não a de fallback do
+       preview) direto num celular de 320px, o mais estreito que existe em
+       uso normal hoje (iPhone SE/Android de entrada): 54% e até 50%
+       quebravam "Arrais-Amador" em duas linhas nessa largura. 46% com a
+       fonte reduzida pra 13px (linha de baixo) foi o maior valor seguro. */
+    --enautica-largura-foto: 46%;
+    padding-right: calc(var(--enautica-largura-foto) + 12px);
   }
-  .enautica-botao-habilitacao { font-size: 14px; padding-top: 16px; padding-bottom: 16px; padding-left: 18px; }
+  .enautica-botao-habilitacao { font-size: 13px; padding-top: 15px; padding-bottom: 15px; padding-left: 16px; }
 }
 .enautica-botao-habilitacao--arrais::after,
 .enautica-botao-habilitacao--motonauta::after {
@@ -1350,11 +1362,10 @@ button.badge:hover { filter: brightness(0.95); }
      junto de um leve escurecido aproxima o "peso" visual das duas fotos. */
   filter: saturate(0.82) brightness(0.97);
   /* O fade em si: 0% (borda esquerda DA FOTO) totalmente transparente,
-     chegando em opaca já perto de 1/3 dela — faixa mais estreita que antes
-     (era quase metade da foto com neblina; agora só a beirada esquerda),
-     pra sobrar mais foto nítida, sempre relativo à própria caixa da foto. */
-  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 12%, black 30%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 12%, black 30%);
+     crescendo até opaca em 44% dela — um pouco mais larga/suave que a
+     versão anterior (12%→30%), sempre relativo à própria caixa da foto. */
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 18%, black 44%);
 }
 /* .webp em vez do .png original: mesma foto, redimensionada pro tamanho
    real que aparece na tela (o PNG original era 1536×1024 — muito maior que
