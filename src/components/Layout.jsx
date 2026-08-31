@@ -1,6 +1,6 @@
 import { IconSettings, IconArrowLeft, IconLogout } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
-import { APLICACOES, buscarApp, temTelas } from '../lib/apps'
+import { APLICACOES, TELAS_RV_MASTER, buscarApp, temTelas } from '../lib/apps'
 import SonsPainelAdmin from './SonsPainelAdmin'
 
 // Cabeçalho mostra só o cargo (ex: "Admin"), nunca o nome cadastrado da
@@ -115,7 +115,28 @@ export default function Layout({
               <IconArrowLeft size={14} /> Aplicações
             </button>
           </>
-        ) : semSeletorApps ? null : (
+        ) : semSeletorApps ? (
+          // Tela do rv_master ANTES de escolher um cliente (TelaRvMaster —
+          // "Painel de Controle" no título, ver App.jsx): mesma composição
+          // "título fixo + lista de telas" das demais aplicações (linha 81
+          // acima), com "RV MASTER" no lugar do nome do tenant — afinal,
+          // pro rv_master, esta É a aplicação dele (a ferramenta da própria
+          // RV Invictus, não um cliente). TELAS_RV_MASTER vem de
+          // lib/apps.js (hoje só "Painel de Controle", mas já no mesmo
+          // formato dinâmico das outras — cresce sem mexer aqui).
+          // `.nav-rvmaster` carrega o mesmo margin-top:auto que .nav-voltar
+          // usa nas outras aplicações, pra empurrar o rodapé (RVinvictus.com.br)
+          // pro fundo de verdade da sidebar — sem isso ele ficava colado
+          // embaixo da logo, com um vão vazio enorme até o fim da tela.
+          <>
+            <p className="app-titulo">RV MASTER</p>
+            <nav className="nav-rvmaster">
+              {TELAS_RV_MASTER.map(({ chave, label }) => (
+                <div key={chave} className="nav-item ativo nav-item-estatico">{label}</div>
+              ))}
+            </nav>
+          </>
+        ) : (
           // Nenhuma aplicação escolhida ainda: seletor das aplicações RV
           // Invictus no lugar da lista de itens — a MESMA lista, na mesma
           // ordem e com os mesmos nomes que o cliente vê depois do login

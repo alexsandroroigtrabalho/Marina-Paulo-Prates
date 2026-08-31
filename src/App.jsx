@@ -21,6 +21,8 @@ import TelaCertificadosEscolaENautica from './components/TelaCertificadosEscolaE
 import TelaClienteENautica from './components/TelaClienteENautica'
 import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
 import TelaRvMaster from './components/TelaRvMaster'
+import AcessoSuspenso from './components/AcessoSuspenso'
+import { tenantSuspenso } from './lib/rvMaster'
 
 // Catálogo de telas da área administrativa: chave → componente e título.
 // QUAL aplicação mostra QUAIS telas é decidido em lib/apps.js (campo
@@ -82,6 +84,13 @@ export default function App() {
   // acessa de verdade o que contratou, mesmo enxergando a lista completa no
   // seletor (vitrine). null enquanto carrega.
   const [appsContratadosEquipe, setAppsContratadosEquipe] = useState(null)
+  // true quando o TENANT INTEIRO (equipe) está com acesso suspenso pelo RV
+  // Master (marina.marinas.status === 'suspenso', ver lib/rvMaster.js
+  // tenantSuspenso/alternarSuspensaoTenant) — bloqueia a tela toda com
+  // AcessoSuspenso.jsx, ANTES de decidir Layout/telas. Não vale pro próprio
+  // rv_master "entrando como" o tenant escolhido: ele precisa continuar
+  // conseguindo abrir um cliente suspenso pra investigar/reativar.
+  const [marinaSuspensaEquipe, setMarinaSuspensaEquipe] = useState(false)
   const [carregando, setCarregando] = useState(true)
   // true quando o usuário chegou pelo link de "Esqueci minha senha" (evento
   // 'PASSWORD_RECOVERY' do Supabase Auth, disparado ao abrir o link do
@@ -139,11 +148,16 @@ export default function App() {
   }, [sessao])
 
   useEffect(() => {
-    if (!marinaIdEfetivo) { setNomeMarina(null); setAppsContratadosEquipe(null); return }
+    if (!marinaIdEfetivo) { setNomeMarina(null); setAppsContratadosEquipe(null); setMarinaSuspensaEquipe(false); return }
     buscarMarina(marinaIdEfetivo)
-      .then((m) => { setNomeMarina(m?.nome || null); setAppsContratadosEquipe(m?.apps_contratados || ['marine']) })
-      .catch(() => { setNomeMarina(null); setAppsContratadosEquipe(['marine']) })
-  }, [marinaIdEfetivo])
+      .then((m) => {
+        setNomeMarina(m?.nome || null)
+        setAppsContratadosEquipe(m?.apps_contratados || ['marine'])
+        setMarinaSuspensaEquipe(!ehRvMaster(perfil) && tenantSuspenso(m))
+      })
+      .catch(() => { setNomeMarina(null); setAppsContratadosEquipe(['marine']); setMarinaSuspensaEquipe(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marinaIdEfetivo, perfil?.role])
 
   // Quais aplicações o CLIENTE pode de fato acessar (não só ver na
   // vitrine): `apps_contratados` da marina/escola do PRÓPRIO cliente — não
@@ -153,14 +167,24 @@ export default function App() {
   // carregando) até resolver, e `['marine']` — o padrão da coluna no banco
   // — se o cliente ainda nem tem uma linha em `clientes`.
   const [appsContratadosCliente, setAppsContratadosCliente] = useState(null)
+  // Mesma trava de tenant inteiro suspenso (ver marinaSuspensaEquipe acima),
+  // aqui pro lado do cliente final.
+  const [marinaSuspensaCliente, setMarinaSuspensaCliente] = useState(false)
   useEffect(() => {
-    if (!perfil || PAPEIS_INTERNOS.includes(perfil.role)) { setAppsContratadosCliente(null); return }
+    if (!perfil || PAPEIS_INTERNOS.includes(perfil.role)) {
+      setAppsContratadosCliente(null)
+      setMarinaSuspensaCliente(false)
+      return
+    }
     db.from('clientes').select('marina_id').eq('user_id', perfil.id).maybeSingle()
       .then(({ data: cli }) => {
-        if (!cli?.marina_id) { setAppsContratadosCliente(['marine']); return }
-        return buscarMarina(cli.marina_id).then((m) => setAppsContratadosCliente(m?.apps_contratados || ['marine']))
+        if (!cli?.marina_id) { setAppsContratadosCliente(['marine']); setMarinaSuspensaCliente(false); return }
+        return buscarMarina(cli.marina_id).then((m) => {
+          setAppsContratadosCliente(m?.apps_contratados || ['marine'])
+          setMarinaSuspensaCliente(tenantSuspenso(m))
+        })
       })
-      .catch(() => setAppsContratadosCliente(['marine']))
+      .catch(() => { setAppsContratadosCliente(['marine']); setMarinaSuspensaCliente(false) })
   }, [perfil])
 
   // Trocar de aplicação precisa reposicionar a tela ativa: cada aplicação
@@ -190,6 +214,16 @@ export default function App() {
 
   // Logado, aguardando perfil carregar
   if (!perfil) return <div className="tela-central">Carregando perfil...</div>
+
+  // Cliente inteiro (marina/escola) com acesso suspenso pelo RV Master —
+  // bloqueia TUDO (equipe e cliente final), antes de qualquer Layout/tela.
+  // Não vale pro próprio rv_master (marinaSuspensaEquipe já vem false pra
+  // ele, ver useEffect acima) nem enquanto os dois estados ainda não
+  // resolveram (ambos começam false, então só vira true depois de
+  // confirmar de verdade — nunca bloqueia por engano durante o carregamento).
+  if (marinaSuspensaEquipe || marinaSuspensaCliente) {
+    return <AcessoSuspenso />
+  }
 
   // Cliente final ("clientes dos nossos clientes" — os clientes da marina).
   // O caminho agora é Login → Seleção de aplicações → Aplicação escolhida:
@@ -240,8 +274,12 @@ export default function App() {
   // sidebar. rv_master escolhe a marina/escola antes de mais nada — sem
   // isso não há `marinaIdEfetivo` pra passar pra nenhuma tela.
   if (ehRvMaster(perfil) && !marinaEscolhidaRvMaster) {
+    // Título do CABEÇALHO virou "Painel de Controle" (era "RV Master") —
+    // o nome "RV MASTER" continua existindo, só que agora como o rótulo da
+    // aplicação na SIDEBAR (ver Layout.jsx, mesmo lugar onde aparece "RV
+    // MARINE"/"RV E-NÁUTICA" pras outras aplicações escolhidas).
     return (
-      <Layout appSelecionada={null} setAppSelecionada={escolherApp} perfil={perfil} titulo="RV Master" semSeletorApps>
+      <Layout appSelecionada={null} setAppSelecionada={escolherApp} perfil={perfil} titulo="Painel de Controle" semSeletorApps>
         <TelaRvMaster onEntrarComoTenant={setMarinaEscolhidaRvMaster} />
       </Layout>
     )

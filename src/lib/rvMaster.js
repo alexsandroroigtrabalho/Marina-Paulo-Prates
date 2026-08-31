@@ -19,6 +19,25 @@ export function sublinkPrevisto(marina) {
   return marina.slug ? `${marina.slug}.${DOMINIO_BASE_SUBLINK}` : null
 }
 
+// Slug a partir do nome digitado no formulário de "Adicionar cliente" —
+// só letras minúsculas e números (sem acento, espaço ou hífen), mesmo
+// padrão dos slugs já cadastrados manualmente ("ccpp", "prates"). Quem usa
+// isto sempre pode editar o resultado antes de salvar (ver TelaRvMaster).
+export function slugificar(texto) {
+  return String(texto || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+// Um cliente (marina/escola) está com acesso suspenso quando `status` é
+// exatamente 'suspenso' — qualquer outro valor ('ativo', 'trial', ou
+// mesmo vazio em linhas antigas) conta como acesso normal. Ver
+// alternarSuspensaoTenant abaixo e o bloqueio em App.jsx (AcessoSuspenso).
+export function tenantSuspenso(marina) {
+  return marina?.status === 'suspenso'
+}
+
 // Uma contagem simples (`head: true, count: 'exact'`) não baixa as linhas,
 // só o total — mais barato que listar tudo pra contar no cliente.
 async function contar(query) {
@@ -36,6 +55,33 @@ async function contar(query) {
 // precisou desligar o trigger porque rodava fora de uma sessão de usuário).
 export async function atualizarAppsContratados(tenantId, apps) {
   const { error } = await db.from('marinas').update({ apps_contratados: apps }).eq('id', tenantId)
+  if (error) throw error
+}
+
+// Novo cliente (marina/escola) — só o RV Master cadastra (mesma trava de
+// `atualizarAppsContratados` acima, via policy/trigger no banco). `slug`
+// pode vir vazio (cliente ainda sem sublink definido, preenchido depois);
+// quando vem, precisa ser único — o banco recusa duplicata (índice único
+// em marina.marinas.slug) e quem chama mostra o erro pro rv_master tratar.
+export async function criarTenant({ nome, slug, appsContratados }) {
+  const { data, error } = await db.from('marinas').insert({
+    nome: nome.trim(),
+    slug: slug ? slug.trim() : null,
+    apps_contratados: appsContratados?.length ? appsContratados : ['marine'],
+    status: 'ativo',
+  }).select().single()
+  if (error) throw error
+  return data
+}
+
+// Suspende/reativa o acesso de um cliente INTEIRO (todas as aplicações,
+// equipe e clientes finais dele) — ver tenantSuspenso() acima e o bloqueio
+// em App.jsx (AcessoSuspenso.jsx). Diferente da suspensão de um cliente
+// individual dentro de uma marina (marina.clientes.acesso_suspenso, ver
+// lib/statusPagamento.js): aqui é o tenant todo, uma ação exclusiva do RV
+// Master.
+export async function alternarSuspensaoTenant(tenantId, suspender) {
+  const { error } = await db.from('marinas').update({ status: suspender ? 'suspenso' : 'ativo' }).eq('id', tenantId)
   if (error) throw error
 }
 

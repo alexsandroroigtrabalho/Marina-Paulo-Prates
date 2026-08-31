@@ -67,6 +67,18 @@ export const APLICACOES = [
   },
 ]
 
+// "Aplicação" própria do rv_master (não é uma das 7 de APLICACOES acima —
+// não tem tenant nenhum, é a ferramenta da PRÓPRIA RV Invictus) — mesmo
+// formato de `telas` das outras, pra a sidebar (Layout.jsx) desenhar o
+// nome "RV MASTER" + a lista de telas do mesmo jeito dinâmico que já usa
+// pras demais, em vez de um bloco fixo escrito à mão. Só uma tela hoje
+// (TelaRvMaster.jsx = "Painel de Controle", ver App.jsx); o formato já
+// aceita crescer (ex.: uma futura tela de faturamento da própria RV
+// Invictus) sem precisar mexer no Layout de novo.
+export const TELAS_RV_MASTER = [
+  { chave: 'painel', label: 'Painel de Controle' },
+]
+
 export function buscarApp(chave) {
   return APLICACOES.find((a) => a.chave === chave) || null
 }

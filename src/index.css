@@ -643,6 +643,14 @@ body {
    cursor normal, sem afordance de clique. */
 .nav-item-estatico { cursor: default; }
 
+/* Sidebar do rv_master antes de escolher um cliente (Layout.jsx, "RV
+   MASTER"): igual ao `margin-top: auto` de .nav-voltar (ver mais abaixo) —
+   empurra a lista de telas pro fundo da sidebar, deixando o rodapé
+   (RVinvictus.com.br) logo abaixo dela, sem vão vazio no meio. Classe
+   própria (não reaproveita .nav-voltar) porque aqui não é um botão de
+   "voltar", é a própria lista de telas. */
+.nav-rvmaster { margin-top: auto; }
+
 /* Título da aplicação escolhida (RV Marine, RV NautDoc, RV e-Náutica,
    RV Enge, RV Manut, RV Stock, RV Finance) — rótulo fixo, não clicável,
    no topo da lista de itens.
