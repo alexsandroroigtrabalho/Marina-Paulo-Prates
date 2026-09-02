@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconLogout, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell } from '@tabler/icons-react'
+import { IconLogout, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell, IconFileText } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
 import { buscarMarina, salvarCliente } from '../lib/db'
 import {
@@ -10,6 +10,7 @@ import {
   declararProntidaoTeste,
 } from '../lib/enautica'
 import { maskData, dataMascaradaParaIso, maskTelefone } from '../lib/mascaras'
+import { MODELOS_DOCUMENTO, abrirDocumento } from '../lib/enauticaDocumentos'
 
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
 // cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
@@ -25,6 +26,7 @@ const ABAS_ALUNO = [
   { chave: 'aulas', label: 'Aulas preparatórias', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
   { chave: 'certs', label: 'Meus certificados', Icone: IconCertificate },
+  { chave: 'docs', label: 'Documentos', Icone: IconFileText },
   { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
 ]
 
@@ -98,6 +100,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [enviando, setEnviando] = useState(false)
   const [erroEnvio, setErroEnvio] = useState(null)
   const [modalMatriculaAberto, setModalMatriculaAberto] = useState(false)
+  const [aceitouPrivacidade, setAceitouPrivacidade] = useState(false)
 
   // "Meus dados" (aba 'dados') — era só leitura, com um texto avisando
   // "edição chega numa próxima fase". Agora edita de verdade, reaproveitando
@@ -342,7 +345,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             <button
               key={h.chave} type="button"
               className={`enautica-botao-habilitacao enautica-botao-habilitacao--${h.chave}`}
-              onClick={() => { setHabilitacao(h.chave); setFormFaltando({}); setErroEnvio(null); setModalMatriculaAberto(true) }}
+              onClick={() => { setHabilitacao(h.chave); setFormFaltando({}); setErroEnvio(null); setAceitouPrivacidade(false); setModalMatriculaAberto(true) }}
             >
               {h.label}
             </button>
@@ -376,9 +379,20 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
             {erroEnvio && <p className="erro">{erroEnvio}</p>}
 
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+              <input type="checkbox" required checked={aceitouPrivacidade} onChange={(e) => setAceitouPrivacidade(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
+              <span>
+                Li e aceito a{' '}
+                <a href="https://rvinvictus.com.br/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--cor-primaria)' }}>
+                  Política de Privacidade
+                </a>{' '}
+                e autorizo o uso dos meus dados para fins de matrícula.
+              </span>
+            </label>
+
             <div className="acoes-modal">
               <button type="button" onClick={() => setModalMatriculaAberto(false)}>Cancelar</button>
-              <button type="submit" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar pedido'}</button>
+              <button type="submit" disabled={enviando || !aceitouPrivacidade}>{enviando ? 'Enviando…' : 'Enviar pedido'}</button>
             </div>
           </form>
         </div>
@@ -496,6 +510,30 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                   <div className="linha"><b>Status:</b> {c.status === 'entregue' ? 'Entregue' : 'Disponível'}</div>
                   <div className="cliente-card-acoes">
                     <button type="button" className="botao-secundario" onClick={() => baixarCertificado(c)}>Baixar certificado</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {aba === 'docs' && (
+            <div className="lista-cards">
+              <p className="dica" style={{ margin: '0 0 12px' }}>
+                Cada botão abre o documento preenchido com seus dados numa aba nova.
+                Use "Imprimir" (Ctrl+P) e escolha "Salvar como PDF". Confira antes de protocolar.
+              </p>
+              {MODELOS_DOCUMENTO.map((modelo) => (
+                <div key={modelo.chave} className="cliente-card" style={{ padding: '10px 14px' }}>
+                  <div className="cliente-card-acoes" style={{ marginTop: 0 }}>
+                    <button
+                      type="button" className="botao-secundario"
+                      onClick={() => {
+                        const docConfig = marina?.config_json?.documentos || {}
+                        abrirDocumento(modelo, { ...cliente, __habilitacao: matricula?.habilitacao }, marina, docConfig, labelHabilitacao)
+                      }}
+                    >
+                      {modelo.titulo}
+                    </button>
                   </div>
                 </div>
               ))}

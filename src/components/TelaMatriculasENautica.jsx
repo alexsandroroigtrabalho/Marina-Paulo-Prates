@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarMatriculas, aprovarMatricula, recusarMatricula, labelHabilitacao } from '../lib/enautica'
+import { listarMatriculas, aprovarMatricula, recusarMatricula, labelHabilitacao, marcarDocumentosRecebidos } from '../lib/enautica'
 import ConfiguracoesENautica from './ConfiguracoesENautica'
 import ModalDocumentosAluno from './ModalDocumentosAluno'
 
@@ -137,9 +137,28 @@ export default function TelaMatriculasENautica({ marinaId, perfil, onAcoes }) {
                 sentido pra quem já foi aprovado — antes disso o aluno nem é
                 oficialmente um aluno da escola ainda. */}
             {aba === 'aprovada' && (
-              <div className="cliente-card-acoes">
+              <div className="cliente-card-acoes" style={{ flexWrap: 'wrap', gap: 8 }}>
                 <button type="button" className="botao-secundario" onClick={() => setMatriculaDocumentos(m)}>
                   Documentos
+                </button>
+                <button
+                  type="button"
+                  className={`botao-secundario${m.documentos_recebidos ? ' em-dia' : ''}`}
+                  style={{ opacity: processandoId === m.id ? 0.6 : 1 }}
+                  disabled={processandoId === m.id}
+                  onClick={async () => {
+                    setProcessandoId(m.id)
+                    try {
+                      await marcarDocumentosRecebidos(m.id, !m.documentos_recebidos)
+                      await carregar()
+                    } catch (err) {
+                      alert('Erro ao atualizar: ' + err.message)
+                    } finally {
+                      setProcessandoId(null)
+                    }
+                  }}
+                >
+                  {m.documentos_recebidos ? '✓ Docs recebidos' : 'Marcar docs recebidos'}
                 </button>
               </div>
             )}
