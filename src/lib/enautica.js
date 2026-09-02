@@ -85,13 +85,26 @@ export async function enviarMatricula({ clienteId, marinaId, habilitacao, dadosF
 
 // --- Painel da escola (operador/admin) ----------------------------------
 
+// PostgREST não resolve joins cross-schema (enautica → marina) via sintaxe
+// `clientes:cliente_id(...)`. Solução: buscar as linhas sem join e mesclar
+// os dados do cliente numa segunda query ao schema marina.
+async function mesclarClientes(registros, campos = 'id, nome, email, telefone') {
+  if (!registros || registros.length === 0) return registros
+  const ids = [...new Set(registros.map((r) => r.cliente_id).filter(Boolean))]
+  if (ids.length === 0) return registros
+  const { data: clientes } = await db.from('clientes').select(campos).in('id', ids)
+  const mapa = {}
+  ;(clientes || []).forEach((c) => { mapa[c.id] = c })
+  return registros.map((r) => ({ ...r, clientes: mapa[r.cliente_id] || null }))
+}
+
 export async function listarMatriculas(marinaId) {
   if (!marinaId) return []
   const { data, error } = await dbEnautica.from('matriculas')
-    .select('*, clientes:cliente_id(nome, email, telefone)')
+    .select('*')
     .eq('marina_id', marinaId).order('created_at', { ascending: false })
   if (error) throw error
-  return data || []
+  return mesclarClientes(data || [], 'id, nome, email, telefone')
 }
 
 // Recebe a matrícula inteira (não só o id) porque precisa de marina_id e
@@ -136,10 +149,10 @@ export async function declararProntidaoTeste(matriculaId, resposta) {
 export async function listarMatriculasAprovadas(marinaId) {
   if (!marinaId) return []
   const { data, error } = await dbEnautica.from('matriculas')
-    .select('*, clientes:cliente_id(nome, email)')
+    .select('*')
     .eq('marina_id', marinaId).eq('status', 'aprovada').order('created_at', { ascending: false })
   if (error) throw error
-  return data || []
+  return mesclarClientes(data || [], 'id, nome, email')
 }
 
 // --- Aulas preparatórias -------------------------------------------------
@@ -282,10 +295,10 @@ export async function listarMeusCertificados(clienteId) {
 export async function listarCertificadosEscola(marinaId) {
   if (!marinaId) return []
   const { data, error } = await dbEnautica.from('certificados')
-    .select('*, clientes:cliente_id(nome, email)')
+    .select('*')
     .eq('marina_id', marinaId).order('created_at', { ascending: false })
   if (error) throw error
-  return data || []
+  return mesclarClientes(data || [], 'id, nome, email')
 }
 
 export async function emitirCertificado({ marinaId, clienteId, habilitacao }) {
