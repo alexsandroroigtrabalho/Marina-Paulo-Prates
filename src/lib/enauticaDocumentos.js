@@ -593,6 +593,131 @@ ${botaoImprimir()}
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+ * CERTIFICADO DE CONCLUSÃO — recibo interno da escola (aba "Meus
+ * certificados" do aluno, ver TelaClienteENautica.jsx)
+ *
+ * Diferente dos 4 documentos acima (Anexos NORMAM/Procuração — formato
+ * fiel ao rsnautica porque é exigência da Marinha, não escolha de
+ * ninguém), ESTE documento não existe formatado em nenhum dos dois
+ * sistemas: conferi o código-fonte do rsnautica (AreaAluno.jsx,
+ * SecaoCertificados) e o "Baixar certificado" de lá também só gera um
+ * .txt cru — a mesma lógica simples que estava aqui antes. Então isto
+ * é um desenho novo, pedido explicitamente pelo Alex ("no rs nautica eu
+ * conseguia imprimir um certificado excelente" — o que ele lembra não
+ * está neste checkout da referência, então em vez de inventar que é
+ * "fiel" a algo, construí do zero na identidade visual da própria RV
+ * Invictus: azul-petróleo (#0D1B2A) + dourado (#D4AF37), as cores oficiais
+ * da marca (ver index.css) — mesmo espírito do botão de imprimir dos
+ * outros documentos, só que aqui a página inteira é "chrome" da RV, não
+ * um formulário oficial. Não é o documento de habilitação (isso é da
+ * Marinha/Gov.br) — só o recibo interno de conclusão do curso.
+ * ══════════════════════════════════════════════════════════════════════ */
+function gerarCertificado(cert, cliente, marina, docConfig, labelHabilitacao) {
+  const a = dadosAluno(cliente)
+  const nomeEscola = marina?.nome || 'Escola Náutica'
+  const habilitacao = labelHabilitacao ? labelHabilitacao(cert?.habilitacao) : (cert?.habilitacao || '')
+  const dataEmissao = cert?.data_emissao
+    ? new Date(`${cert.data_emissao}T12:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : ''
+  // Número do certificado: não existe coluna própria pra isso — os 8
+  // primeiros caracteres do id (uuid) bastam pra dar um identificador
+  // único e curto de conferência, sem precisar de migration nova.
+  const numero = cert?.id ? cert.id.slice(0, 8).toUpperCase() : ''
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Certificado de Conclusão — ${a.nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: Georgia, 'Times New Roman', serif; background: #EFEDE8; color: #0D1B2A; }
+    .pagina { width: 297mm; height: 210mm; margin: 0 auto; padding: 12mm; background: #fff; }
+    .moldura { width: 100%; height: 100%; border: 2.5pt solid #0D1B2A; padding: 8mm; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+    .moldura::before { content: ''; position: absolute; inset: 5mm; border: 1pt solid #D4AF37; pointer-events: none; }
+    .marca { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; letter-spacing: 4px; color: #D4AF37; font-weight: 700; margin-top: 4mm; }
+    .escola { font-family: Arial, Helvetica, sans-serif; font-size: 12pt; color: #0D1B2A; margin-top: 1mm; font-weight: 600; }
+    .titulo { font-size: 30pt; font-weight: 700; margin-top: 12mm; letter-spacing: 1px; }
+    .linha-ouro { width: 60mm; height: 1.5pt; background: #D4AF37; margin: 5mm auto; }
+    .texto { font-size: 12.5pt; line-height: 1.9; max-width: 190mm; margin-top: 4mm; }
+    .nome-aluno { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 700; font-size: 25pt; color: #0D1B2A; margin: 6mm 0 3mm; padding-bottom: 2mm; border-bottom: 1pt solid #D4AF37; display: inline-block; }
+    .habilitacao { font-family: Arial, Helvetica, sans-serif; font-size: 13pt; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #0D1B2A; }
+    .rodape { margin-top: auto; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding-top: 10mm; font-family: Arial, Helvetica, sans-serif; }
+    .assinatura { text-align: center; font-size: 9pt; min-width: 60mm; }
+    .assinatura-linha { border-top: 1pt solid #0D1B2A; padding-top: 1.5mm; }
+    .meta { text-align: left; font-size: 8.5pt; color: #555; line-height: 1.6; }
+    .aviso { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #777; max-width: 150mm; margin-top: 6mm; line-height: 1.5; }
+    @page { size: A4 landscape; margin: 0; }
+    @media print {
+      body { background: #fff; }
+      .pagina { padding: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="position:fixed;top:12px;right:12px;display:flex;gap:8px;z-index:9999;font-family:Arial,sans-serif;">
+    <button onclick="window.print()" style="background:#0D1B2A;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">
+      🖨️ Imprimir / Salvar PDF
+    </button>
+    <button onclick="window.close()" style="background:#fff;color:#0D1B2A;border:1px solid #0D1B2A;padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;">
+      Fechar
+    </button>
+  </div>
+
+  <div class="pagina">
+    <div class="moldura">
+      <div class="marca">RV INVICTUS</div>
+      <div class="escola">${nomeEscola}</div>
+
+      <div class="titulo">CERTIFICADO DE CONCLUSÃO</div>
+      <div class="linha-ouro"></div>
+
+      <div class="texto">Certificamos que</div>
+      <div class="nome-aluno">${a.nome}</div>
+      <div class="texto">
+        concluiu com aproveitamento o curso de formação náutica na categoria de<br/>
+        <span class="habilitacao">${habilitacao}</span><br/>
+        conforme treinamento teórico e prático ministrado por esta escola.
+      </div>
+
+      <div class="aviso">
+        Este certificado é um recibo interno da escola e não substitui a Carteira de Habilitação de Amador (CHA).
+        A habilitação oficial é emitida pela Marinha do Brasil e disponibilizada na conta Gov.br do aluno.
+      </div>
+
+      <div class="rodape">
+        <div class="meta">
+          ${numero ? `Certificado nº ${numero}<br/>` : ''}
+          Emitido em ${dataEmissao || '—'}
+        </div>
+        <div class="assinatura">
+          <div class="assinatura-linha">${docConfig?.responsavelNome || nomeEscola}</div>
+          Responsável técnico
+        </div>
+        <div class="assinatura">
+          <div class="assinatura-linha">${docConfig?.instrutorNome || ''}</div>
+          Instrutor
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+/** Abre o Certificado de Conclusão pronto numa aba nova (botão "Baixar
+ *  certificado" em "Meus certificados", TelaClienteENautica.jsx). */
+export function abrirCertificado(cert, cliente, marina, docConfig, labelHabilitacao) {
+  const html = gerarCertificado(cert, cliente, marina, docConfig || {}, labelHabilitacao)
+  if (!html) return
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const aba = window.open(url, '_blank')
+  if (aba) aba.addEventListener('load', () => URL.revokeObjectURL(url), { once: true })
+}
+
+/* ══════════════════════════════════════════════════════════════════════
  * LISTA DE ALUNOS PARA AULAS PRÁTICAS — Capitania dos Portos
  * Roteiro/lista de presença que a escola leva no dia da aula prática,
  * gerada a partir de um agendamento (TelaAgendaEscolaENautica.jsx) e dos

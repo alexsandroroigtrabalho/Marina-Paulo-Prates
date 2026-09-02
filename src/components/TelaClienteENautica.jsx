@@ -11,7 +11,7 @@ import {
   solicitarReagendamento,
 } from '../lib/enautica'
 import { maskData, dataMascaradaParaIso, maskTelefone } from '../lib/mascaras'
-import { MODELOS_DOCUMENTO, abrirDocumento } from '../lib/enauticaDocumentos'
+import { MODELOS_DOCUMENTO, abrirDocumento, abrirCertificado } from '../lib/enauticaDocumentos'
 
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
 // cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
@@ -257,21 +257,14 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     setConcluidas(alternarAulaConcluida(cliente.id, moduloId, concluida))
   }
 
+  // Antes gerava um .txt cru (conferi o rsnautica: o "Baixar certificado" de
+  // lá faz exatamente a mesma coisa — não existe um certificado formatado em
+  // nenhum dos dois sistemas). Agora usa o mesmo motor de impressão dos
+  // outros documentos (enauticaDocumentos.js/abrirCertificado), num desenho
+  // próprio da RV Invictus — ver comentário em gerarCertificado().
   function baixarCertificado(cert) {
-    const conteudo = `CERTIFICADO DE CONCLUSÃO\n\n`
-      + `Aluno: ${cliente.nome}\n`
-      + `Habilitação: ${labelHabilitacao(cert.habilitacao)}\n`
-      + `Escola: ${marina?.nome || ''}\n`
-      + `Data de emissão: ${new Date(`${cert.data_emissao}T12:00`).toLocaleDateString('pt-BR')}\n\n`
-      + `Este certificado comprova a conclusão do curso náutico pela escola credenciada.\n`
-      + `A habilitação oficial é emitida separadamente pela Marinha do Brasil e disponibilizada na sua conta Gov.br.`
-    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Certificado_${labelHabilitacao(cert.habilitacao).replace(/\s+/g, '_')}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+    const docConfig = marina?.config_json?.documentos || {}
+    abrirCertificado(cert, cliente, marina, docConfig, labelHabilitacao)
   }
 
   async function abrirNotificacao(n) {
