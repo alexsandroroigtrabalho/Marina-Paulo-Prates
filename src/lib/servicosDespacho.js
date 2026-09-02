@@ -119,7 +119,7 @@ export const SERVICOS_DESPACHO = [
     key: 'cha_habilitacao',
     categoria: 'habilitacao',
     titulo: 'Habilitação de amador (CHA)',
-    resumo: 'Inscrição e habilitação para Motonauta, Arrais-Amador, Mestre-Amador ou Capitão-Amador, com emissão da carteira (CHA).',
+    resumo: 'Inscrição e habilitação para Motonauta, Arrais Amador, Mestre-Amador ou Capitão-Amador, com emissão da carteira (CHA).',
   },
   {
     key: 'cha_2via',

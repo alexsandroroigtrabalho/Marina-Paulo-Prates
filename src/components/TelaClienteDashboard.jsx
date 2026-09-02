@@ -1181,7 +1181,13 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <strong className="painel-cliente-marina">Marina Paulo Prates</strong>
+          {/* Nome da marina vem do banco (mesmo padrão do RV e-Náutica,
+              TelaClienteENautica.jsx) — antes ficava fixo em texto
+              ("Marina Paulo Prates"), o que estava certo enquanto só
+              existia essa marina, mas passou a mostrar o nome errado para
+              clientes de qualquer outro tenant (ex: CCPP) assim que o RV
+              Marine passou a atender mais de uma marina. */}
+          <strong className="painel-cliente-marina">{marina?.nome || 'RV Marine'}</strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* "Sair" aqui não desloga — só volta pra seleção de aplicações

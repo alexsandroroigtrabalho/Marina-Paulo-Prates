@@ -12,7 +12,15 @@ import { db, dbEnautica } from './supabase'
 // As 3 opções de habilitação do rsnautica antigo — únicas que existem hoje,
 // por isso a coluna `habilitacao` tem um CHECK travando nesses 3 valores.
 export const HABILITACOES = [
-  { chave: 'arrais', label: 'Arrais-Amador' },
+  // Espaço fixo ( , não um espaço normal) entre "Arrais" e "Amador": o
+  // botão da matrícula (TelaClienteENautica.jsx, .enautica-botao-habilitacao)
+  // é justinho de largura de propósito (a foto ocupa a maior parte) — com
+  // espaço normal, o navegador quebra a linha bem ali ("Arrais" numa linha,
+  // "Amador" na outra); com hífen ("Arrais-Amador", o texto antigo) o
+  // navegador NÃO quebra ali, então trocar só o hífen por espaço comum
+  // quebrava o texto em duas linhas. Espaço fixo mantém a mesma aparência
+  // visual (um espaço normal) mas sem esse ponto de quebra.
+  { chave: 'arrais', label: 'Arrais Amador' },
   { chave: 'motonauta', label: 'Motonauta' },
   { chave: 'ambas', label: 'Habilitação Completa' },
 ]
@@ -86,17 +94,42 @@ export async function listarMatriculas(marinaId) {
   return data || []
 }
 
-export async function aprovarMatricula(id) {
+// Recebe a matrícula inteira (não só o id) porque precisa de marina_id e
+// cliente_id pra criar a notificação do aluno logo em seguida (ver
+// criarNotificacao abaixo) — TelaMatriculasENautica.jsx já tem a linha
+// completa em mãos (veio do listarMatriculas), então não custa nada.
+export async function aprovarMatricula(matricula) {
   const { error } = await dbEnautica.from('matriculas').update({
     status: 'aprovada', aprovada_em: new Date().toISOString(), motivo_recusa: null,
-  }).eq('id', id)
+  }).eq('id', matricula.id)
   if (error) throw error
+  await criarNotificacao({
+    marinaId: matricula.marina_id, clienteId: matricula.cliente_id, tipo: 'matricula_aprovada',
+    titulo: 'Matrícula aprovada',
+    mensagem: `Sua matrícula para ${labelHabilitacao(matricula.habilitacao)} foi aprovada. Bem-vindo(a)!`,
+  })
 }
 
-export async function recusarMatricula(id, motivo) {
+export async function recusarMatricula(matricula, motivo) {
   const { error } = await dbEnautica.from('matriculas').update({
     status: 'recusada', motivo_recusa: motivo || null,
-  }).eq('id', id)
+  }).eq('id', matricula.id)
+  if (error) throw error
+  await criarNotificacao({
+    marinaId: matricula.marina_id, clienteId: matricula.cliente_id, tipo: 'matricula_recusada',
+    titulo: 'Matrícula recusada',
+    mensagem: motivo ? `Sua matrícula foi recusada: ${motivo}` : 'Sua matrícula foi recusada. Fale com a escola para mais detalhes.',
+  })
+}
+
+// "Estou pronto para a prova teórica" — o próprio aluno declara (sim/não),
+// feature real do rsnautica (AreaAluno.jsx: alunos.pronto_teste) que tinha
+// ficado de fora da primeira leva. NÃO é um pedido de agendamento — quem
+// marca a avaliação continua sendo a escola, na Agenda; isto só dá à escola
+// um sinal de quem já se sente pronto, visível na aba Aprovadas de
+// Matrículas (badge) e reaproveitável na hora de escolher quem agendar.
+export async function declararProntidaoTeste(matriculaId, resposta) {
+  const { error } = await dbEnautica.from('matriculas').update({ pronto_teste: resposta }).eq('id', matriculaId)
   if (error) throw error
 }
 
@@ -131,6 +164,27 @@ export function modulosAulaComVideo(marina) {
     const cfg = overrides.find((o) => o.id === m.id)
     return { ...m, youtubeId: cfg?.youtubeId || '' }
   })
+}
+
+// Aceita o que a escola for colar no campo de configuração (Matrículas →
+// engrenagem → Aulas preparatórias): um ID puro (11 caracteres) ou uma URL
+// completa do YouTube, em qualquer um dos formatos comuns
+// (watch?v=, youtu.be/, embed/, shorts/) — extrai só o ID, que é o que
+// modulosAulaComVideo já espera salvar em config_json.aulas. Devolve string
+// vazia se não reconhecer nada (o campo fica só sem link, sem travar o
+// formulário com um erro).
+export function extrairYoutubeId(entrada) {
+  const valor = (entrada || '').trim()
+  if (!valor) return ''
+  if (/^[\w-]{11}$/.test(valor)) return valor
+  const padroes = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([\w-]{11})/,
+  ]
+  for (const p of padroes) {
+    const m = valor.match(p)
+    if (m) return m[1]
+  }
+  return ''
 }
 
 // Progresso do aluno nas aulas: só local (localStorage), igual ao rsnautica
@@ -200,11 +254,47 @@ export async function criarAgendamento({ marinaId, tipo, data, hora, local, alun
     data, hora, local, alunos_ids: alunosIds, status: 'confirmado',
   })
   if (error) throw error
+  // No rsnautica antigo (referência), criar um evento disparava um e-mail
+  // pra cada aluno selecionado — aqui vira uma notificação dentro da própria
+  // plataforma (ver criarNotificacao abaixo), a pedido explícito do Alex.
+  const dataFormatada = new Date(`${data}T12:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  await criarNotificacoesEmLote((alunosIds || []).map((clienteId) => ({
+    marinaId, clienteId, tipo: 'agendamento',
+    titulo: `${labelTipoAgendamento(tipo)} marcada`,
+    mensagem: `${labelTipoAgendamento(tipo)} em ${dataFormatada} às ${hora}${local ? `, em ${local}` : ''}.`,
+  })))
 }
 
-export async function atualizarStatusAgendamento(id, status) {
+// Recebe o agendamento inteiro (não só o id) pra poder avisar os alunos
+// quando o status muda pra algo que eles precisam saber — mesma lógica que
+// já existe em criarAgendamento (marcar avisa), aprovarMatricula/
+// recusarMatricula e emitirCertificado. Antes só "marcar" avisava; alterar
+// pra "cancelado" ou "concluído" ficava mudo pro aluno, que só notava
+// reabrindo a aba (achado da auditoria — os dados atualizavam via realtime,
+// mas sem aviso o aluno não sabia que precisava olhar).
+export async function atualizarStatusAgendamento(agendamento, status) {
+  const id = typeof agendamento === 'object' ? agendamento.id : agendamento
   const { error } = await dbEnautica.from('agendamentos').update({ status }).eq('id', id)
   if (error) throw error
+
+  if (typeof agendamento !== 'object') return
+  const dataFormatada = agendamento.data
+    ? new Date(`${agendamento.data}T12:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    : ''
+  const tipoLabel = agendamento.tipo_label || labelTipoAgendamento(agendamento.tipo)
+  if (status === 'cancelado') {
+    await criarNotificacoesEmLote((agendamento.alunos_ids || []).map((clienteId) => ({
+      marinaId: agendamento.marina_id, clienteId, tipo: 'agendamento_cancelado',
+      titulo: `${tipoLabel} cancelada`,
+      mensagem: `A ${tipoLabel.toLowerCase()} marcada para ${dataFormatada}${agendamento.hora ? ` às ${agendamento.hora}` : ''} foi cancelada pela escola.`,
+    })))
+  } else if (status === 'concluido') {
+    await criarNotificacoesEmLote((agendamento.alunos_ids || []).map((clienteId) => ({
+      marinaId: agendamento.marina_id, clienteId, tipo: 'agendamento_concluido',
+      titulo: `${tipoLabel} concluída`,
+      mensagem: `A ${tipoLabel.toLowerCase()} de ${dataFormatada} foi marcada como concluída pela escola.`,
+    })))
+  }
 }
 
 // --- Certificados ---------------------------------------------------------
@@ -235,6 +325,11 @@ export async function emitirCertificado({ marinaId, clienteId, habilitacao }) {
     marina_id: marinaId, cliente_id: clienteId, habilitacao, status: 'disponível',
   })
   if (error) throw error
+  await criarNotificacao({
+    marinaId, clienteId, tipo: 'certificado',
+    titulo: 'Certificado emitido',
+    mensagem: `Seu certificado de ${labelHabilitacao(habilitacao)} já está disponível em "Meus certificados".`,
+  })
 }
 
 export async function atualizarStatusCertificado(id, status) {
@@ -252,4 +347,52 @@ export async function listarAprovadosSemCertificado(marinaId) {
   ])
   const jaEmitidos = new Set((certs || []).map((c) => `${c.cliente_id}:${c.habilitacao}`))
   return (matriculas || []).filter((m) => !jaEmitidos.has(`${m.cliente_id}:${m.habilitacao}`))
+}
+
+// --- Notificações (dentro da plataforma, não por e-mail) -----------------
+//
+// No rsnautica (referência operacional), matrícula decidida, agendamento
+// marcado e certificado emitido disparavam um e-mail (Resend). Aqui vira um
+// aviso dentro do próprio painel do aluno — sino no cabeçalho, contador de
+// não lidas, lista com marcar-como-lida — usando a mesma tabela/realtime que
+// o resto do e-Náutica já usa, sem precisar de SMTP nem Edge Function nova.
+//
+// `criarNotificacao`/`criarNotificacoesEmLote` nunca derrubam a ação
+// principal se falharem (aprovar matrícula, marcar agendamento, emitir
+// certificado já aconteceram de verdade quando isto roda): erro aqui só é
+// avisado no console, pra não fazer o administrador achar que a ação
+// principal falhou por causa de um aviso secundário.
+export async function criarNotificacao({ marinaId, clienteId, tipo, titulo, mensagem }) {
+  const { error } = await dbEnautica.from('notificacoes').insert({
+    marina_id: marinaId, cliente_id: clienteId, tipo, titulo, mensagem: mensagem || null,
+  })
+  if (error) console.error('Não foi possível criar a notificação:', error.message)
+}
+
+export async function criarNotificacoesEmLote(notificacoes) {
+  if (!notificacoes || notificacoes.length === 0) return
+  const linhas = notificacoes.map((n) => ({
+    marina_id: n.marinaId, cliente_id: n.clienteId, tipo: n.tipo, titulo: n.titulo, mensagem: n.mensagem || null,
+  }))
+  const { error } = await dbEnautica.from('notificacoes').insert(linhas)
+  if (error) console.error('Não foi possível criar as notificações:', error.message)
+}
+
+export async function listarMinhasNotificacoes(clienteId) {
+  if (!clienteId) return []
+  const { data, error } = await dbEnautica.from('notificacoes').select('*')
+    .eq('cliente_id', clienteId).order('created_at', { ascending: false }).limit(30)
+  if (error) throw error
+  return data || []
+}
+
+export async function marcarNotificacaoLida(id) {
+  const { error } = await dbEnautica.from('notificacoes').update({ lida: true }).eq('id', id)
+  if (error) throw error
+}
+
+export async function marcarTodasNotificacoesLidas(clienteId) {
+  const { error } = await dbEnautica.from('notificacoes').update({ lida: true })
+    .eq('cliente_id', clienteId).eq('lida', false)
+  if (error) throw error
 }

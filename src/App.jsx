@@ -117,6 +117,10 @@ export default function App() {
   // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
   // usuário, em vez de botões fixos em cima da Fila de Rampa.
   const [acoesVagas, setAcoesVagas] = useState(null)
+  // Mesmo mecanismo, pra engrenagem de "Configurações do e-Náutica" (ver
+  // TelaMatriculasENautica.jsx/ConfiguracoesENautica.jsx) — cada aplicação
+  // com engrenagem própria tem seu par de state (acoesX/setAcoesX) aqui.
+  const [acoesEnautica, setAcoesEnautica] = useState(null)
   // Só para rv_master: qual cliente (marina/escola) ele escolheu operar
   // nesta sessão de tela (não é salvo em lugar nenhum — escolhe de novo a
   // cada login, ou ao clicar em "Voltar ao RV Master"). null = ainda não
@@ -203,6 +207,7 @@ export default function App() {
     setAppSelecionada(chave)
     setTelaAtiva(chave ? primeiraTela(buscarApp(chave)) : null)
     setAcoesVagas(null)
+    setAcoesEnautica(null)
   }
 
   if (carregando) return <div className="tela-central">Carregando...</div>
@@ -358,12 +363,12 @@ export default function App() {
     <Layout
       appSelecionada={appSelecionada} setAppSelecionada={escolherApp}
       telaAtiva={telaDaApp} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
-      acoesPainel={telaDaApp === 'vagas' ? acoesVagas : null}
+      acoesPainel={telaDaApp === 'vagas' ? acoesVagas : telaDaApp === 'matriculas' ? acoesEnautica : null}
       marinaId={marinaIdEfetivo} aoVoltarRvMaster={aoVoltarRvMaster}
     >
       <Componente
         marinaId={marinaIdEfetivo} perfil={perfil}
-        onAcoes={telaDaApp === 'vagas' ? setAcoesVagas : undefined}
+        onAcoes={telaDaApp === 'vagas' ? setAcoesVagas : telaDaApp === 'matriculas' ? setAcoesEnautica : undefined}
       />
     </Layout>
   )

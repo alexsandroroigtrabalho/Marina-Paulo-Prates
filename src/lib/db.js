@@ -12,6 +12,27 @@ export async function buscarMarina(marinaId) {
   return data
 }
 
+// Linha completa de um cliente por id — usado onde só o nome/email não
+// bastam (ex: ModalDocumentosAluno.jsx precisa de CPF, RG, endereço etc.
+// pra preencher os documentos de matrícula do e-Náutica, e as listagens do
+// dia a dia — listarMatriculas*, em lib/enautica.js — só trazem nome/email/
+// telefone pra não pesar a tela principal).
+export async function buscarCliente(clienteId) {
+  const { data, error } = await db.from('clientes').select('*').eq('id', clienteId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// Igual acima, mas pra vários clientes de uma vez (ex: a Lista de Alunos
+// para Aulas Práticas do e-Náutica precisa do CPF/telefone de todo mundo
+// que está num mesmo agendamento — ver lib/enauticaDocumentos.js).
+export async function buscarClientesPorIds(ids) {
+  if (!ids || ids.length === 0) return []
+  const { data, error } = await db.from('clientes').select('*').in('id', ids)
+  if (error) throw error
+  return data || []
+}
+
 // Faz merge raso com o config_json já existente, pra não apagar outras
 // chaves salvas ali (ex: gravar os apitos não pode apagar o e-mail do
 // relatório de documentos, e vice-versa).

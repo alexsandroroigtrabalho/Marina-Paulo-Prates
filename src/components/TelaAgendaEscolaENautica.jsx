@@ -4,6 +4,8 @@ import {
   TIPOS_AGENDAMENTO, listarAgendamentosEscola, listarMatriculasAprovadas,
   criarAgendamento, atualizarStatusAgendamento, labelHabilitacao,
 } from '../lib/enautica'
+import { buscarMarina, buscarClientesPorIds } from '../lib/db'
+import { abrirListaPratica } from '../lib/enauticaDocumentos'
 
 // Segunda tela da equipe da escola no RV e-Náutica: marcar aulas práticas e
 // avaliações teóricas pros alunos com matrícula aprovada — mesmo conceito
@@ -27,6 +29,7 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
   const [erro, setErro] = useState(null)
   const [erroForm, setErroForm] = useState(null)
   const [salvandoStatusId, setSalvandoStatusId] = useState(null)
+  const [gerandoListaId, setGerandoListaId] = useState(null)
 
   async function carregar() {
     if (!marinaId) return
@@ -61,6 +64,48 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
     return mapa
   }, [aprovados])
 
+  // Habilitação de cada aluno (a matrícula aprovada é a única fonte disso)
+  // — a Lista de Alunos precisa saber ARA/MTA/Ambas pra separar os horários
+  // de prática de cada categoria (ver gerarListaPratica).
+  const habilitacaoPorId = useMemo(() => {
+    const mapa = {}
+    aprovados.forEach((m) => { mapa[m.cliente_id] = m.habilitacao })
+    return mapa
+  }, [aprovados])
+
+  // "Lista de Alunos para Aulas Práticas" — documento que a escola leva à
+  // Capitania no dia da aula (só faz sentido pra compromissos do tipo
+  // "Aula prática"). Busca o cadastro completo (CPF/telefone) dos alunos
+  // marcados nesse compromisso na hora do clique, pra não pesar a listagem
+  // principal com dados que a maioria das telas não usa.
+  async function gerarListaAlunos(ag) {
+    // Abre a aba JÁ no clique (síncrono), antes de qualquer `await` — os
+    // dados chegam depois e são escritos nela. Se abrir só depois de buscar
+    // marina/alunos, o navegador bloqueia o pop-up silenciosamente na
+    // maioria dos casos (não é iniciado por gesto do usuário aos olhos do
+    // bloqueador). Ver nota em lib/enauticaDocumentos.js/abrirListaPratica.
+    const janela = window.open('', '_blank')
+    if (!janela) {
+      alert('Não foi possível abrir a lista: o navegador bloqueou o pop-up. Permita pop-ups para este site e tente de novo.')
+      return
+    }
+    setGerandoListaId(ag.id)
+    try {
+      const [marina, clientes] = await Promise.all([
+        buscarMarina(marinaId),
+        buscarClientesPorIds(ag.alunos_ids || []),
+      ])
+      const alunosComHabilitacao = clientes.map((c) => ({ ...c, habilitacao: habilitacaoPorId[c.id] || '' }))
+      const docConfig = marina?.config_json?.documentos || {}
+      abrirListaPratica(ag, alunosComHabilitacao, marina, docConfig, janela)
+    } catch (err) {
+      janela.close()
+      alert('Não foi possível gerar a lista: ' + err.message)
+    } finally {
+      setGerandoListaId(null)
+    }
+  }
+
   function alternarAluno(id) {
     setForm((f) => ({
       ...f,
@@ -84,10 +129,13 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
     }
   }
 
-  async function mudarStatus(id, status) {
-    setSalvandoStatusId(id)
+  async function mudarStatus(ag, status) {
+    setSalvandoStatusId(ag.id)
     try {
-      await atualizarStatusAgendamento(id, status)
+      // Passa o compromisso inteiro (não só o id): "cancelado"/"concluído"
+      // agora avisam os alunos marcados nele, mesma lógica de notificação
+      // usada quando o compromisso é criado — ver atualizarStatusAgendamento.
+      await atualizarStatusAgendamento(ag, status)
       await carregar()
     } catch (err) {
       alert('Não foi possível atualizar o status: ' + err.message)
@@ -123,6 +171,11 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
               <label key={m.cliente_id} className="opcao-checkbox">
                 <input type="checkbox" checked={form.alunosIds.includes(m.cliente_id)} onChange={() => alternarAluno(m.cliente_id)} />
                 {m.clientes?.nome || 'Aluno'} ({labelHabilitacao(m.habilitacao)})
+                {/* Só relevante pra avaliação teórica — ver "estou pronto"
+                    em TelaClienteENautica.jsx/TelaMatriculasENautica.jsx. */}
+                {form.tipo === 'teorica' && m.pronto_teste === 'sim' && (
+                  <span className="status-texto em-dia" style={{ marginLeft: 4, fontSize: 11 }}>✓ pronto</span>
+                )}
               </label>
             ))}
           </div>
@@ -155,11 +208,21 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
               <b>Status:</b>{' '}
               <select
                 value={ag.status} disabled={salvandoStatusId === ag.id}
-                onChange={(e) => mudarStatus(ag.id, e.target.value)}
+                onChange={(e) => mudarStatus(ag, e.target.value)}
               >
                 {STATUS_OPCOES.map((s) => <option key={s.chave} value={s.chave}>{s.label}</option>)}
               </select>
             </div>
+            {ag.tipo === 'pratica' && (
+              <div className="cliente-card-acoes">
+                <button
+                  type="button" className="botao-secundario" disabled={gerandoListaId === ag.id}
+                  onClick={() => gerarListaAlunos(ag)}
+                >
+                  {gerandoListaId === ag.id ? 'Gerando…' : 'Lista de alunos (Capitania)'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

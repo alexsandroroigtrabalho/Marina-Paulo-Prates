@@ -1353,10 +1353,12 @@ button.badge:hover { filter: brightness(0.95); }
 .enautica-botao-habilitacao--motonauta {
   /* 64% (era 60%) — a largura real da caixa de conteúdo aqui NUNCA passa de
      432px (o card do e-Náutica é max-width:480px com padding:24px dos dois
-     lados, TelaClienteENautica.jsx) — testei 64%/14px direto nessa largura
-     (o pior caso real, o card nunca fica mais largo que isso em nenhuma
-     tela) e "Arrais-Amador" ainda cabe numa linha só; baixei a fonte pra
-     14px (era 15px) pra abrir essa margem sem arriscar quebra. */
+     lados, TelaClienteENautica.jsx), e só chega nesse valor com a TELA em
+     480px ou mais (ver o "@media (max-width: 479px)" abaixo, que cobre
+     tudo que fica menor que isso) — testei 64%/14px direto nessa largura,
+     o pior caso real pra esta regra, e "Arrais Amador" ainda cabe numa
+     linha só; baixei a fonte pra 14px (era 15px) pra abrir essa margem sem
+     arriscar quebra. */
   --enautica-largura-foto: 64%;
   font-size: 14px;
   /* Texto centralizado na faixa BRANCA (entre a borda esquerda do botão e
@@ -1375,18 +1377,25 @@ button.badge:hover { filter: brightness(0.95); }
   border-color: #D4AF37; box-shadow: 0 4px 16px rgba(140,107,30,0.18);
 }
 
-/* Em telas estreitas (celular pequeno, ~320-360px), a foto fixa em 58% do
-   botão sobrava pouco espaço pro texto — "Arrais-Amador" encostava (às
-   vezes até por cima) na faixa de transição/foto. Encolhe a foto e o texto
-   um pouco só nessa faixa de largura, sem mexer em telas maiores. */
-@media (max-width: 400px) {
+/* 479px (era 400px): o card do e-Náutica é max-width:480px com padding:24px
+   dos dois lados (TelaClienteENautica.jsx) — então a largura de conteúdo só
+   fica travada em 432px (o "caso desktop" testado acima) quando a TELA tem
+   480px ou mais. Entre 401px e 479px de tela, o card ainda cabe inteiro
+   (nada empurra ele pra virar 100% da largura), então a largura de
+   conteúdo é MENOR que 432px (empurrada pelos mesmos 48px de padding) —
+   um vão que passava batido: nessa faixa (comum em celulares grandes, tipo
+   iPhone Pro Max ou Android de tela grande) o botão ainda usava a versão
+   "desktop" (foto maior, fonte maior) mas com menos espaço de sobra,
+   quebrando "Arrais Amador" em duas linhas. Testado de novo, ponto a ponto
+   (353 a 431px de conteúdo, o pior desses casos) com a versão mobile
+   abaixo — cabe numa linha só em toda essa faixa. */
+@media (max-width: 479px) {
   .enautica-botao-habilitacao--arrais,
   .enautica-botao-habilitacao--motonauta {
-    /* 50% (era 46%) — testado de novo num celular de 320px (o mais estreito
-       em uso normal hoje), com a fonte real do site: com 12px (linha
-       abaixo, era 13px) "Arrais-Amador" ainda cabe numa linha só; sem
-       baixar a fonte, 50% já quebrava o texto em duas linhas nessa
-       largura. */
+    /* 50% — testado direto num celular de 320px (o mais estreito em uso
+       normal hoje) até 479px de tela (o teto desta media query), com a
+       fonte real do site: com 12px (linha abaixo) "Arrais Amador" cabe
+       numa linha só em toda essa faixa. */
     --enautica-largura-foto: 50%;
     padding-right: calc(var(--enautica-largura-foto) + 10px);
   }
