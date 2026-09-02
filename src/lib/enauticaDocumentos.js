@@ -906,3 +906,84 @@ export function abrirDocumento(modelo, cliente, marina, docConfig, labelHabilita
   const aba = window.open(url, '_blank')
   if (aba) aba.addEventListener('load', () => URL.revokeObjectURL(url), { once: true })
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+ * DOWNLOAD EM .ZIP — mesma funcionalidade do rsnautica (PainelAdmin.jsx):
+ * "Baixar tudo (.zip)" dentro do modal de um único aluno (ModalDocumentosAluno
+ * de lá, que aqui é ModalDocumentosAluno.jsx) e "Baixar documentos (N)" em
+ * massa pra vários alunos selecionados de uma vez (ModalBaixarZip de lá,
+ * aqui embutido direto na aba Aprovadas de TelaMatriculasENautica.jsx, sem
+ * modal de confirmação extra — o próprio botão já mostra quantos estão
+ * selecionados). Mesma biblioteca (JSZip, carregada sob demanda via CDN,
+ * só quando o usuário realmente pede um .zip) e o mesmo padrão de nome de
+ * arquivo numerado (01_..., 02_...) — a única diferença deliberada é que
+ * o .zip em massa aqui NÃO inclui o "Comunicado da Capitania" (a Lista de
+ * Alunos de aula prática): isso já tem botão próprio na Agenda, ligado a
+ * um compromisso de verdade (data/hora/local) — juntar os dois aqui
+ * misturaria dois assuntos que na nossa tela são propositalmente
+ * separados (matrícula vs. agenda).
+ * ══════════════════════════════════════════════════════════════════════ */
+const ARQUIVOS_MODELO = {
+  requerimento: '01_Requerimento_5H.html',
+  atestado: '02_Atestado_Treinamento_5E.html',
+  declaracao: '03_Declaracao_Residencia_2G.html',
+  procuracao: '04_Procuracao.html',
+}
+
+function nomeArquivoSeguro(str) {
+  return (str || 'aluno').trim().replace(/\s+/g, '_').replace(/[^\w\-]/g, '')
+}
+
+let jszipPromise = null
+function carregarJSZip() {
+  if (window.JSZip) return Promise.resolve(window.JSZip)
+  if (jszipPromise) return jszipPromise
+  jszipPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+    s.onload = () => resolve(window.JSZip)
+    s.onerror = () => { jszipPromise = null; reject(new Error('Não foi possível carregar a biblioteca de compactação (verifique a conexão).')) }
+    document.head.appendChild(s)
+  })
+  return jszipPromise
+}
+
+function baixarBlob(blob, nomeArquivo) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nomeArquivo
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/** Gera e baixa um .zip com os 4 documentos de UM aluno — botão "Baixar
+ *  tudo (.zip)" dentro do modal de Documentos (ModalDocumentosAluno.jsx). */
+export async function baixarZipDocumentosAluno(cliente, marina, docConfig, labelHabilitacao) {
+  const JSZip = await carregarJSZip()
+  const zip = new JSZip()
+  MODELOS_DOCUMENTO.forEach((modelo) => {
+    const html = gerarHTMLDocumento(modelo.chave, cliente, marina, docConfig, labelHabilitacao)
+    if (html) zip.file(ARQUIVOS_MODELO[modelo.chave] || `${modelo.chave}.html`, html)
+  })
+  const blob = await zip.generateAsync({ type: 'blob' })
+  baixarBlob(blob, `Documentos_${nomeArquivoSeguro(cliente?.nome)}.zip`)
+}
+
+/** Gera e baixa um .zip com uma pasta por aluno (cada uma com os 4
+ *  documentos) — ação em massa da aba Aprovadas. `alunos` é uma lista de
+ *  { cliente, habilitacao }. */
+export async function baixarZipDocumentosAlunos(alunos, marina, docConfig, labelHabilitacao) {
+  const JSZip = await carregarJSZip()
+  const zip = new JSZip()
+  alunos.forEach(({ cliente, habilitacao }) => {
+    const pasta = zip.folder(nomeArquivoSeguro(cliente?.nome))
+    MODELOS_DOCUMENTO.forEach((modelo) => {
+      const html = gerarHTMLDocumento(modelo.chave, { ...cliente, __habilitacao: habilitacao }, marina, docConfig, labelHabilitacao)
+      if (html) pasta.file(ARQUIVOS_MODELO[modelo.chave] || `${modelo.chave}.html`, html)
+    })
+  })
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const dataHoje = new Date().toISOString().slice(0, 10)
+  baixarBlob(blob, `Documentos_Alunos_${dataHoje}.zip`)
+}

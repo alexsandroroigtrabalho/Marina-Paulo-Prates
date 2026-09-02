@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import { buscarMarina, buscarCliente } from '../lib/db'
 import { labelHabilitacao } from '../lib/enautica'
-import { MODELOS_DOCUMENTO, abrirDocumento } from '../lib/enauticaDocumentos'
+import { MODELOS_DOCUMENTO, abrirDocumento, baixarZipDocumentosAluno } from '../lib/enauticaDocumentos'
 
 // Botão "Documentos" da aba Aprovadas (TelaMatriculasENautica.jsx) — a
 // funcionalidade que o Alex pediu como fundamental: gerar, a partir do
 // cadastro já preenchido pelo aluno na matrícula, os 4 documentos que a
 // escola leva à Capitania dos Portos, sem precisar digitar tudo de novo à
 // mão pra cada aluno. Mesmo conjunto de documentos do rsnautica (a
-// referência operacional), ver lib/enauticaDocumentos.js.
+// referência operacional), ver lib/enauticaDocumentos.js. "Baixar tudo
+// (.zip)" no rodapé é o mesmo botão do modal equivalente de lá.
 export default function ModalDocumentosAluno({ matricula, onFechar }) {
   const [marina, setMarina] = useState(null)
   const [cliente, setCliente] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const [baixandoZip, setBaixandoZip] = useState(false)
 
   useEffect(() => {
     if (!matricula) return
@@ -28,6 +30,17 @@ export default function ModalDocumentosAluno({ matricula, onFechar }) {
   if (!matricula) return null
 
   const docConfig = marina?.config_json?.documentos || {}
+
+  async function baixarZip() {
+    setBaixandoZip(true)
+    try {
+      await baixarZipDocumentosAluno({ ...cliente, __habilitacao: matricula.habilitacao }, marina, docConfig, labelHabilitacao)
+    } catch (err) {
+      alert('Não foi possível gerar o .zip: ' + err.message)
+    } finally {
+      setBaixandoZip(false)
+    }
+  }
 
   return (
     <div className="modal-fundo" onClick={onFechar}>
@@ -50,6 +63,9 @@ export default function ModalDocumentosAluno({ matricula, onFechar }) {
         )}
         <div className="acoes-modal">
           <button type="button" onClick={onFechar}>Fechar</button>
+          <button type="button" disabled={carregando || baixandoZip} onClick={baixarZip}>
+            {baixandoZip ? 'Gerando .zip…' : 'Baixar tudo (.zip)'}
+          </button>
         </div>
       </div>
     </div>

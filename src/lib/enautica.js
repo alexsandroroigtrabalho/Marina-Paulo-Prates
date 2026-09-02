@@ -146,11 +146,6 @@ export async function declararProntidaoTeste(matriculaId, resposta) {
   if (error) throw error
 }
 
-export async function marcarDocumentosRecebidos(matriculaId, valor) {
-  const { error } = await dbEnautica.from('matriculas').update({ documentos_recebidos: valor }).eq('id', matriculaId)
-  if (error) throw error
-}
-
 export async function solicitarReagendamento(matriculaId) {
   const { error } = await dbEnautica.from('matriculas').update({ reagendamento_solicitado: true }).eq('id', matriculaId)
   if (error) throw error
