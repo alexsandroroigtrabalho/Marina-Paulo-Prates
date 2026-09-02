@@ -156,6 +156,15 @@ export async function solicitarReagendamento(matriculaId) {
   if (error) throw error
 }
 
+// Contraparte de solicitarReagendamento: a escola marca como atendido depois
+// de já ter entrado em contato com o aluno (clique no badge "↺ reagendamento"
+// em TelaMatriculasENautica.jsx) — sem isso o badge ficava aceso pra sempre,
+// mesmo depois de resolvido de verdade por telefone/whatsapp.
+export async function resolverReagendamento(matriculaId) {
+  const { error } = await dbEnautica.from('matriculas').update({ reagendamento_solicitado: false }).eq('id', matriculaId)
+  if (error) throw error
+}
+
 export async function listarMatriculasAprovadas(marinaId) {
   if (!marinaId) return []
   const { data, error } = await dbEnautica.from('matriculas')

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarMatriculas, aprovarMatricula, recusarMatricula, labelHabilitacao, marcarDocumentosRecebidos } from '../lib/enautica'
-import ConfiguracoesENautica from './ConfiguracoesENautica'
+import { listarMatriculas, aprovarMatricula, recusarMatricula, labelHabilitacao, marcarDocumentosRecebidos, resolverReagendamento } from '../lib/enautica'
 import ModalDocumentosAluno from './ModalDocumentosAluno'
 
 // Primeira tela da equipe da escola no RV e-Náutica: aprovar ou recusar
@@ -9,28 +8,22 @@ import ModalDocumentosAluno from './ModalDocumentosAluno'
 // pagamento aqui (ao contrário do rsnautica antigo, ver nota em
 // src/lib/apps.js). Mesmo padrão visual de TelaClientes.jsx (abas + cards),
 // pra manter a mesma estética do RV Marine em toda a plataforma.
+//
+// A engrenagem de Configurações (antes só existia aqui, com o modal
+// renderizado no final deste arquivo) subiu pra App.jsx — agora é a mesma
+// nas 3 telas do e-Náutica (Matrículas/Agenda/Certificados), não só nesta.
 const ABAS = [
   { chave: 'pendente', label: 'Pendentes' },
   { chave: 'aprovada', label: 'Aprovadas' },
   { chave: 'recusada', label: 'Recusadas' },
 ]
 
-export default function TelaMatriculasENautica({ marinaId, perfil, onAcoes }) {
+export default function TelaMatriculasENautica({ marinaId }) {
   const [matriculas, setMatriculas] = useState([])
   const [aba, setAba] = useState('pendente')
   const [processandoId, setProcessandoId] = useState(null)
   const [erro, setErro] = useState(null)
-  const [modalConfiguracoesAberto, setModalConfiguracoesAberto] = useState(false)
   const [matriculaDocumentos, setMatriculaDocumentos] = useState(null)
-  const ehAdmin = perfil?.role === 'admin'
-
-  // Botão de engrenagem no cabeçalho (ver Layout.jsx/MenuAcoesPainel) — só
-  // aparece na tela ativa que repassar `acoesPainel`, mesmo mecanismo já
-  // usado pelo Painel de Controle do RV Marine (TelaVagas.jsx). Matrículas é
-  // a primeira tela do e-Náutica, por isso é aqui que a engrenagem mora.
-  useEffect(() => {
-    onAcoes?.({ abrirConfiguracoes: () => setModalConfiguracoesAberto(true) })
-  }, [onAcoes])
 
   async function carregar() {
     if (!marinaId) return
@@ -112,10 +105,31 @@ export default function TelaMatriculasENautica({ marinaId, perfil, onAcoes }) {
                 {aba === 'aprovada' && m.pronto_teste === 'sim' && (
                   <span className="status-texto em-dia" style={{ marginLeft: 8, fontSize: 12 }}>✓ pronto p/ prova teórica</span>
                 )}
+                {/* Antes era só um badge decorativo, sem jeito de "apagar" —
+                    ficava aceso pra sempre mesmo depois da escola já ter
+                    ligado pro aluno e resolvido o reagendamento. Agora é um
+                    botão: clicar marca como atendido (reagendamento_solicitado
+                    volta a false) e o badge some. */}
                 {aba === 'aprovada' && m.reagendamento_solicitado && (
-                  <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#b45309', border: '0.5px solid #fde68a', fontWeight: 600, verticalAlign: 'middle' }}>
+                  <button
+                    type="button"
+                    title="Clique para marcar como atendido"
+                    disabled={processandoId === m.id}
+                    style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#b45309', border: '0.5px solid #fde68a', fontWeight: 600, verticalAlign: 'middle', cursor: 'pointer' }}
+                    onClick={async () => {
+                      setProcessandoId(m.id)
+                      try {
+                        await resolverReagendamento(m.id)
+                        await carregar()
+                      } catch (err) {
+                        alert('Erro ao atualizar: ' + err.message)
+                      } finally {
+                        setProcessandoId(null)
+                      }
+                    }}
+                  >
                     ↺ reagendamento
-                  </span>
+                  </button>
                 )}
               </div>
             </div>
@@ -170,11 +184,6 @@ export default function TelaMatriculasENautica({ marinaId, perfil, onAcoes }) {
           </div>
         ))}
       </div>
-
-      <ConfiguracoesENautica
-        aberto={modalConfiguracoesAberto} onFechar={() => setModalConfiguracoesAberto(false)}
-        ehAdmin={ehAdmin} marinaId={marinaId}
-      />
 
       {matriculaDocumentos && (
         <ModalDocumentosAluno matricula={matriculaDocumentos} onFechar={() => setMatriculaDocumentos(null)} />

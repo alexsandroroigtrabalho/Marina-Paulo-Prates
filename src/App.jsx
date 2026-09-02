@@ -19,6 +19,7 @@ import TelaMatriculasENautica from './components/TelaMatriculasENautica'
 import TelaAgendaEscolaENautica from './components/TelaAgendaEscolaENautica'
 import TelaCertificadosEscolaENautica from './components/TelaCertificadosEscolaENautica'
 import TelaClienteENautica from './components/TelaClienteENautica'
+import ConfiguracoesENautica from './components/ConfiguracoesENautica'
 import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
 import TelaRvMaster from './components/TelaRvMaster'
 import TelaPainelControleRvMaster from './components/TelaPainelControleRvMaster'
@@ -44,6 +45,14 @@ const TELAS = {
   enauticaAgenda: { titulo: 'Agenda', Componente: TelaAgendaEscolaENautica },
   enauticaCertificados: { titulo: 'Certificados', Componente: TelaCertificadosEscolaENautica },
 }
+
+// As 3 telas do e-Náutica compartilham a MESMA engrenagem de Configurações
+// (dados dos documentos, aulas preparatórias) — antes só existia dentro de
+// Matrículas (onAcoes só era repassado ali), o que obrigava o admin a voltar
+// pra essa tela específica sempre que quisesse mexer em Configurações vindo
+// de Agenda ou Certificados. Agora o modal mora aqui em App.jsx (estado
+// único `configEnauticaAberto` abaixo) e a engrenagem aparece nas 3.
+const TELAS_ENAUTICA = ['matriculas', 'enauticaAgenda', 'enauticaCertificados']
 
 // Qual componente mostrar pro CLIENTE FINAL em cada aplicação com
 // `clientePronto: true` (lib/apps.js) — equivalente ao TELAS acima, só que
@@ -117,10 +126,12 @@ export default function App() {
   // pelo TelaVagas — viram um menu de engrenagem no cabeçalho, do lado do
   // usuário, em vez de botões fixos em cima da Fila de Rampa.
   const [acoesVagas, setAcoesVagas] = useState(null)
-  // Mesmo mecanismo, pra engrenagem de "Configurações do e-Náutica" (ver
-  // TelaMatriculasENautica.jsx/ConfiguracoesENautica.jsx) — cada aplicação
-  // com engrenagem própria tem seu par de state (acoesX/setAcoesX) aqui.
-  const [acoesEnautica, setAcoesEnautica] = useState(null)
+  // "Configurações do e-Náutica" (ver ConfiguracoesENautica.jsx): não segue
+  // o mesmo padrão de acoesVagas (que cada tela repassa via onAcoes) porque
+  // agora é a mesma engrenagem nas 3 telas do e-Náutica (TELAS_ENAUTICA
+  // acima) — mais simples manter um único estado de "aberto/fechado" aqui do
+  // que cada tela reportar a mesma ação de novo.
+  const [configEnauticaAberto, setConfigEnauticaAberto] = useState(false)
   // Só para rv_master: qual cliente (marina/escola) ele escolheu operar
   // nesta sessão de tela (não é salvo em lugar nenhum — escolhe de novo a
   // cada login, ou ao clicar em "Voltar ao RV Master"). null = ainda não
@@ -207,7 +218,7 @@ export default function App() {
     setAppSelecionada(chave)
     setTelaAtiva(chave ? primeiraTela(buscarApp(chave)) : null)
     setAcoesVagas(null)
-    setAcoesEnautica(null)
+    setConfigEnauticaAberto(false)
   }
 
   if (carregando) return <div className="tela-central">Carregando...</div>
@@ -358,18 +369,25 @@ export default function App() {
   // Só o Painel de Controle usa o nome real da marina no título; as demais
   // usam o próprio nome da tela.
   const titulo = telaDaApp === 'vagas' ? (nomeMarina || tituloTela) : tituloTela
+  const telaEnautica = TELAS_ENAUTICA.includes(telaDaApp)
 
   return (
     <Layout
       appSelecionada={appSelecionada} setAppSelecionada={escolherApp}
       telaAtiva={telaDaApp} setTelaAtiva={setTelaAtiva} perfil={perfil} titulo={titulo}
-      acoesPainel={telaDaApp === 'vagas' ? acoesVagas : telaDaApp === 'matriculas' ? acoesEnautica : null}
+      acoesPainel={telaDaApp === 'vagas' ? acoesVagas : telaEnautica ? { abrirConfiguracoes: () => setConfigEnauticaAberto(true) } : null}
       marinaId={marinaIdEfetivo} aoVoltarRvMaster={aoVoltarRvMaster}
     >
       <Componente
         marinaId={marinaIdEfetivo} perfil={perfil}
-        onAcoes={telaDaApp === 'vagas' ? setAcoesVagas : telaDaApp === 'matriculas' ? setAcoesEnautica : undefined}
+        onAcoes={telaDaApp === 'vagas' ? setAcoesVagas : undefined}
       />
+      {telaEnautica && (
+        <ConfiguracoesENautica
+          aberto={configEnauticaAberto} onFechar={() => setConfigEnauticaAberto(false)}
+          ehAdmin={perfil?.role === 'admin'} marinaId={marinaIdEfetivo}
+        />
+      )}
     </Layout>
   )
 }

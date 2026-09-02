@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   TIPOS_AGENDAMENTO, listarAgendamentosEscola, listarMatriculasAprovadas,
-  criarAgendamento, labelHabilitacao,
+  criarAgendamento, labelHabilitacao, labelTipoAgendamento,
 } from '../lib/enautica'
 import { buscarMarina, buscarClientesPorIds } from '../lib/db'
 import { abrirListaPratica } from '../lib/enauticaDocumentos'
@@ -27,6 +27,14 @@ import { abrirListaPratica } from '../lib/enauticaDocumentos'
 // os alunos escolhidos e os campos do momento, sem depender de nenhuma
 // linha gravada). Reproduzido aqui do mesmo jeito: o botão usa o form
 // atual, não um compromisso já criado.
+//
+// "Próximos compromissos": diferente da antiga lista de "compromissos
+// marcados" que existiu aqui (removida a pedido do Alex por não ser fiel ao
+// rsnautica), este painel não inventa conceito nenhum — só EXIBE, sem editar
+// nada, os `agendamentos` que este mesmo formulário já cria. Sem essa
+// visão, não havia nenhum jeito de responder "o que já está marcado pra essa
+// semana" sem abrir o banco. Continua só leitura de propósito: nada de
+// status por aqui (isso é exatamente o que foi vetado antes).
 const FORM_VAZIO = { tipo: 'pratica', data: '', hora: '', local: '', alunosIds: [] }
 
 export default function TelaAgendaEscolaENautica({ marinaId }) {
@@ -86,6 +94,24 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
       })
     })
     return mapa
+  }, [agendamentos])
+
+  // Nome de cada aluno aprovado, pra listar quem está em cada compromisso
+  // sem precisar de mais uma query (já temos os aprovados carregados).
+  const nomePorId = useMemo(() => {
+    const mapa = {}
+    aprovados.forEach((m) => { mapa[m.cliente_id] = m.clientes?.nome || 'Aluno' })
+    return mapa
+  }, [aprovados])
+
+  // Só hoje/futuro, mais cedo primeiro — compromissos já passados não ajudam
+  // a escola a planejar a próxima semana, então ficam de fora pra não
+  // acumular lista sem fim.
+  const proximosCompromissos = useMemo(() => {
+    const hojeISO = new Date().toISOString().slice(0, 10)
+    return agendamentos
+      .filter((ag) => ag.data >= hojeISO)
+      .sort((a, b) => `${a.data}${a.hora}`.localeCompare(`${b.data}${b.hora}`))
   }, [agendamentos])
 
   const todosSelecionados = aprovados.length > 0 && form.alunosIds.length === aprovados.length
@@ -158,6 +184,29 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
 
       {erro && <p className="erro">Não foi possível carregar a agenda ({erro}).</p>}
 
+      {/* Só aparece quando há algo marcado pra hoje/frente — lista vazia não
+          mostra nem título nem "nenhum compromisso", pra não ocupar espaço
+          sem necessidade. */}
+      {proximosCompromissos.length > 0 && (
+        <div style={{ maxWidth: 480, marginBottom: 18 }}>
+          <span className="minha-conta-secao-titulo">Próximos compromissos</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
+            {proximosCompromissos.map((ag) => (
+              <div key={ag.id} style={{ fontSize: 12.5, padding: '7px 10px', border: '1px solid var(--cor-toggle-off)', borderRadius: 8 }}>
+                <div>
+                  <b>{new Date(`${ag.data}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })} · {ag.hora}</b>
+                  {' — '}{ag.tipo_label || labelTipoAgendamento(ag.tipo)}{ag.local ? ` · ${ag.local}` : ''}
+                </div>
+                <div style={{ color: 'var(--cor-texto-suave)', marginTop: 2 }}>
+                  {(ag.alunos_ids || []).map((id) => nomePorId[id] || 'Aluno').join(', ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <span className="minha-conta-secao-titulo" style={{ display: 'block', marginBottom: 8 }}>Marcar novo compromisso</span>
       <form onSubmit={enviarForm} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 480 }}>
         <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
           {TIPOS_AGENDAMENTO.map((t) => <option key={t.chave} value={t.chave}>{t.label}</option>)}

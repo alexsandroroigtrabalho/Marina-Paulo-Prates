@@ -12,10 +12,11 @@ import {
 // antigo (tabela `certificados`), sem a etapa de notificação por e-mail
 // (RV e-Náutica não tem Edge Function de envio configurada) — a emissão
 // já deixa disponível pro aluno ver na hora (realtime).
-const STATUS_OPCOES = [
-  { chave: 'disponível', label: 'Disponível' },
-  { chave: 'entregue', label: 'Entregue' },
-]
+// Status era um <select> solto dentro do card — único lugar do e-Náutica
+// com esse padrão (todo o resto usa botão, ex. "Marcar docs recebidos" em
+// TelaMatriculasENautica.jsx). Como só existem 2 valores possíveis, virou um
+// botão de alternância igual aos outros, em vez de um menu.
+const PROXIMO_STATUS = { 'disponível': 'entregue', entregue: 'disponível' }
 
 export default function TelaCertificadosEscolaENautica({ marinaId }) {
   const [emitidos, setEmitidos] = useState([])
@@ -58,10 +59,10 @@ export default function TelaCertificadosEscolaENautica({ marinaId }) {
     }
   }
 
-  async function mudarStatus(id, status) {
-    setProcessandoId(id)
+  async function alternarStatus(c) {
+    setProcessandoId(c.id)
     try {
-      await atualizarStatusCertificado(id, status)
+      await atualizarStatusCertificado(c.id, PROXIMO_STATUS[c.status] || 'entregue')
       await carregar()
     } catch (err) {
       alert('Não foi possível atualizar o status: ' + err.message)
@@ -106,11 +107,15 @@ export default function TelaCertificadosEscolaENautica({ marinaId }) {
             </div>
             <div className="linha"><b>Habilitação:</b> {labelHabilitacao(c.habilitacao)}</div>
             <div className="linha"><b>Emitido em:</b> {new Date(`${c.data_emissao}T12:00`).toLocaleDateString('pt-BR')}</div>
-            <div className="linha">
-              <b>Status:</b>{' '}
-              <select value={c.status} disabled={processandoId === c.id} onChange={(e) => mudarStatus(c.id, e.target.value)}>
-                {STATUS_OPCOES.map((s) => <option key={s.chave} value={s.chave}>{s.label}</option>)}
-              </select>
+            <div className="cliente-card-acoes">
+              <button
+                type="button"
+                className={`botao-secundario${c.status === 'entregue' ? ' em-dia' : ''}`}
+                disabled={processandoId === c.id}
+                onClick={() => alternarStatus(c)}
+              >
+                {c.status === 'entregue' ? '✓ Entregue' : 'Marcar como entregue'}
+              </button>
             </div>
           </div>
         ))}
