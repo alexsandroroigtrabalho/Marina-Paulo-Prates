@@ -410,7 +410,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     // baixo da barra, fora da área visível, e só aparecia rolando a
     // página. 100dvh é a altura realmente visível AGORA (já descontando a
     // barra), então o rodapé sobe junto e fica visível sem precisar rolar.
-    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 68px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         <strong className="painel-cliente-marina">{marina?.nome || 'RV e-Náutica'}</strong>
@@ -515,10 +515,18 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
       {cliente && matricula?.status === 'aprovada' && (
         <>
-          <div className="abas" style={{ flexWrap: 'wrap' }}>
-            {ABAS_ALUNO.map((a) => (
-              <button key={a.chave} className={aba === a.chave ? 'ativo' : ''} onClick={() => setAba(a.chave)}>
-                <a.Icone size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> {a.label}
+          {/* Grade de 3x2 (ver .abas-enautica no index.css): "Início" ocupa a
+              coluna inteira à esquerda, span nas 2 linhas — os outros 4 se
+              distribuem nas colunas 2 e 3, na mesma ordem de ABAS_ALUNO. */}
+          <div className="abas-enautica">
+            {ABAS_ALUNO.map((a, i) => (
+              <button
+                key={a.chave}
+                className={[aba === a.chave ? 'ativo' : '', i === 0 ? 'abas-enautica-destaque' : ''].filter(Boolean).join(' ')}
+                onClick={() => setAba(a.chave)}
+              >
+                <a.Icone size={i === 0 ? 26 : 20} />
+                {a.label}
               </button>
             ))}
           </div>
@@ -726,7 +734,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
         </>
       )}
 
-      <a className="pagina-cliente-rodape" style={{ marginTop: 'auto' }} href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
+      <a className="pagina-cliente-rodape pagina-cliente-rodape--fixo" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
     </div>
   )
 }

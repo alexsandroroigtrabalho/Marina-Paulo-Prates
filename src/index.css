@@ -309,6 +309,29 @@ body {
   text-decoration: none;
 }
 
+/* Versão fixa do rodapé acima — só na área do aluno do e-Náutica
+   (TelaClienteENautica.jsx), a pedido do Alex: em vez de ficar no fim da
+   coluna rolável (onde só aparecia rolando até o fim), fica presa na base
+   da tela o tempo todo, com sua própria barra (mesmo --cor-fundo do resto
+   do app, sombra pra separar do conteúdo). `.painel-cliente` correspondente
+   ganha padding-bottom (ver regra própria abaixo) pra nada ficar escondido
+   atrás dela. Centralizada e limitada aos mesmos 480px do resto da tela,
+   inclusive em telas bem largas. */
+.pagina-cliente-rodape--fixo {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--cor-fundo);
+  box-shadow: 0 -6px 16px rgba(13, 27, 42, 0.06);
+  z-index: 5;
+}
+
 /* Logo + crédito na barra lateral (fundo escuro --cor-primaria): usa a
    versão dourada da logo, combinação "fundo escuro + dourado" preferencial
    no manual da marca. ".sair" já tem margin-top:auto, então o rodapé fica
@@ -1205,6 +1228,22 @@ button.badge:hover { filter: brightness(0.95); }
 .abas { display: flex; gap: 8px; margin-bottom: 16px; }
 .abas button { padding: 8px 18px; border: none; background: var(--cor-card); border-radius: 8px; cursor: pointer; color: var(--cor-texto-suave); font-weight: 600; }
 .abas button.ativo { background: var(--cor-secundaria); color: #fff; }
+
+/* Navegação da área do aluno do e-Náutica (TelaClienteENautica.jsx) — pedido
+   do Alex: em vez das pastilhas em fileira/wrap de ".abas" acima (que
+   quebravam em 2 linhas desalinhadas no celular), usa o mesmo visual de
+   "cartão" do resto do RV Marine (fundo --cor-card, --raio, --sombra — igual
+   .stat-card/.cliente-card) numa grade fixa de 3 colunas x 2 linhas, com
+   "Início" ocupando as duas linhas da 1ª coluna — o destino mais usado (é
+   pra onde o aluno cai ao entrar) vira também o botão mais fácil de mirar. */
+.abas-enautica { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+.abas-enautica button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 12px 6px; border: none; border-radius: var(--raio); background: var(--cor-card); box-shadow: var(--sombra);
+  color: var(--cor-texto-suave); font-weight: 600; font-size: 12px; text-align: center; line-height: 1.2; cursor: pointer;
+}
+.abas-enautica button.ativo { background: var(--cor-secundaria); color: #fff; box-shadow: none; }
+.abas-enautica button.abas-enautica-destaque { grid-row: 1 / span 2; font-size: 13.5px; gap: 8px; }
 
 .resumo-financeiro { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .stat-card { background: var(--cor-card); padding: 16px 24px; border-radius: var(--raio); box-shadow: var(--sombra); min-width: 150px; }
