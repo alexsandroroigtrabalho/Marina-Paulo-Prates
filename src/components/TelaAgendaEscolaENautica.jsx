@@ -114,6 +114,13 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
       .sort((a, b) => `${a.data}${a.hora}`.localeCompare(`${b.data}${b.hora}`))
   }, [agendamentos])
 
+  // A mensagem "Compromisso marcado" (enviado=true) ficava presa na tela
+  // pra sempre — se o usuário desmarcasse os alunos depois e tentasse
+  // "Lista de alunos" sem seleção, via as duas mensagens (sucesso + erro)
+  // juntas, uma contradizendo a outra. Qualquer mudança no formulário
+  // depois de um envio limpa esse aviso, sem precisar de um botão "ok" novo.
+  useEffect(() => { setEnviado(false) }, [form])
+
   const todosSelecionados = aprovados.length > 0 && form.alunosIds.length === aprovados.length
   function alternarTodos() {
     setForm((f) => ({ ...f, alunosIds: todosSelecionados ? [] : aprovados.map((m) => m.cliente_id) }))
@@ -264,11 +271,14 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
         {enviado && <p className="dica" style={{ fontWeight: 600 }}>Compromisso marcado — os alunos selecionados foram notificados.</p>}
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button type="submit" disabled={criando}>
+          {/* Desabilitado sem aluno selecionado, em vez de deixar clicar e só
+              avisar depois — o usuário vê de cara que falta escolher alguém,
+              sem precisar de uma mensagem de erro pra isso. */}
+          <button type="submit" disabled={criando || form.alunosIds.length === 0}>
             {criando ? 'Marcando…' : 'Marcar compromisso'}
           </button>
           {form.tipo === 'pratica' && (
-            <button type="button" className="botao-secundario" disabled={gerandoLista} onClick={gerarListaAlunos}>
+            <button type="button" className="botao-secundario" disabled={gerandoLista || form.alunosIds.length === 0} onClick={gerarListaAlunos}>
               {gerandoLista ? 'Gerando…' : 'Lista de alunos (Capitania)'}
             </button>
           )}

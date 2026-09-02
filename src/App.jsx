@@ -15,9 +15,7 @@ import TelaClientes from './components/TelaClientes'
 import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
-import TelaMatriculasENautica from './components/TelaMatriculasENautica'
-import TelaAgendaEscolaENautica from './components/TelaAgendaEscolaENautica'
-import TelaCertificadosEscolaENautica from './components/TelaCertificadosEscolaENautica'
+import TelaAlunosENautica from './components/TelaAlunosENautica'
 import TelaClienteENautica from './components/TelaClienteENautica'
 import ConfiguracoesENautica from './components/ConfiguracoesENautica'
 import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
@@ -41,18 +39,15 @@ const TELAS = {
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
-  matriculas: { titulo: 'Matrículas', Componente: TelaMatriculasENautica },
-  enauticaAgenda: { titulo: 'Agenda', Componente: TelaAgendaEscolaENautica },
-  enauticaCertificados: { titulo: 'Certificados', Componente: TelaCertificadosEscolaENautica },
+  alunosEnautica: { titulo: 'Alunos', Componente: TelaAlunosENautica },
 }
 
-// As 3 telas do e-Náutica compartilham a MESMA engrenagem de Configurações
-// (dados dos documentos, aulas preparatórias) — antes só existia dentro de
-// Matrículas (onAcoes só era repassado ali), o que obrigava o admin a voltar
-// pra essa tela específica sempre que quisesse mexer em Configurações vindo
-// de Agenda ou Certificados. Agora o modal mora aqui em App.jsx (estado
-// único `configEnauticaAberto` abaixo) e a engrenagem aparece nas 3.
-const TELAS_ENAUTICA = ['matriculas', 'enauticaAgenda', 'enauticaCertificados']
+// e-Náutica tinha 3 telas (Matrículas/Agenda/Certificados) que viraram 1
+// (TelaAlunosENautica.jsx, jornada por aluno — ver nota em lib/apps.js). A
+// engrenagem de Configurações (dados dos documentos, aulas preparatórias)
+// continua fora da tela em si, aberta daqui (estado `configEnauticaAberto`
+// abaixo), do mesmo jeito que já era compartilhado entre as 3 antes.
+const TELAS_ENAUTICA = ['alunosEnautica']
 
 // Qual componente mostrar pro CLIENTE FINAL em cada aplicação com
 // `clientePronto: true` (lib/apps.js) — equivalente ao TELAS acima, só que

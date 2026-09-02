@@ -43,13 +43,16 @@ export const APLICACOES = [
   // e-Náutica: sem NADA de pagamento/plano (diferente do rsnautica antigo,
   // que foi desligado) — o "gate" de acesso do aluno é a matrícula ser
   // aprovada pela equipe da escola (ver src/lib/enautica.js), não um
-  // pagamento. Aulas/Agenda/Certificados ainda não têm tela própria —
-  // "Matrículas" é a primeira (aprovar/recusar pedidos); o restante chega
-  // nas próximas fases, já com o schema do banco pronto.
+  // pagamento.
+  //
+  // Uma única tela "Alunos" (TelaAlunosENautica.jsx) — antes eram 3 abas
+  // separadas (Matrículas / Agenda / Certificados), trocado a pedido
+  // explícito do Alex por uma jornada por aluno (trilha Matrícula → Agenda
+  // → Certificado), com as ações em massa de cada tela antiga reaproveitadas
+  // numa barra de seleção. Os 3 componentes antigos continuam no projeto,
+  // só não são mais usados aqui — dá pra voltar trocando só esta linha.
   { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', clientePronto: true, telas: [
-    { chave: 'matriculas', label: 'Matrículas' },
-    { chave: 'enauticaAgenda', label: 'Agenda' },
-    { chave: 'enauticaCertificados', label: 'Certificados' },
+    { chave: 'alunosEnautica', label: 'Alunos' },
   ] },
   { chave: 'enge', prefixo: 'RV', nome: 'Enge', clientePronto: false, telas: [] },
   {
