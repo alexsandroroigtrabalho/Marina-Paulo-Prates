@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconLogout, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell } from '@tabler/icons-react'
+import { IconLogout, IconHome, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
 import { buscarMarina, salvarCliente } from '../lib/db'
 import {
@@ -33,11 +33,94 @@ import { abrirCertificado } from '../lib/enauticaDocumentos'
 // nome/e-mail/telefone: sem um jeito de corrigir um dado errado depois de
 // enviado, um RG digitado errado ficava travado pra sempre.
 const ABAS_ALUNO = [
+  { chave: 'inicio', label: 'Início', Icone: IconHome },
   { chave: 'aulas', label: 'Aulas preparatórias', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
   { chave: 'certs', label: 'Meus certificados', Icone: IconCertificate },
   { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
 ]
+
+// "Início" (aba nova, a pedido do Alex) — um guia de estudos da trilha
+// completa até a Carteira de Habilitação de Amador (CHA), pra quem acabou
+// de ser aprovado e não sabe bem o que vem a seguir. É só leitura (nenhum
+// dado do Supabase aqui) e por isso fica fora do carregar()/estado do
+// componente — cada passo aponta pra aba de verdade onde a ação acontece.
+// Os números da prova teórica (quantidade de questões, nota mínima) são
+// informação pública sobre o exame da autoridade marítima para Arrais
+// Amador — não são específicos da RV Invictus nem inventados — mas o texto
+// avisa que podem variar conforme a Capitania, porque a escola é quem
+// confirma o formato exato com o aluno antes da prova.
+const TRILHA_INICIO = [
+  {
+    onde: 'Aba "Aulas preparatórias"',
+    titulo: 'Assista às aulas preparatórias',
+    texto: 'Estude no seu ritmo pelos módulos em vídeo liberados pela escola. Marque cada um como concluído conforme for terminando.',
+  },
+  {
+    onde: 'Aba "Agendamentos"',
+    titulo: 'Avise que está pronto para a prova teórica',
+    texto: 'Quando se sentir preparado, responda "Sim, estou pronto(a)" no card de prova teórica. A escola vê seu aviso e entra em contato para agendar.',
+  },
+  {
+    onde: 'Na Capitania dos Portos',
+    titulo: 'Realize a prova teórica',
+    texto: 'A avaliação teórica é aplicada diretamente pela autoridade marítima (Capitania dos Portos), não pela escola. Costuma ser de múltipla escolha, com cerca de 20 questões sobre nomenclatura náutica, segurança da navegação, mecânica e motores, meteorologia e regras de tráfego aquaviário, exigindo em torno de 50% de acertos para aprovação — confirme o formato exato com a escola antes da data, pois pode variar conforme a Capitania.',
+  },
+  {
+    onde: 'Aba "Agendamentos"',
+    titulo: 'Aprovado na teórica, solicite a prova prática',
+    texto: 'Com a teórica concluída, peça à escola o agendamento da avaliação prática (o mesmo card acima, ou diretamente com seu instrutor).',
+  },
+  {
+    onde: 'Sino de notificações',
+    titulo: 'Você recebe a data da aula prática',
+    texto: 'A escola marca o compromisso e você é avisado por notificação aqui dentro, com data, hora e local.',
+  },
+  {
+    onde: 'Na escola',
+    titulo: 'Realize a aula/avaliação prática',
+    texto: 'Acontece presencialmente na escola, com instrutores habilitados da RV Invictus.',
+  },
+  {
+    onde: 'Feito pela escola',
+    titulo: 'Seu processo é expedido na Capitania',
+    texto: 'Com as duas etapas concluídas, a escola monta e protocola seu processo junto à Capitania dos Portos.',
+  },
+  {
+    onde: 'App Gov.br',
+    titulo: 'Sua CHA chega pelo Gov.br',
+    texto: 'No prazo definido pela autoridade marítima, sua Carteira de Habilitação de Amador (arrais/motonauta) é emitida e passa a ficar disponível direto no seu app Gov.br.',
+  },
+]
+
+function TelaInicio() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p className="dica">Do estudo até a sua carteira na mão (ou melhor, no app): veja o caminho completo, passo a passo.</p>
+      {TRILHA_INICIO.map((passo, i) => (
+        <div key={passo.titulo} className="cliente-card">
+          <div className="cabecalho-cliente">
+            <div className="titulo-cliente">
+              <span
+                aria-hidden="true"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 22, height: 22, borderRadius: '50%', background: 'var(--cor-primaria)', color: '#fff',
+                  fontSize: 12, fontWeight: 700, marginRight: 8, flexShrink: 0,
+                }}
+              >
+                {i + 1}
+              </span>
+              <span className="nome">{passo.titulo}</span>
+            </div>
+          </div>
+          <div className="dica" style={{ fontWeight: 600, margin: '2px 0 4px' }}>{passo.onde}</div>
+          <div className="linha">{passo.texto}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // Sino de notificações — substitui, dentro da própria plataforma, o que no
 // rsnautica (referência operacional) era um e-mail avulso a cada matrícula
@@ -98,7 +181,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [matricula, setMatricula] = useState(null)
   const [marina, setMarina] = useState(null)
   const [erroCarregamento, setErroCarregamento] = useState(null)
-  const [aba, setAba] = useState('aulas')
+  const [aba, setAba] = useState('inicio')
   const [agendamentos, setAgendamentos] = useState([])
   const [certificados, setCertificados] = useState([])
   const [concluidas, setConcluidas] = useState(() => new Set())
@@ -439,6 +522,8 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               </button>
             ))}
           </div>
+
+          {aba === 'inicio' && <TelaInicio />}
 
           {aba === 'aulas' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
