@@ -8,6 +8,7 @@ import {
   listarMeusAgendamentos, listarMeusCertificados, labelTipoAgendamento,
   listarMinhasNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas,
   declararProntidaoTeste,
+  solicitarReagendamento,
 } from '../lib/enautica'
 import { maskData, dataMascaradaParaIso, maskTelefone } from '../lib/mascaras'
 import { MODELOS_DOCUMENTO, abrirDocumento } from '../lib/enauticaDocumentos'
@@ -491,6 +492,37 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                   </div>
                 </div>
               ))}
+
+              {/* Reagendamento — sem cobrança (ao contrário do rsnautica). O aluno
+                  solicita aqui; a escola vê o badge e entra em contato. */}
+              <div className="cliente-card">
+                <div className="cabecalho-cliente">
+                  <div className="titulo-cliente"><span className="nome">Solicitar reagendamento</span></div>
+                </div>
+                <div className="linha" style={{ fontSize: 13 }}>
+                  Em caso de reprovação na avaliação teórica, solicite aqui seu reagendamento. A escola entrará em contato.
+                </div>
+                {matricula.reagendamento_solicitado ? (
+                  <div className="linha status-texto em-dia">✓ Solicitação enviada. Aguarde o contato da escola.</div>
+                ) : (
+                  <div className="cliente-card-acoes">
+                    <button
+                      type="button" className="botao-secundario"
+                      onClick={async () => {
+                        if (!window.confirm('Confirma a solicitação de reagendamento da avaliação teórica?')) return
+                        try {
+                          await solicitarReagendamento(matricula.id)
+                          setMatricula((m) => ({ ...m, reagendamento_solicitado: true }))
+                        } catch (err) {
+                          alert('Erro ao solicitar: ' + err.message)
+                        }
+                      }}
+                    >
+                      Solicitar reagendamento
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -85,6 +85,7 @@ function estiloBase() {
     .campo-assin { flex: 1; font-size: 9.5pt; text-align: center; }
     .campo-assin-linha { border-bottom: 1px solid #000; min-height: 7mm; padding-bottom: 1mm; }
     .descricao-linhas { border-bottom: 1px solid #000; min-height: 6mm; margin-bottom: 2mm; }
+    @page { margin: 0; }
     @media print {
       body { margin: 0; }
       .pagina { margin: 0; padding: 12mm 18mm 14mm 18mm; }

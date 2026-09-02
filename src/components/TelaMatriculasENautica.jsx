@@ -112,6 +112,11 @@ export default function TelaMatriculasENautica({ marinaId, perfil, onAcoes }) {
                 {aba === 'aprovada' && m.pronto_teste === 'sim' && (
                   <span className="status-texto em-dia" style={{ marginLeft: 8, fontSize: 12 }}>✓ pronto p/ prova teórica</span>
                 )}
+                {aba === 'aprovada' && m.reagendamento_solicitado && (
+                  <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#b45309', border: '0.5px solid #fde68a', fontWeight: 600, verticalAlign: 'middle' }}>
+                    ↺ reagendamento
+                  </span>
+                )}
               </div>
             </div>
             <div className="linha"><b>Habilitação desejada:</b> {labelHabilitacao(m.habilitacao)}</div>

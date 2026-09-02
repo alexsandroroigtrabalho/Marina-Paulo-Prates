@@ -191,6 +191,9 @@ export default function TelaAgendaEscolaENautica({ marinaId }) {
                 {m.pronto_teste === 'sim' && (
                   <span className="status-texto em-dia" style={{ marginLeft: 6, fontSize: 11 }}>✓ pronto p/ teórica</span>
                 )}
+                {m.reagendamento_solicitado && (
+                  <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 10, background: '#fef3c7', color: '#b45309', border: '0.5px solid #fde68a', fontWeight: 600 }}>↺ reagendamento</span>
+                )}
               </span>
               {/* Indicadores "já notificado" — mesmo conceito do rsnautica
                   (bolinha verde/cinza por tipo), ver notificadoPorId acima. */}

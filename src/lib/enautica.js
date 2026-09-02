@@ -151,6 +151,11 @@ export async function marcarDocumentosRecebidos(matriculaId, valor) {
   if (error) throw error
 }
 
+export async function solicitarReagendamento(matriculaId) {
+  const { error } = await dbEnautica.from('matriculas').update({ reagendamento_solicitado: true }).eq('id', matriculaId)
+  if (error) throw error
+}
+
 export async function listarMatriculasAprovadas(marinaId) {
   if (!marinaId) return []
   const { data, error } = await dbEnautica.from('matriculas')
