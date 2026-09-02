@@ -45,14 +45,18 @@ export const APLICACOES = [
   // aprovada pela equipe da escola (ver src/lib/enautica.js), não um
   // pagamento.
   //
-  // Uma única tela "Alunos" (TelaAlunosENautica.jsx) — antes eram 3 abas
-  // separadas (Matrículas / Agenda / Certificados), trocado a pedido
-  // explícito do Alex por uma jornada por aluno (trilha Matrícula → Agenda
-  // → Certificado), com as ações em massa de cada tela antiga reaproveitadas
-  // numa barra de seleção. Os 3 componentes antigos continuam no projeto,
-  // só não são mais usados aqui — dá pra voltar trocando só esta linha.
+  // 2 abas (TelaAlunosENautica.jsx + TelaAgendamentosENautica.jsx) — antes
+  // eram 3 separadas (Matrículas / Agenda / Certificados), trocado a pedido
+  // explícito do Alex: "Painel de Controle" traz a jornada por aluno
+  // (trilha Matrícula → Agenda → Certificado, numa tabela só, com as ações
+  // em massa de cada tela antiga reaproveitadas numa barra de seleção) e
+  // "Agendamentos" traz só os compromissos já marcados (antes isso ficava
+  // no topo do Painel de Controle; virou aba própria por ter mais o que
+  // mostrar). Os 3 componentes antigos continuam no projeto, só não são
+  // mais usados aqui — dá pra voltar trocando só esta lista.
   { chave: 'enautica', prefixo: 'RV', nome: 'e-Náutica', clientePronto: true, telas: [
-    { chave: 'alunosEnautica', label: 'Alunos' },
+    { chave: 'alunosEnautica', label: 'Painel de Controle' },
+    { chave: 'agendamentosEnautica', label: 'Agendamentos' },
   ] },
   { chave: 'enge', prefixo: 'RV', nome: 'Enge', clientePronto: false, telas: [] },
   {

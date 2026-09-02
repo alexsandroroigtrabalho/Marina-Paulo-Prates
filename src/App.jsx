@@ -16,6 +16,7 @@ import TelaFinanceiro from './components/TelaFinanceiro'
 import TelaManutencao from './components/TelaManutencao'
 import TelaClienteDashboard from './components/TelaClienteDashboard'
 import TelaAlunosENautica from './components/TelaAlunosENautica'
+import TelaAgendamentosENautica from './components/TelaAgendamentosENautica'
 import TelaClienteENautica from './components/TelaClienteENautica'
 import ConfiguracoesENautica from './components/ConfiguracoesENautica'
 import AplicacaoNaoContratada from './components/AplicacaoNaoContratada'
@@ -39,15 +40,17 @@ const TELAS = {
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
-  alunosEnautica: { titulo: 'Alunos', Componente: TelaAlunosENautica },
+  alunosEnautica: { titulo: 'Painel de Controle', Componente: TelaAlunosENautica },
+  agendamentosEnautica: { titulo: 'Agendamentos', Componente: TelaAgendamentosENautica },
 }
 
-// e-Náutica tinha 3 telas (Matrículas/Agenda/Certificados) que viraram 1
-// (TelaAlunosENautica.jsx, jornada por aluno — ver nota em lib/apps.js). A
+// e-Náutica tinha 3 telas (Matrículas/Agenda/Certificados) que viraram 2
+// (Painel de Controle + Agendamentos — ver nota em lib/apps.js). A
 // engrenagem de Configurações (dados dos documentos, aulas preparatórias)
 // continua fora da tela em si, aberta daqui (estado `configEnauticaAberto`
-// abaixo), do mesmo jeito que já era compartilhado entre as 3 antes.
-const TELAS_ENAUTICA = ['alunosEnautica']
+// abaixo), do mesmo jeito que já era compartilhado entre as 3 antes — agora
+// compartilhada entre as 2.
+const TELAS_ENAUTICA = ['alunosEnautica', 'agendamentosEnautica']
 
 // Qual componente mostrar pro CLIENTE FINAL em cada aplicação com
 // `clientePronto: true` (lib/apps.js) — equivalente ao TELAS acima, só que

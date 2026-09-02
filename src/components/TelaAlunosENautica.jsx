@@ -10,20 +10,25 @@ import { buscarMarina, buscarClientesPorIds } from '../lib/db'
 import { abrirListaPratica, baixarZipDocumentosAlunos } from '../lib/enauticaDocumentos'
 import ModalDocumentosAluno from './ModalDocumentosAluno'
 
-// Tela única do e-Náutica pro lado da escola — substitui as antigas 3 abas
-// (Matrículas / Agenda / Certificados, hoje em TelaMatriculasENautica.jsx,
-// TelaAgendaEscolaENautica.jsx e TelaCertificadosEscolaENautica.jsx — os 3
-// arquivos continuam no projeto, só não são mais importados em App.jsx,
-// caso precise voltar atrás). MUDANÇA GRANDE, escolhida explicitamente pelo
-// Alex (não é invenção livre nem port do rsnautica, que nunca teve nada
-// parecido): em vez de 3 listas separadas, cada aluno aparece 1 vez numa
-// tabela só, com uma trilha "Matrícula → Agenda → Certificado" mostrando em
-// que ponto da jornada ele está. Clicar na linha abre um painel com tudo
-// daquele aluno (mesmas ações de sempre: aprovar/recusar, documentos,
-// agenda, certificado). As ações em massa que existiam nas 3 telas
-// (aprovar vários, baixar .zip de vários, marcar uma turma, emitir vários
-// certificados) continuam aqui, na barra que aparece quando alguém marca as
-// caixinhas da tabela.
+// "Painel de Controle" do e-Náutica (1ª das 2 abas da escola, a outra é
+// Agendamentos — ver TelaAgendamentosENautica.jsx) — substitui as antigas 3
+// abas (Matrículas / Agenda / Certificados, hoje em
+// TelaMatriculasENautica.jsx, TelaAgendaEscolaENautica.jsx e
+// TelaCertificadosEscolaENautica.jsx — os 3 arquivos continuam no projeto,
+// só não são mais importados em App.jsx, caso precise voltar atrás).
+// MUDANÇA GRANDE, escolhida explicitamente pelo Alex (não é invenção livre
+// nem port do rsnautica, que nunca teve nada parecido): em vez de 3 listas
+// separadas, cada aluno aparece 1 vez numa tabela só, com uma trilha
+// "Matrícula → Agenda → Certificado" mostrando em que ponto da jornada ele
+// está. Clicar na linha abre um painel com tudo daquele aluno (mesmas ações
+// de sempre: aprovar/recusar, documentos, agenda, certificado). As ações em
+// massa que existiam nas 3 telas (aprovar vários, baixar .zip de vários,
+// marcar uma turma, emitir vários certificados) continuam aqui, na barra
+// que aparece quando alguém marca as caixinhas da tabela.
+//
+// O painel "Próximos compromissos" que existia no topo desta tela virou a
+// aba Agendamentos, por pedido do Alex — lá dá pra ver TODOS os
+// compromissos (não só os futuros), com mais espaço.
 const FILTROS = [
   { chave: 'todos', label: 'Todos' },
   { chave: 'pendente', label: 'Pendentes' },
@@ -310,44 +315,11 @@ export default function TelaAlunosENautica({ marinaId }) {
     }
   }
 
-  // Compromissos futuros de todos os alunos, só leitura — a mesma visão que
-  // já existia na antiga tela de Agenda, útil pra "o que já está marcado
-  // pra essa semana" sem abrir cada aluno.
-  const proximosCompromissos = useMemo(() => {
-    return agendamentos
-      .filter((ag) => ag.data >= hojeISO)
-      .sort((a, b) => `${a.data}${a.hora}`.localeCompare(`${b.data}${b.hora}`))
-  }, [agendamentos, hojeISO])
-  const nomePorId = useMemo(() => {
-    const mapa = {}
-    matriculas.forEach((m) => { mapa[m.cliente_id] = m.clientes?.nome || 'Aluno' })
-    return mapa
-  }, [matriculas])
-
   const corEtapa = { ok: '#3F8F5F', ativo: '#B45309', todo: '#B9C2CC', erro: '#A23B2E' }
 
   return (
     <div>
       {erro && <p className="erro">Não foi possível carregar os alunos ({erro}).</p>}
-
-      {proximosCompromissos.length > 0 && (
-        <div style={{ maxWidth: 560, marginBottom: 18 }}>
-          <span className="minha-conta-secao-titulo">Próximos compromissos</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, maxHeight: 180, overflowY: 'auto' }}>
-            {proximosCompromissos.map((ag) => (
-              <div key={ag.id} style={{ fontSize: 12.5, padding: '7px 10px', border: '1px solid var(--cor-toggle-off)', borderRadius: 8 }}>
-                <div>
-                  <b>{new Date(`${ag.data}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })} · {ag.hora}</b>
-                  {' — '}{ag.tipo_label || labelTipoAgendamento(ag.tipo)}{ag.local ? ` · ${ag.local}` : ''}
-                </div>
-                <div style={{ color: 'var(--cor-texto-suave)', marginTop: 2 }}>
-                  {(ag.alunos_ids || []).map((id) => nomePorId[id] || 'Aluno').join(', ')}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="abas">
         {FILTROS.map((f) => (
@@ -389,7 +361,19 @@ export default function TelaAlunosENautica({ marinaId }) {
       )}
 
       <div className="table-scroll" style={{ overflowX: 'auto', background: 'var(--cor-card)', borderRadius: 'var(--raio)', boxShadow: 'var(--sombra)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
+        {/* Larguras fixas por coluna (em vez de deixar o navegador decidir
+            pelo conteúdo de cada linha): sem isso, "Etapa" e "Contato"
+            deslizavam pra esquerda/direita dependendo do tamanho do nome de
+            cada aluno — com <colgroup>, a coluna sempre fica na mesma
+            posição em toda linha, alinhada com o cabeçalho. */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720, tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 40 }} />
+            <col style={{ width: '32%' }} />
+            <col style={{ width: '26%' }} />
+            <col style={{ width: '28%' }} />
+            <col style={{ width: 36 }} />
+          </colgroup>
           <thead>
             <tr>
               <th style={thEsq}></th>
@@ -426,7 +410,7 @@ export default function TelaAlunosENautica({ marinaId }) {
                         ))}
                       </div>
                     </td>
-                    <td style={{ ...tdEsq, color: 'var(--cor-texto-suave)', fontSize: 12 }}>{m.clientes?.email || '—'}</td>
+                    <td style={{ ...tdEsq, color: 'var(--cor-texto-suave)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.clientes?.email || ''}>{m.clientes?.email || '—'}</td>
                     <td style={{ ...tdEsq, textAlign: 'right', color: 'var(--cor-texto-suave)', fontSize: 11 }}>{aberta ? '▲' : '▼'}</td>
                   </tr>
                   {aberta && (
