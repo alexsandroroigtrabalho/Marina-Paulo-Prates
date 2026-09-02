@@ -45,11 +45,18 @@ export default function TelaAlunosENautica({ marinaId }) {
   const [erro, setErro] = useState(null)
 
   const [filtro, setFiltro] = useState('todos')
+  const [busca, setBusca] = useState('')
+  // Além do filtro por status (Pendente/Aprovada/Recusada), dois atalhos
+  // pro que mais dá trabalho achar rolando a tabela numa escola com muitos
+  // alunos: quem já foi aprovado mas ainda não tem NENHUM compromisso
+  // marcado, e quem tem certificado emitido esperando ser retirado.
+  const [filtroExtra, setFiltroExtra] = useState(null) // 'semAgenda' | 'certPendente' | null
   const [selecionados, setSelecionados] = useState(new Set())
   const [linhaAberta, setLinhaAberta] = useState(null)
   const [processandoId, setProcessandoId] = useState(null)
   const [baixandoZip, setBaixandoZip] = useState(false)
   const [emitindoCerts, setEmitindoCerts] = useState(false)
+  const [entregandoCerts, setEntregandoCerts] = useState(false)
   const [matriculaDocumentos, setMatriculaDocumentos] = useState(null)
 
   // Modal "Marcar compromisso" — mesma lógica que já existia numa tela
@@ -126,11 +133,29 @@ export default function TelaAlunosENautica({ marinaId }) {
 
   function mudarFiltro(f) {
     setFiltro(f)
+    setFiltroExtra(null)
     setSelecionados(new Set())
   }
 
-  const alunosFiltrados = filtro === 'todos' ? alunos : alunos.filter((a) => a.matricula.status === filtro)
+  let alunosFiltrados = filtro === 'todos' ? alunos : alunos.filter((a) => a.matricula.status === filtro)
+  if (busca.trim()) {
+    const termo = busca.trim().toLowerCase()
+    alunosFiltrados = alunosFiltrados.filter((a) => (a.matricula.clientes?.nome || '').toLowerCase().includes(termo))
+  }
+  if (filtroExtra === 'semAgenda') {
+    alunosFiltrados = alunosFiltrados.filter((a) => a.matricula.status === 'aprovada' && a.agendamentos.length === 0)
+  } else if (filtroExtra === 'certPendente') {
+    alunosFiltrados = alunosFiltrados.filter((a) => a.certificado && a.certificado.status !== 'entregue')
+  }
   const contagemPendentes = alunos.filter((a) => a.matricula.status === 'pendente').length
+  const contagemSemAgenda = alunos.filter((a) => a.matricula.status === 'aprovada' && a.agendamentos.length === 0).length
+  const contagemCertPendente = alunos.filter((a) => a.certificado && a.certificado.status !== 'entregue').length
+  function alternarFiltroExtra(f) {
+    const novo = filtroExtra === f ? null : f
+    setFiltroExtra(novo)
+    if (novo) setFiltro('todos')
+    setSelecionados(new Set())
+  }
 
   function alternarSelecao(id) {
     setSelecionados((s) => {
@@ -148,6 +173,7 @@ export default function TelaAlunosENautica({ marinaId }) {
   const selPendentes = selecionadosAlunos.length > 0 && selecionadosAlunos.every((a) => a.matricula.status === 'pendente')
   const selAprovados = selecionadosAlunos.length > 0 && selecionadosAlunos.every((a) => a.matricula.status === 'aprovada')
   const selAprovadosSemCert = selAprovados && selecionadosAlunos.some((a) => !a.certificado)
+  const selComCertPendente = selecionadosAlunos.length > 0 && selecionadosAlunos.every((a) => a.certificado && a.certificado.status !== 'entregue')
 
   async function aprovar(matricula) {
     setProcessandoId(matricula.id)
@@ -192,7 +218,7 @@ export default function TelaAlunosENautica({ marinaId }) {
   async function toggleReagendamento(matricula) {
     setProcessandoId(matricula.id)
     try {
-      await resolverReagendamento(matricula.id)
+      await resolverReagendamento(matricula)
       await carregar()
     } catch (err) {
       alert('Erro ao atualizar: ' + err.message)
@@ -243,6 +269,26 @@ export default function TelaAlunosENautica({ marinaId }) {
     }
   }
 
+  // Contraparte de emitirCertificadosSelecionados: marcar como retirados
+  // vários certificados de uma vez (ex.: dia de entrega, vários alunos ao
+  // mesmo tempo) — antes só existia por aluno, um clique de cada vez.
+  async function marcarCertificadosEntreguesSelecionados() {
+    if (!selComCertPendente) return
+    setEntregandoCerts(true)
+    try {
+      for (const a of selecionadosAlunos) {
+        if (!a.certificado || a.certificado.status === 'entregue') continue
+        await atualizarStatusCertificado(a.certificado.id, 'entregue')
+      }
+      setSelecionados(new Set())
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível atualizar todos os certificados: ' + err.message)
+    } finally {
+      setEntregandoCerts(false)
+    }
+  }
+
   // "Baixar documentos (N)" em massa — mesma ideia do rsnautica (seleção
   // múltipla + ação em massa). Busca o cadastro completo (CPF, RG,
   // endereço...) só dos alunos selecionados, na hora.
@@ -284,6 +330,7 @@ export default function TelaAlunosENautica({ marinaId }) {
         local: formAgenda.local, alunosIds: modalAgenda.alunosIds,
       })
       setAgendaEnviada(true)
+      setSelecionados(new Set())
       await carregar()
     } catch (err) {
       setErroAgenda(err.message)
@@ -321,13 +368,45 @@ export default function TelaAlunosENautica({ marinaId }) {
     <div>
       {erro && <p className="erro">Não foi possível carregar os alunos ({erro}).</p>}
 
-      <div className="abas">
-        {FILTROS.map((f) => (
-          <button key={f.chave} className={filtro === f.chave ? 'ativo' : ''} onClick={() => mudarFiltro(f.chave)}>
-            {f.label} {f.chave === 'pendente' && contagemPendentes > 0 ? `(${contagemPendentes})` : ''}
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div className="abas" style={{ marginBottom: 0 }}>
+          {FILTROS.map((f) => (
+            <button key={f.chave} className={filtro === f.chave ? 'ativo' : ''} onClick={() => mudarFiltro(f.chave)}>
+              {f.label} {f.chave === 'pendente' && contagemPendentes > 0 ? `(${contagemPendentes})` : ''}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text" placeholder="Buscar por nome…" value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={{ flex: '0 1 200px', minWidth: 140, padding: '7px 10px', fontSize: 13, border: '1px solid var(--cor-toggle-off)', borderRadius: 8 }}
+        />
       </div>
+
+      {/* Dois atalhos além do filtro por status — sem isso, achar "quem
+          ainda não tem aula marcada" ou "quem está com certificado
+          esperando retirada" exigia rolar a tabela toda lendo a trilha
+          linha por linha. */}
+      {(contagemSemAgenda > 0 || contagemCertPendente > 0) && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          {contagemSemAgenda > 0 && (
+            <button
+              type="button" onClick={() => alternarFiltroExtra('semAgenda')}
+              className="botao-secundario" style={{ fontSize: 12, padding: '5px 11px', ...(filtroExtra === 'semAgenda' ? { background: 'var(--cor-primaria)', color: '#fff' } : {}) }}
+            >
+              Aguardando agendamento ({contagemSemAgenda})
+            </button>
+          )}
+          {contagemCertPendente > 0 && (
+            <button
+              type="button" onClick={() => alternarFiltroExtra('certPendente')}
+              className="botao-secundario" style={{ fontSize: 12, padding: '5px 11px', ...(filtroExtra === 'certPendente' ? { background: 'var(--cor-primaria)', color: '#fff' } : {}) }}
+            >
+              Certificado a retirar ({contagemCertPendente})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Barra de ações em massa — só aparece com alguma seleção, e só
           habilita cada ação quando ela faz sentido pra TODOS os
@@ -354,6 +433,9 @@ export default function TelaAlunosENautica({ marinaId }) {
               </button>
               <button type="button" className="botao-secundario" disabled={!selAprovadosSemCert || emitindoCerts} onClick={emitirCertificadosSelecionados}>
                 {emitindoCerts ? 'Emitindo…' : `Emitir certificados (${selecionados.size})`}
+              </button>
+              <button type="button" className="botao-secundario" disabled={!selComCertPendente || entregandoCerts} onClick={marcarCertificadosEntreguesSelecionados}>
+                {entregandoCerts ? 'Atualizando…' : `Marcar entregues (${selecionados.size})`}
               </button>
             </>
           )}
@@ -425,13 +507,18 @@ export default function TelaAlunosENautica({ marinaId }) {
                               {m.pronto_teste === 'sim' && (
                                 <span className="status-texto em-dia" style={{ fontSize: 12 }}>✓ pronto p/ prova teórica</span>
                               )}
+                              {/* Reagendamento é sempre da avaliação teórica (a que é
+                                  feita na Capitania) — não existe reagendamento de aula
+                                  prática no e-Náutica, por isso o texto já deixa isso
+                                  explícito, sem precisar guardar um "tipo" à parte. */}
                               {m.reagendamento_solicitado && (
                                 <button
-                                  type="button" title="Clique para marcar como atendido" disabled={processandoId === m.id}
+                                  type="button" title="Aluno pediu reagendamento da avaliação teórica — clique para marcar como atendido (o aluno é avisado)"
+                                  disabled={processandoId === m.id}
                                   style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#b45309', border: '0.5px solid #fde68a', fontWeight: 600, cursor: 'pointer' }}
                                   onClick={() => toggleReagendamento(m)}
                                 >
-                                  ↺ reagendamento
+                                  ↺ reagendamento (teórica)
                                 </button>
                               )}
                             </div>

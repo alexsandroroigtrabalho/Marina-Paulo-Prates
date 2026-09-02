@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconLogout, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell, IconFileText } from '@tabler/icons-react'
+import { IconLogout, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
 import { buscarMarina, salvarCliente } from '../lib/db'
 import {
-  HABILITACOES, labelHabilitacao, camposDocumentoFaltando, buscarMinhaMatricula, enviarMatricula,
+  HABILITACOES, labelHabilitacao, camposDocumentoFaltando, CAMPOS_DOCUMENTO, buscarMinhaMatricula, enviarMatricula,
   modulosAulaComVideo, aulasConcluidas, alternarAulaConcluida,
   listarMeusAgendamentos, listarMeusCertificados, labelTipoAgendamento,
   listarMinhasNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas,
   declararProntidaoTeste,
   solicitarReagendamento,
 } from '../lib/enautica'
-import { maskData, dataMascaradaParaIso, maskTelefone } from '../lib/mascaras'
-import { MODELOS_DOCUMENTO, abrirDocumento, abrirCertificado } from '../lib/enauticaDocumentos'
+import { maskData, dataMascaradaParaIso, isoParaDataMascarada, maskTelefone } from '../lib/mascaras'
+import { abrirCertificado } from '../lib/enauticaDocumentos'
 
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
 // cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
@@ -23,11 +23,19 @@ import { MODELOS_DOCUMENTO, abrirDocumento, abrirCertificado } from '../lib/enau
 // Supabase (matrículas/agendamentos/certificados de enautica) — só o vídeo
 // de cada aula preparatória é opcional (ver ConfiguracoesENautica.jsx: sem
 // a escola cadastrar o link, a aula mostra "Conteúdo em preparação").
+//
+// NÃO existe (nunca existiu de verdade, a pedido do Alex) uma aba de
+// "Documentos" aqui: os 4 documentos de matrícula não são entregues pelo
+// aluno — são gerados pela ESCOLA a partir dos dados da matrícula (ver
+// ModalDocumentosAluno.jsx, aberto pelo Painel de Controle). O aluno só
+// entra nisso preenchendo os dados corretamente — por isso "Meus dados"
+// abaixo cobre também os campos de documento (RG, endereço etc.), não só
+// nome/e-mail/telefone: sem um jeito de corrigir um dado errado depois de
+// enviado, um RG digitado errado ficava travado pra sempre.
 const ABAS_ALUNO = [
   { chave: 'aulas', label: 'Aulas preparatórias', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
   { chave: 'certs', label: 'Meus certificados', Icone: IconCertificate },
-  { chave: 'docs', label: 'Documentos', Icone: IconFileText },
   { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
 ]
 
@@ -134,11 +142,23 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     }
   }
 
+  // Além de nome/e-mail/telefone, "Meus dados" também edita os campos que
+  // entram nos documentos de matrícula (RG, endereço etc. — CAMPOS_DOCUMENTO
+  // em lib/enautica.js). Antes esses campos só eram perguntados UMA vez, na
+  // hora da matrícula, e só se estivessem vazios (camposDocumentoFaltando)
+  // — um RG digitado errado nunca tinha como ser corrigido depois, porque
+  // "já preenchido" fazia o campo nem aparecer de novo no formulário. Aqui
+  // o aluno vê e corrige o que quiser, a qualquer momento.
   function abrirEdicaoDados() {
+    const extras = {}
+    CAMPOS_DOCUMENTO.forEach((c) => {
+      extras[c.chave] = c.tipo === 'date' ? isoParaDataMascarada(cliente[c.chave]) : (cliente[c.chave] || '')
+    })
     setFormDados({
       nome: cliente.nome || '',
       email: cliente.email || '',
       telefone: cliente.telefone || '',
+      ...extras,
     })
     setErroDados(null)
     setEditandoDados(true)
@@ -146,8 +166,19 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
   async function salvarMeusDados(e) {
     e.preventDefault()
-    setSalvandoDados(true)
     setErroDados(null)
+    // A data de nascimento chega mascarada (dd/mm/aaaa) — a coluna no banco
+    // é `date` e espera aaaa-mm-dd, mesma conversão que o formulário de
+    // matrícula já faz (enviarPedido, abaixo).
+    const campos = { ...formDados }
+    if (campos.data_nascimento) {
+      const iso = dataMascaradaParaIso(campos.data_nascimento)
+      if (!iso) { setErroDados('Data de nascimento inválida.'); return }
+      campos.data_nascimento = iso
+    } else {
+      campos.data_nascimento = null
+    }
+    setSalvandoDados(true)
     // Mesmo cuidado do RV Marine (TelaClienteDashboard.jsx/enviarMeusDados):
     // "E-mail" aqui é o mesmo campo usado pra entrar no sistema, então trocar
     // só marina.clientes.email deixaria o aluno vendo um e-mail diferente do
@@ -155,10 +186,10 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     // (Supabase Auth) também — que exige confirmação por link antes de valer
     // de verdade, por isso o aviso ao final.
     const emailAtual = (cliente.email || '').trim().toLowerCase()
-    const emailNovo = (formDados.email || '').trim().toLowerCase()
+    const emailNovo = (campos.email || '').trim().toLowerCase()
     const trocouEmail = emailNovo && emailNovo !== emailAtual
     try {
-      await salvarCliente({ id: cliente.id, ...formDados })
+      await salvarCliente({ id: cliente.id, ...campos })
       if (trocouEmail) {
         const { error } = await supabase.auth.updateUser({ email: emailNovo })
         if (error) throw error
@@ -541,30 +572,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             </div>
           )}
 
-          {aba === 'docs' && (
-            <div className="lista-cards">
-              <p className="dica" style={{ margin: '0 0 12px' }}>
-                Cada botão abre o documento preenchido com seus dados numa aba nova.
-                Use "Imprimir" (Ctrl+P) e escolha "Salvar como PDF". Confira antes de protocolar.
-              </p>
-              {MODELOS_DOCUMENTO.map((modelo) => (
-                <div key={modelo.chave} className="cliente-card" style={{ padding: '10px 14px' }}>
-                  <div className="cliente-card-acoes" style={{ marginTop: 0 }}>
-                    <button
-                      type="button" className="botao-secundario"
-                      onClick={() => {
-                        const docConfig = marina?.config_json?.documentos || {}
-                        abrirDocumento(modelo, { ...cliente, __habilitacao: matricula?.habilitacao }, marina, docConfig, labelHabilitacao)
-                      }}
-                    >
-                      {modelo.titulo}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {aba === 'dados' && !editandoDados && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="linha"><b>Nome:</b> {cliente.nome}</div>
@@ -572,7 +579,19 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               <div className="linha"><b>Telefone:</b> {cliente.telefone || '—'}</div>
               <div className="linha"><b>Habilitação matriculada:</b> {labelHabilitacao(matricula.habilitacao)}</div>
               <p className="dica">A habilitação matriculada não é editável por aqui — fale com a escola para alterar.</p>
-              <button type="button" className="botao-secundario" style={{ alignSelf: 'flex-start' }} onClick={abrirEdicaoDados}>
+
+              {/* Campos que entram nos documentos que a ESCOLA gera pra
+                  Capitania (ver nota no topo do arquivo) — mostrados aqui
+                  só pra conferência; "Editar dados" abaixo cobre também
+                  eles, não só nome/e-mail/telefone. */}
+              <p className="dica" style={{ marginTop: 8, fontWeight: 600 }}>Dados usados nos seus documentos de matrícula:</p>
+              {CAMPOS_DOCUMENTO.map((c) => (
+                <div key={c.chave} className="linha">
+                  <b>{c.label}:</b> {c.tipo === 'date' ? (isoParaDataMascarada(cliente[c.chave]) || '—') : (cliente[c.chave] || '—')}
+                </div>
+              ))}
+
+              <button type="button" className="botao-secundario" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={abrirEdicaoDados}>
                 Editar dados
               </button>
             </div>
@@ -592,6 +611,26 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                 Telefone
                 <input type="text" value={formDados.telefone} onChange={(e) => setFormDados({ ...formDados, telefone: maskTelefone(e.target.value) })} />
               </label>
+
+              {/* Antes esses campos só eram perguntados uma vez (na
+                  matrícula) e só se estivessem vazios — um dado errado não
+                  tinha como ser corrigido depois. Agora ficam aqui, sempre
+                  editáveis, junto com o resto de "Meus dados". */}
+              {CAMPOS_DOCUMENTO.map((c) => (
+                <label key={c.chave}>
+                  {c.label}
+                  <input
+                    type="text" inputMode={c.tipo === 'date' ? 'numeric' : undefined}
+                    placeholder={c.tipo === 'date' ? 'dd/mm/aaaa' : undefined}
+                    value={formDados[c.chave] || ''}
+                    onChange={(e) => setFormDados({
+                      ...formDados,
+                      [c.chave]: c.tipo === 'date' ? maskData(e.target.value) : e.target.value,
+                    })}
+                  />
+                </label>
+              ))}
+
               {erroDados && <p className="erro">{erroDados}</p>}
               <div className="acoes-modal" style={{ padding: 0 }}>
                 <button type="button" onClick={() => setEditandoDados(false)} disabled={salvandoDados}>Cancelar</button>

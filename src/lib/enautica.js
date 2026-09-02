@@ -146,6 +146,9 @@ export async function declararProntidaoTeste(matriculaId, resposta) {
   if (error) throw error
 }
 
+// Reagendamento é sempre da avaliação teórica (a que é realizada na
+// Capitania dos Portos) — não existe reagendamento de aula prática no
+// e-Náutica, por isso não há um campo "tipo" aqui: é sempre a mesma coisa.
 export async function solicitarReagendamento(matriculaId) {
   const { error } = await dbEnautica.from('matriculas').update({ reagendamento_solicitado: true }).eq('id', matriculaId)
   if (error) throw error
@@ -153,11 +156,19 @@ export async function solicitarReagendamento(matriculaId) {
 
 // Contraparte de solicitarReagendamento: a escola marca como atendido depois
 // de já ter entrado em contato com o aluno (clique no badge "↺ reagendamento"
-// em TelaMatriculasENautica.jsx) — sem isso o badge ficava aceso pra sempre,
-// mesmo depois de resolvido de verdade por telefone/whatsapp.
-export async function resolverReagendamento(matriculaId) {
-  const { error } = await dbEnautica.from('matriculas').update({ reagendamento_solicitado: false }).eq('id', matriculaId)
+// no Painel de Controle) — sem isso o badge ficava aceso pra sempre, mesmo
+// depois de resolvido de verdade por telefone/whatsapp. Recebe a matrícula
+// inteira (não só o id), igual aprovarMatricula/recusarMatricula, porque
+// agora também avisa o aluno (antes o pedido simplesmente sumia da tela dele
+// sem nenhum aviso de que a escola tinha visto/resolvido).
+export async function resolverReagendamento(matricula) {
+  const { error } = await dbEnautica.from('matriculas').update({ reagendamento_solicitado: false }).eq('id', matricula.id)
   if (error) throw error
+  await criarNotificacao({
+    marinaId: matricula.marina_id, clienteId: matricula.cliente_id, tipo: 'reagendamento_resolvido',
+    titulo: 'Reagendamento confirmado',
+    mensagem: 'A escola recebeu seu pedido de reagendamento da avaliação teórica e vai entrar em contato para marcar a nova data.',
+  })
 }
 
 export async function listarMatriculasAprovadas(marinaId) {
@@ -273,6 +284,18 @@ export async function listarAgendamentosEscola(marinaId) {
     .eq('marina_id', marinaId).order('data', { ascending: false })
   if (error) throw error
   return data || []
+}
+
+// Desfaz um compromisso criado por engano (data errada, aluno errado etc.)
+// — antes não existia NENHUM jeito de corrigir isso, nem pela escola nem
+// por acesso direto ao banco pela tela. Só apaga a linha: a pedido
+// explícito do Alex, um agendamento aqui é sempre "confirmado" (não ganhou
+// outros status como concluído/cancelado) — desmarcar é apagar, não mudar
+// um campo de status. Quem chama (TelaAgendamentosENautica.jsx) decide se
+// avisa os alunos ou não.
+export async function excluirAgendamento(agendamentoId) {
+  const { error } = await dbEnautica.from('agendamentos').delete().eq('id', agendamentoId)
+  if (error) throw error
 }
 
 export async function criarAgendamento({ marinaId, tipo, data, hora, local, alunosIds }) {

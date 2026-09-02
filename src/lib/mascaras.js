@@ -65,3 +65,14 @@ export function dataMascaradaParaIso(valor) {
   if (Number.isNaN(data.getTime()) || data.getUTCDate() !== Number(dia) || data.getUTCMonth() + 1 !== Number(mes)) return null
   return `${ano}-${mes}-${dia}`
 }
+
+// Caminho inverso de dataMascaradaParaIso — "aaaa-mm-dd" (o que vem do
+// banco) -> "dd/mm/aaaa" (o que o campo mascarado mostra). Usada quando um
+// formulário reabre um valor já salvo pra edição (ex.: "Meus dados" do
+// e-Náutica, corrigindo uma data de nascimento que foi digitada errada).
+export function isoParaDataMascarada(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return ''
+  const [, ano, mes, dia] = m
+  return `${dia}/${mes}/${ano}`
+}
