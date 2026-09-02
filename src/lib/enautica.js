@@ -265,38 +265,6 @@ export async function criarAgendamento({ marinaId, tipo, data, hora, local, alun
   })))
 }
 
-// Recebe o agendamento inteiro (não só o id) pra poder avisar os alunos
-// quando o status muda pra algo que eles precisam saber — mesma lógica que
-// já existe em criarAgendamento (marcar avisa), aprovarMatricula/
-// recusarMatricula e emitirCertificado. Antes só "marcar" avisava; alterar
-// pra "cancelado" ou "concluído" ficava mudo pro aluno, que só notava
-// reabrindo a aba (achado da auditoria — os dados atualizavam via realtime,
-// mas sem aviso o aluno não sabia que precisava olhar).
-export async function atualizarStatusAgendamento(agendamento, status) {
-  const id = typeof agendamento === 'object' ? agendamento.id : agendamento
-  const { error } = await dbEnautica.from('agendamentos').update({ status }).eq('id', id)
-  if (error) throw error
-
-  if (typeof agendamento !== 'object') return
-  const dataFormatada = agendamento.data
-    ? new Date(`${agendamento.data}T12:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-    : ''
-  const tipoLabel = agendamento.tipo_label || labelTipoAgendamento(agendamento.tipo)
-  if (status === 'cancelado') {
-    await criarNotificacoesEmLote((agendamento.alunos_ids || []).map((clienteId) => ({
-      marinaId: agendamento.marina_id, clienteId, tipo: 'agendamento_cancelado',
-      titulo: `${tipoLabel} cancelada`,
-      mensagem: `A ${tipoLabel.toLowerCase()} marcada para ${dataFormatada}${agendamento.hora ? ` às ${agendamento.hora}` : ''} foi cancelada pela escola.`,
-    })))
-  } else if (status === 'concluido') {
-    await criarNotificacoesEmLote((agendamento.alunos_ids || []).map((clienteId) => ({
-      marinaId: agendamento.marina_id, clienteId, tipo: 'agendamento_concluido',
-      titulo: `${tipoLabel} concluída`,
-      mensagem: `A ${tipoLabel.toLowerCase()} de ${dataFormatada} foi marcada como concluída pela escola.`,
-    })))
-  }
-}
-
 // --- Certificados ---------------------------------------------------------
 //
 // Igual ao rsnautica antigo: registro/recibo interno de conclusão, não o
