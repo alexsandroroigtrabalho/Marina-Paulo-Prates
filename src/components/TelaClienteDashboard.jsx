@@ -1634,7 +1634,12 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
                 return (
                   <div key={emb.id} className="embarcacao-item">
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <input style={{ flex: 1 }} value={nomeAtual}
+                      {/* size (não width/flex) faz a caixa acompanhar o
+                          tamanho do nome digitado, em vez de esticar pro
+                          resto da linha — mesmo ajuste já feito no lado do
+                          Administrador (TelaClientes.jsx); mínimo de 6 pra
+                          não colapsar com o campo vazio. */}
+                      <input size={Math.max(nomeAtual.length, 6)} value={nomeAtual}
                         onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
                       <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
                         onClick={() => salvarNomeEmbarcacao(emb)}>
