@@ -740,7 +740,6 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       numero_casa: cliente.numero_casa || '',
       complemento: cliente.complemento || '',
     })
-    setNovaSenha({ senha: '', confirmar: '' })
     setModalDadosAberto(true)
   }
 
