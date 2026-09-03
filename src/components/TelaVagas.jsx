@@ -478,14 +478,25 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
     .filter((a) => a.status === 'concluido')
     .sort((a, b) => new Date(b.concluido_em || b.data_hora) - new Date(a.concluido_em || a.data_hora))
 
-  // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
-  // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
-  // caber numa linha só na Fila de Rampa.
-  function statusDocumentacao(embarcacaoId) {
-    const docs = documentos.filter((d) => d.embarcacao_id === embarcacaoId)
-    if (docs.length === 0) return 'pendente'
-    const temVencido = docs.some((d) => d.data_validade && new Date(d.data_validade) < agora)
-    return temVencido ? 'pendente' : 'regular'
+  // Documentação: junta dois sinais — a validade da CHA do cliente (ver
+  // migration_cha_validade.sql / TelaClientes.jsx) e os documentos da
+  // embarcação cadastrados na aba "Documentos" (TIE, seguro, habilitação do
+  // condutor, vistoria — ver TelaDocumentacao.jsx). Antes desta correção
+  // este selo olhava só pra documentos_embarcacao e tratava "nenhum
+  // documento cadastrado" como Pendente; como a aba "Documentos" está
+  // temporariamente desativada (TelaDocumentacao.jsx — clique nela só mostra
+  // "Em construção"), ninguém consegue mais registrar documento nenhum lá, e
+  // todo cliente ficava eternamente "Pendente" aqui mesmo com a CHA em dia —
+  // daí a divergência com o selo "Documentação: REGULAR" da aba Clientes.
+  // Agora: a ausência de documentos cadastrados, sozinha, não derruba mais o
+  // status — só conta como Pendente se a CHA estiver vencida/não cadastrada,
+  // ou se algum documento da embarcação já tiver validade vencida.
+  function statusDocumentacao(a) {
+    const docs = documentos.filter((d) => d.embarcacao_id === a.embarcacao_id)
+    const temDocVencido = docs.some((d) => d.data_validade && new Date(d.data_validade) < agora)
+    const chaValidade = a.clientes?.cha_validade
+    const chaVencidaOuAusente = !chaValidade || new Date(`${chaValidade}T00:00:00`) < agora
+    return (temDocVencido || chaVencidaOuAusente) ? 'pendente' : 'regular'
   }
 
   // Os apitos (descida/retorno/S.O.S./cancelamento de S.O.S.) não tocam mais
@@ -564,7 +575,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // só esse selo informativo, sem clique nem consequência nenhuma.
   // Responsável é a 1ª coluna agora, alinhada à esquerda.
   function linhaNotificacao(a) {
-    const doc = statusDocumentacao(a.embarcacao_id)
+    const doc = statusDocumentacao(a)
     const classeNatureza = a.tipo === 'retirada' ? 'descida' : 'subida'
     return (
       <tr key={a.id}>

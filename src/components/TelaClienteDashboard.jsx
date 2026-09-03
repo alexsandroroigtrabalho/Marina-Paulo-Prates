@@ -378,6 +378,14 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
   // são tabelas diferentes (marina.embarcacoes x marina.clientes).
   // O campo "Trocar senha" saiu de "Minha conta" a pedido — troca de senha
   // deixou de ser feita por aqui.
+  // "+ Adicionar embarcação" é só o gatilho que abre o formulário abaixo —
+  // ele mesmo não salva nada; o formulário só existe na tela enquanto
+  // novaEmbarcacaoAberta for true, igual ao "+ Embarcação" do card de cada
+  // cliente em TelaClientes.jsx (mesmo padrão, ver clienteExpandido lá).
+  // Antes o formulário (tipo/nome/registro) ficava sempre visível, mesmo sem
+  // nenhuma intenção de cadastrar — a própria caixa vazia por padrão era o
+  // "card fantasma" reclamado.
+  const [novaEmbarcacaoAberta, setNovaEmbarcacaoAberta] = useState(false)
   const [novaEmbarcacao, setNovaEmbarcacao] = useState({ ...EMBARCACAO_NOVA })
   const [salvandoEmbarcacao, setSalvandoEmbarcacao] = useState(false)
   // Edição/exclusão simplificada de uma embarcação já cadastrada (ver
@@ -760,6 +768,12 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       numero_casa: cliente.numero_casa || '',
       complemento: cliente.complemento || '',
     })
+    // Sempre começa fechado, mesmo que da última vez o cliente tenha aberto o
+    // formulário e fechado o modal inteiro (backdrop/Cancelar) sem clicar em
+    // Salvar nem em Cancelar do próprio formulário — sem isso a caixa vazia
+    // reaparecia sozinha na próxima vez que "Minha conta" fosse aberta.
+    setNovaEmbarcacaoAberta(false)
+    setNovaEmbarcacao({ ...EMBARCACAO_NOVA })
     setModalDadosAberto(true)
   }
 
@@ -786,12 +800,20 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
         registro: novaEmbarcacao.registro.trim() || null,
       })
       setNovaEmbarcacao({ ...EMBARCACAO_NOVA })
+      setNovaEmbarcacaoAberta(false)
       await carregar()
     } catch (err) {
       alert(err.message)
     } finally {
       setSalvandoEmbarcacao(false)
     }
+  }
+
+  // Fecha o formulário sem salvar nada — nem um rascunho fica pra trás: os
+  // campos digitados somem junto com a caixa (ver novaEmbarcacaoAberta acima).
+  function cancelarNovaEmbarcacao() {
+    setNovaEmbarcacao({ ...EMBARCACAO_NOVA })
+    setNovaEmbarcacaoAberta(false)
   }
 
   // Exclusão simplificada de uma embarcação já cadastrada: apagar o texto do
@@ -1623,19 +1645,34 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
                   </div>
                 )
               })}
-              <select value={novaEmbarcacao.tipo}
-                onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, tipo: e.target.value })}>
-                {TIPOS_EMBARCACAO.map((t) => <option key={t}>{t}</option>)}
-              </select>
-              <input placeholder="Nome da embarcação" value={novaEmbarcacao.nome}
-                onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, nome: e.target.value })} />
-              <input placeholder="Número de inscrição (opcional)" value={novaEmbarcacao.registro}
-                onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, registro: e.target.value })} />
-              <button type="button" className="voltar" style={{ alignSelf: 'flex-start' }}
-                disabled={salvandoEmbarcacao || !novaEmbarcacao.nome.trim()}
-                onClick={adicionarEmbarcacao}>
-                {salvandoEmbarcacao ? 'Adicionando...' : '+ Adicionar embarcação'}
-              </button>
+              {!novaEmbarcacaoAberta && (
+                <button type="button" className="voltar" style={{ alignSelf: 'flex-start' }}
+                  onClick={() => setNovaEmbarcacaoAberta(true)}>
+                  + Adicionar embarcação
+                </button>
+              )}
+              {novaEmbarcacaoAberta && (
+                <>
+                  <select value={novaEmbarcacao.tipo}
+                    onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, tipo: e.target.value })}>
+                    {TIPOS_EMBARCACAO.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                  <input placeholder="Nome da embarcação" value={novaEmbarcacao.nome}
+                    onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, nome: e.target.value })} />
+                  <input placeholder="Número de inscrição (opcional)" value={novaEmbarcacao.registro}
+                    onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, registro: e.target.value })} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button type="button" className="voltar"
+                      disabled={salvandoEmbarcacao || !novaEmbarcacao.nome.trim()}
+                      onClick={adicionarEmbarcacao}>
+                      {salvandoEmbarcacao ? 'Salvando...' : 'Salvar'}
+                    </button>
+                    <button type="button" disabled={salvandoEmbarcacao} onClick={cancelarNovaEmbarcacao}>
+                      Cancelar
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="acoes-modal">

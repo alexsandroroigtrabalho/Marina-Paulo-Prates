@@ -372,9 +372,13 @@ export async function listarAgendamentosCliente(clienteId) {
 }
 
 export async function listarAgendamentos(marinaId) {
+  // cha_validade entra aqui (só nesta versão staff, não em
+  // listarAgendamentosCliente acima) pro selo "Documentação" da Fila de
+  // Rampa em TelaVagas.jsx — mesmo dado, mesma regra de exclusividade ao
+  // staff já usada em TelaClientes.jsx (ver migration_cha_validade.sql).
   const { data, error } = await db
     .from('agendamentos')
-    .select('*, clientes(nome), embarcacoes(nome), autorizados(nome, parentesco)')
+    .select('*, clientes(nome, cha_validade), embarcacoes(nome), autorizados(nome, parentesco)')
     .eq('marina_id', marinaId)
     .order('data_hora', { ascending: true })
   if (error) throw error
