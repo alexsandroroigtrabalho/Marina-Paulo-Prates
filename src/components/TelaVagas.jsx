@@ -469,10 +469,14 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Vencer o prazo sozinho (ver autoConfirmarVencidos acima) NÃO basta —
   // isso só grava 'confirmado', que ainda não é uma manobra concluída aqui.
   // Não some quando a embarcação volta, como acontece com a tabela
-  // Navegando.
+  // Navegando. Ordena por concluido_em (o horário REAL da confirmação na
+  // rampa) em vez de data_hora (o horário que só foi solicitado) — a mesma
+  // correção do Diário de Bordo (TelaClienteDashboard.jsx): sem isso, uma
+  // manobra confirmada bem depois (ou bem antes) do horário pedido podia
+  // aparecer fora de ordem aqui.
   const historicoManobras = agendamentos
     .filter((a) => a.status === 'concluido')
-    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
+    .sort((a, b) => new Date(b.concluido_em || b.data_hora) - new Date(a.concluido_em || a.data_hora))
 
   // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
   // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
@@ -664,12 +668,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // atrasar). Sem a natureza do pedido e sem o indicativo luminoso — isso já
   // fica na Fila de Rampa, antes de sair pra água. Informação de
   // abastecimento não aparece em lugar nenhum do painel: foi pro RV Finance.
+  // "Desde" usa concluido_em (o horário REAL em que a descida foi confirmada
+  // na rampa, gravado por atualizarStatusAgendamento) — não data_hora, que é
+  // só o horário que o cliente pediu ao solicitar e pode ter ficado bem
+  // diferente do que de fato aconteceu (mesma correção do Diário de Bordo).
   function linhaNavegando(a) {
     const status = statusNavegando(a)
     return (
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-        <td>{formatarDataHora(a.data_hora)}</td>
+        <td>{formatarDataHora(a.concluido_em || a.data_hora)}</td>
         <td>{a.previsao_retorno ? formatarDataHora(a.previsao_retorno) : 'Sem previsão informada'}</td>
         <td>
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (

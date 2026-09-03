@@ -1,4 +1,4 @@
-import { listarClientes, listarEmbarcacoes, listarOrdensServico, listarDespachos, listarAgendamentos, listarCobrancasDetalhado, listarPedidosAbastecimento } from './db'
+import { listarClientes, listarEmbarcacoes, listarEmbarcacoesTodas, listarOrdensServico, listarDespachos, listarAgendamentos, listarCobrancasDetalhado, listarPedidosAbastecimento } from './db'
 import { labelStatusManutencao } from './statusManutencao'
 import { statusEfetivoAbastecimento, momentoConfirmacaoAbastecimento, textoQuantidade } from './statusAbastecimento.js'
 
@@ -155,13 +155,19 @@ export async function exportarDespachosCsv(marinaId) {
 export async function exportarHistoricoManobrasCsv(marinaId) {
   const [agendamentos, embarcacoes] = await Promise.all([
     listarAgendamentos(marinaId),
-    listarEmbarcacoes(marinaId),
+    // listarEmbarcacoesTodas (não listarEmbarcacoes) de propósito: uma manobra
+    // antiga pode apontar pra uma embarcação já excluída (ativa=false) — usar
+    // a lista filtrada faria a coluna "Tipo" sumir em silêncio pra esses casos.
+    listarEmbarcacoesTodas(marinaId),
   ])
   const tipoPorEmbarcacao = Object.fromEntries(embarcacoes.map((e) => [e.id, e.tipo]))
 
   const historico = agendamentos
     .filter((a) => a.status === 'concluido')
-    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
+    // concluido_em é o horário REAL da confirmação na rampa; data_hora é só o
+    // que foi solicitado. Mesma correção aplicada em TelaVagas.jsx e
+    // TelaClienteDashboard.jsx — ver comentário lá.
+    .sort((a, b) => new Date(b.concluido_em || b.data_hora) - new Date(a.concluido_em || a.data_hora))
 
   const cabecalho = ['Nº', 'Cliente', 'Embarcação/Jet', 'Tipo', 'Tipo de manobra', 'Data e horário', 'Confirmado em']
   const linhas = historico.map((a, i) => [

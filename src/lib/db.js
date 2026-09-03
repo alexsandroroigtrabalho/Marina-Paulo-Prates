@@ -165,6 +165,22 @@ export async function listarEmbarcacoes(marinaId) {
   return data
 }
 
+// Igual acima, mas SEM o filtro ativa=true — só pra montar lookups sobre
+// histórico já concluído (ex: exportarHistoricoManobrasCsv, que casa cada
+// manobra antiga por embarcacao_id pra descobrir o tipo do barco). Usar
+// listarEmbarcacoes() ali faria uma manobra antiga de uma embarcação já
+// excluída (ativa=false) perder essa coluna silenciosamente — o registro
+// continua existindo, só não aparece mais nas listas "atuais".
+export async function listarEmbarcacoesTodas(marinaId) {
+  const { data, error } = await db
+    .from('embarcacoes')
+    .select('*, clientes(nome)')
+    .eq('marina_id', marinaId)
+    .order('nome')
+  if (error) throw error
+  return data
+}
+
 export async function salvarEmbarcacao(embarcacao) {
   const { data, error } = await db.from('embarcacoes').upsert(embarcacao).select()
   if (error) throw error
