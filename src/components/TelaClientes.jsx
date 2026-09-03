@@ -50,11 +50,14 @@ export default function TelaClientes({ marinaId }) {
   // fechado. Guarda o registro inteiro (não só o id) pra pré-preencher o
   // form sem precisar buscar de novo em `clientes`.
   const [clienteEditando, setClienteEditando] = useState(null)
-  // Exclusão simplificada de embarcação (mesma mecânica e mesmo nome de
-  // função que TelaClienteDashboard.jsx → Minha conta → Embarcações): apagar
-  // o nome e salvar exclui; qualquer outro texto renomeia. Ver
-  // salvarNomeEmbarcacao abaixo e migration_embarcacao_ativa.sql.
+  // Edição inline de nome/registro de uma embarcação já cadastrada, direto
+  // na linha (nome e nº de inscrição editáveis lado a lado + "Salvar") — ver
+  // salvarEdicaoEmbarcacao abaixo. A exclusão agora tem botão próprio
+  // ("- Embarcação", ver removerEmbarcacaoInline) em vez de depender de
+  // apagar o nome e salvar; removerEmbarcacao (soft-delete, ver lib/db.js e
+  // migration_embarcacao_ativa.sql) é a mesma função dos dois jeitos.
   const [nomesEmbarcacaoEditados, setNomesEmbarcacaoEditados] = useState({})
+  const [registrosEmbarcacaoEditados, setRegistrosEmbarcacaoEditados] = useState({})
   const [salvandoEdicaoEmbarcacaoId, setSalvandoEdicaoEmbarcacaoId] = useState(null)
   // A mensalidade configurada (marinas.config_json.valorMensalidade) não é
   // mais lida aqui: a cobrança passou para o RV Finance. A configuração
@@ -227,19 +230,21 @@ export default function TelaClientes({ marinaId }) {
     return embarcacoes.filter((e) => e.cliente_id === clienteId)
   }
 
-  // Exclusão simplificada: apagar o texto do nome e salvar exclui a
-  // embarcação (soft-delete, ver removerEmbarcacao em lib/db.js); qualquer
-  // outro texto só renomeia. Mesma função (mesmo comportamento) do lado do
-  // cliente em TelaClienteDashboard.jsx — os dois lados enxergam a exclusão
-  // na hora um do outro via o Realtime já assinado em `embarcacoes`.
-  async function salvarNomeEmbarcacao(emb) {
+  // Salva nome e/ou nº de inscrição editados inline na linha da embarcação.
+  // Apagar o nome e salvar ainda exclui (mesma trava de segurança de antes),
+  // mas a exclusão normal agora passa pelo botão próprio "- Embarcação" (ver
+  // removerEmbarcacaoInline logo abaixo) — os dois lados (Painel do
+  // Administrador e Diário de Bordo) enxergam a mudança na hora um do outro
+  // via o Realtime já assinado em `embarcacoes`.
+  async function salvarEdicaoEmbarcacao(emb) {
     const novoNome = (nomesEmbarcacaoEditados[emb.id] ?? emb.nome).trim()
-    if (novoNome === emb.nome) return
+    const novoRegistro = (registrosEmbarcacaoEditados[emb.id] ?? (emb.registro || '')).trim()
+    if (novoNome === emb.nome && novoRegistro === (emb.registro || '')) return
     if (!novoNome && !confirm(`Excluir a embarcação "${emb.nome}"? Essa ação não pode ser desfeita.`)) return
     setSalvandoEdicaoEmbarcacaoId(emb.id)
     try {
       if (novoNome) {
-        await salvarEmbarcacao({ id: emb.id, nome: novoNome })
+        await salvarEmbarcacao({ id: emb.id, nome: novoNome, registro: novoRegistro || null })
       } else {
         await removerEmbarcacao(emb.id)
       }
@@ -248,9 +253,30 @@ export default function TelaClientes({ marinaId }) {
         delete copia[emb.id]
         return copia
       })
+      setRegistrosEmbarcacaoEditados((atual) => {
+        const copia = { ...atual }
+        delete copia[emb.id]
+        return copia
+      })
       await carregar()
     } catch (err) {
       alert('Não foi possível salvar: ' + err.message)
+    } finally {
+      setSalvandoEdicaoEmbarcacaoId(null)
+    }
+  }
+
+  // "- Embarcação": exclusão num clique só, sem precisar apagar o nome
+  // primeiro — mesma confirmação de segurança e o mesmo soft-delete
+  // (removerEmbarcacao, ver lib/db.js) de sempre.
+  async function removerEmbarcacaoInline(emb) {
+    if (!confirm(`Excluir a embarcação "${emb.nome}"? Essa ação não pode ser desfeita.`)) return
+    setSalvandoEdicaoEmbarcacaoId(emb.id)
+    try {
+      await removerEmbarcacao(emb.id)
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível excluir: ' + err.message)
     } finally {
       setSalvandoEdicaoEmbarcacaoId(null)
     }
@@ -291,26 +317,53 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha"><b>CHA:</b> {c.documento_identidade || '—'}</div>
                   <div className="linha" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <b>Embarcações:</b>
-                    {embarcacoesDoCliente(c.id).length === 0 && '—'}
+                    {embarcacoesDoCliente(c.id).length === 0 && clienteExpandido !== c.id && '—'}
                     {embarcacoesDoCliente(c.id).map((emb) => {
                       const nomeAtual = nomesEmbarcacaoEditados[emb.id] ?? emb.nome
-                      const alterado = nomeAtual.trim() !== emb.nome
+                      const registroAtual = registrosEmbarcacaoEditados[emb.id] ?? (emb.registro || '')
+                      const alterado = nomeAtual.trim() !== emb.nome || registroAtual.trim() !== (emb.registro || '')
                       return (
                         <div key={emb.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input style={{ flex: 1 }} value={nomeAtual}
+                          <input style={{ flex: 1 }} placeholder="Nome da embarcação" value={nomeAtual}
                             onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
-                          <span className="dica" style={{ margin: 0 }}>{emb.tipo}{emb.registro ? ` · ${emb.registro}` : ''}</span>
+                          <input style={{ width: 130 }} placeholder="Nº de inscrição" value={registroAtual}
+                            onChange={(e) => setRegistrosEmbarcacaoEditados({ ...registrosEmbarcacaoEditados, [emb.id]: e.target.value })} />
                           <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
-                            onClick={() => salvarNomeEmbarcacao(emb)}>
+                            onClick={() => salvarEdicaoEmbarcacao(emb)}>
                             {salvandoEdicaoEmbarcacaoId === emb.id ? 'Salvando...' : 'Salvar'}
+                          </button>
+                          <button type="button" className="voltar" disabled={salvandoEdicaoEmbarcacaoId === emb.id}
+                            onClick={() => removerEmbarcacaoInline(emb)}>
+                            - Embarcação
                           </button>
                         </div>
                       )
                     })}
-                    {/* Apagar o nome e clicar Salvar exclui a embarcação —
-                        mesmo mecanismo do lado do cliente (Minha conta),
-                        sem diálogo extra além da confirmação de segurança
-                        já embutida em salvarNomeEmbarcacao. */}
+                    {/* "+ Embarcação"/"- Embarcação" ficam aqui, junto da
+                        lista — o botão que existia lá embaixo, ao lado de
+                        "Remover cliente", saiu por ser redundante com este.
+                        A exclusão tem botão próprio (removerEmbarcacaoInline);
+                        apagar o nome e Salvar continua excluindo também, como
+                        rede de segurança (ver salvarEdicaoEmbarcacao). */}
+                    {clienteExpandido === c.id ? (
+                      <form className="form-inline" style={{ marginTop: 4 }} onSubmit={(e) => salvarEmbarcacaoExtra(e, c.id)}>
+                        <select value={formEmbarcacaoExtra.tipo} onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, tipo: e.target.value })}>
+                          {TIPOS_EMBARCACAO.map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                        <input placeholder="Nome da embarcação" required value={formEmbarcacaoExtra.nome}
+                          onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, nome: e.target.value })} />
+                        <input placeholder="Nº de inscrição" value={formEmbarcacaoExtra.registro}
+                          onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, registro: e.target.value })} />
+                        <input placeholder="Comprimento (m)" type="number" step="0.01" value={formEmbarcacaoExtra.comprimento_m}
+                          onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, comprimento_m: e.target.value })} />
+                        <button type="submit" disabled={salvandoExtra}>{salvandoExtra ? 'Salvando...' : 'Salvar embarcação'}</button>
+                        <button type="button" className="voltar" onClick={() => setClienteExpandido(null)}>Cancelar</button>
+                      </form>
+                    ) : (
+                      <button type="button" className="voltar" style={{ alignSelf: 'flex-start' }} onClick={() => abrirFormEmbarcacaoExtra(c.id)}>
+                        + Embarcação
+                      </button>
+                    )}
                   </div>
                   {/* Validade da CHA e o selo "Documentação" abaixo são
                       exclusivos deste painel — não aparecem em "Minha conta"
@@ -338,25 +391,7 @@ export default function TelaClientes({ marinaId }) {
                     <button type="button" className="botao-secundario perigo" onClick={() => removerClienteConfirmado(c)} disabled={removendoId === c.id}>
                       {removendoId === c.id ? 'Removendo...' : 'Remover cliente'}
                     </button>
-                    <button type="button" className="voltar" onClick={() => abrirFormEmbarcacaoExtra(c.id)}>
-                      {clienteExpandido === c.id ? 'Cancelar' : '+ Embarcação'}
-                    </button>
                   </div>
-
-                  {clienteExpandido === c.id && (
-                    <form className="form-inline" style={{ marginTop: 10 }} onSubmit={(e) => salvarEmbarcacaoExtra(e, c.id)}>
-                      <select value={formEmbarcacaoExtra.tipo} onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, tipo: e.target.value })}>
-                        {TIPOS_EMBARCACAO.map((t) => <option key={t}>{t}</option>)}
-                      </select>
-                      <input placeholder="Nome da embarcação" required value={formEmbarcacaoExtra.nome}
-                        onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, nome: e.target.value })} />
-                      <input placeholder="Nº de inscrição" value={formEmbarcacaoExtra.registro}
-                        onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, registro: e.target.value })} />
-                      <input placeholder="Comprimento (m)" type="number" step="0.01" value={formEmbarcacaoExtra.comprimento_m}
-                        onChange={(e) => setFormEmbarcacaoExtra({ ...formEmbarcacaoExtra, comprimento_m: e.target.value })} />
-                      <button type="submit" disabled={salvandoExtra}>{salvandoExtra ? 'Salvando...' : 'Salvar embarcação'}</button>
-                    </form>
-                  )}
                 </div>
               )
             })}
