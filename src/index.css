@@ -1230,20 +1230,77 @@ button.badge:hover { filter: brightness(0.95); }
 .abas button.ativo { background: var(--cor-secundaria); color: #fff; }
 
 /* Navegação da área do aluno do e-Náutica (TelaClienteENautica.jsx) — pedido
-   do Alex: em vez das pastilhas em fileira/wrap de ".abas" acima (que
-   quebravam em 2 linhas desalinhadas no celular), usa o mesmo visual de
-   "cartão" do resto do RV Marine (fundo --cor-card, --raio, --sombra — igual
-   .stat-card/.cliente-card) numa grade fixa de 3 colunas x 2 linhas, com
-   "Início" ocupando as duas linhas da 1ª coluna — o destino mais usado (é
-   pra onde o aluno cai ao entrar) vira também o botão mais fácil de mirar. */
-.abas-enautica { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+   do Alex: mesmo desenho de botão do painel principal do RV Marine
+   (Descida/Subida/S.O.S./Abastecimento): cantos bem arredondados (14px),
+   Poppins. Mas aqui cada botão tem uma cor FIXA por papel (não por estado
+   ativo/inativo, ao contrário do Descida/Subida): "Início" é a barra
+   horizontal do topo, largura cheia, no gradiente laranja-vermelho do
+   S.O.S. — é o destino mais usado, então fica também o mais chamativo.
+   "Aulas" (o primeiro passo de verdade da trilha) fica no azul-petróleo.
+   Os 2 restantes (Agendamentos/Meus dados) ficam brancos com contorno
+   dourado, em fileira abaixo. Essas são as 3
+   cores/estilo padrão da marca RV Invictus (ver memória "Identidade visual
+   RV Invictus" salva pra projetos futuros). A aba selecionada no momento
+   ganha só um leve destaque de opacidade/sombra — a cor de cada botão não
+   muda com a seleção, ela é fixa. */
+.abas-enautica {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+}
+.abas-enautica-linha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .abas-enautica button {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  padding: 12px 6px; border: none; border-radius: var(--raio); background: var(--cor-card); box-shadow: var(--sombra);
-  color: var(--cor-texto-suave); font-weight: 600; font-size: 12px; text-align: center; line-height: 1.2; cursor: pointer;
+  border: 1.5px solid var(--dourado-texto); border-radius: 14px; cursor: pointer;
+  background: #fff; color: var(--cor-primaria);
+  /* Mesmo tamanho de fonte do par Descida/Subida do RV Marine
+     (.painel-cliente-btn-primario/outline: 13.5px) — antes estava em 12px,
+     menor que o padrão da marca pros botões pareados. */
+  padding: 12px 6px; font-weight: 600; font-size: 13.5px; text-align: center; line-height: 1.2;
+  transition: box-shadow 120ms ease-in-out, transform 120ms ease-in-out;
 }
-.abas-enautica button.ativo { background: var(--cor-secundaria); color: #fff; box-shadow: none; }
-.abas-enautica button.abas-enautica-destaque { grid-row: 1 / span 2; font-size: 13.5px; gap: 8px; }
+/* Rótulo num <span> à parte (ver JSX): garante que ícone+texto formem um
+   bloco só, centralizado como grupo tanto na vertical quanto na horizontal
+   — sem isso, o nó de texto solto ao lado do ícone SVG podia ficar
+   levemente desalinhado verticalmente por causa do line-height/baseline
+   padrão de texto inline, mesmo com justify-content:center no botão. */
+.abas-enautica button span { display: block; }
+/* Destaque da aba ativa SEM opacity: opacity clareava o azul-petróleo
+   sólido do botão "Aulas" (mistura com o fundo por trás), fazendo-o não
+   bater com a cor exata da marca (--cor-primaria/--cor-secundaria:
+   #0D1B2A) — a pedido do Alex, essas cores têm que aparecer sempre
+   fiéis, mesmo fora do estado ativo. Sombra + leve "levantada" (scale)
+   marcam a seleção sem tocar na cor de nenhum botão. */
+.abas-enautica button.ativo { box-shadow: 0 4px 14px rgba(13, 27, 42, 0.22); transform: translateY(-1px); }
+
+/* "Início": barra horizontal cheia, ícone + texto lado a lado, gradiente
+   laranja-vermelho igual ao S.O.S. do RV Marine (.painel-cliente-btn-sos).
+   Seletor qualificado com "button" (não só a classe) de propósito: a regra
+   genérica ".abas-enautica button" acima tem a mesma "força" de uma classe
+   sozinha (é classe+elemento), então ".abas-enautica-inicio" isolada NUNCA
+   vencia o fundo branco dela — ficava sempre sobrescrita. */
+.abas-enautica button.abas-enautica-inicio {
+  flex-direction: row; align-items: center; justify-content: center; border: none; padding: 16px;
+  background: linear-gradient(135deg, #D9713E, #A23B2E); color: #fff;
+  /* Mesmo tamanho/peso de fonte do S.O.S./Abastecimento do RV Marine
+     (.painel-cliente-btn-sos/.painel-cliente-btn-servicos: 14.5px/600) —
+     antes estava em 15px/700, maior que o padrão da marca pra botão de
+     largura cheia. */
+  font-size: 14.5px; font-weight: 600; letter-spacing: 0.02em;
+}
+/* Ícone e texto do "Início" desalinhavam verticalmente: havia um nó de
+   texto solto (o espaço em branco entre o ícone e o <span> no JSX) virando
+   um 3º item da fileira flex, além do próprio <svg> do ícone ficar
+   `display:inline` por padrão (baseline diferente do texto). Removido o
+   nó de texto solto no JSX; aqui força o <svg> a virar item de bloco
+   (sem baseline) e o rótulo sem folga de line-height, pra alinhar pelo
+   centro geométrico dos dois, não pela linha de base do texto. */
+.abas-enautica button.abas-enautica-inicio svg { display: block; flex-shrink: 0; }
+.abas-enautica button.abas-enautica-inicio span { line-height: 1; }
+
+/* "Aulas preparatórias": azul-petróleo preenchido, mesma cor de ação
+   primária do resto do RV Marine (.painel-cliente-btn-primario). Mesmo
+   motivo do "button." acima em .abas-enautica-inicio. */
+.abas-enautica button.abas-enautica-aulas { background: var(--cor-secundaria); border-color: var(--cor-secundaria); color: #fff; }
 
 .resumo-financeiro { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .stat-card { background: var(--cor-card); padding: 16px 24px; border-radius: var(--raio); box-shadow: var(--sombra); min-width: 150px; }
@@ -1298,6 +1355,48 @@ button.badge:hover { filter: brightness(0.95); }
   background: transparent; color: #A23B2E; border: 1px solid rgba(162,59,46,0.35);
 }
 .cliente-card-acoes .botao-secundario.perigo:hover { background: rgba(162,59,46,0.06); }
+/* Contorno dourado do manual de marca (mesmo tom de --dourado-texto usado
+   na moldura dos cards do e-Náutica) — pedido do Alex pro "Editar dados"
+   de "Meus dados", que antes era só o botão neutro cinza padrão. */
+.cliente-card-acoes .botao-secundario--dourado {
+  background: #fff; color: var(--cor-primaria); border: 1.5px solid var(--dourado-texto);
+}
+.cliente-card-acoes .botao-secundario--dourado:hover { background: rgba(140,107,30,0.06); }
+
+/* "Meus dados" (TelaClienteENautica.jsx): as linhas ficam FORA de
+   ".cliente-card" (é uma lista simples, não um card), então não herdavam o
+   tamanho padrão de ".cliente-card .linha" — saíam no tamanho cru do
+   navegador, maior que o resto do app. Mesmo tamanho/cor usados em todo
+   card de cliente, só pra ficar consistente. */
+.dados-lista .linha { font-size: 13.5px; color: var(--cor-texto); line-height: 1.5; }
+.dados-lista .linha b { color: var(--cor-texto-suave); font-weight: 600; }
+
+/* "Sua CHA chega pelo Gov.br" (último passo da Trilha da Habilitação,
+   TelaClienteENautica.jsx) — o mesmo fundo azul-petróleo com trama de
+   losangos dourados do manual de marca ("padrão gráfico auxiliar",
+   combinação preferencial "fundo escuro + dourado"), já usado nas telas de
+   entrada e nos painéis do cliente do RV Marine (ver
+   ".painel-cliente .modal-card" mais abaixo) — aqui aplicado direto num
+   .cliente-card comum (não um modal), só pra destacar o destino final da
+   trilha dos passos intermediários, sem inventar nenhuma cor nova. */
+/* Seletor qualificado com ".painel-cliente" de propósito: a regra mais
+   abaixo (".painel-cliente .cliente-card { border: 1px solid
+   var(--dourado-texto) }") tem a MESMA especificidade de ".cliente-card
+   .cliente-card--marca" sozinha e vem depois no arquivo — empataria e
+   sobrescreveria a borda customizada aqui (mesmo bug de especificidade já
+   visto na navegação, ver .abas-enautica acima). */
+.painel-cliente .cliente-card.cliente-card--marca {
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 420px 260px at 50% -20%, rgba(212,175,55,0.16), transparent 62%),
+    repeating-linear-gradient(45deg, rgba(212,175,55,0.06) 0, rgba(212,175,55,0.06) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(-45deg, rgba(212,175,55,0.06) 0, rgba(212,175,55,0.06) 1px, transparent 1px, transparent 40px);
+  border-color: rgba(212,175,55,0.4);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.28);
+}
+.cliente-card.cliente-card--marca .nome { font-family: 'Cinzel', serif; color: #D4AF37; font-size: 15px; }
+.cliente-card.cliente-card--marca .dica { color: rgba(245,245,240,0.65); }
+.cliente-card.cliente-card--marca .linha { color: #F5F5F0; }
 .status-texto { font-size: 13px; font-weight: 600; }
 .status-texto.em-dia { color: var(--cor-secundaria); }
 .status-texto.pendente { color: var(--cor-alerta); }

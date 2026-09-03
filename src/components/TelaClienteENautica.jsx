@@ -1,17 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconLogout, IconHome, IconPlayerPlay, IconCalendarEvent, IconCertificate, IconUserCircle, IconBell } from '@tabler/icons-react'
+import { IconLogout, IconHome, IconPlayerPlay, IconCalendarEvent, IconUserCircle, IconBell } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
 import { buscarMarina, salvarCliente } from '../lib/db'
 import {
   HABILITACOES, labelHabilitacao, camposDocumentoFaltando, CAMPOS_DOCUMENTO, buscarMinhaMatricula, enviarMatricula,
-  modulosAulaComVideo, aulasConcluidas, alternarAulaConcluida,
-  listarMeusAgendamentos, listarMeusCertificados, labelTipoAgendamento,
+  modulosAulaComVideo,
+  listarMeusAgendamentos, labelTipoAgendamento,
   listarMinhasNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas,
   declararProntidaoTeste,
   solicitarReagendamento,
 } from '../lib/enautica'
-import { maskData, dataMascaradaParaIso, isoParaDataMascarada, maskTelefone } from '../lib/mascaras'
-import { abrirCertificado } from '../lib/enauticaDocumentos'
+import { maskData, dataMascaradaParaIso, isoParaDataMascarada, maskTelefone, maskCep, maskUf } from '../lib/mascaras'
+
+// Aplica a máscara certa pra cada campo de CAMPOS_DOCUMENTO (lib/enautica.js),
+// usada tanto no modal de matrícula (campos que ainda faltam) quanto em
+// "Meus dados" (edição). Antes só a data de nascimento tinha máscara —
+// telefone, CEP e UF ficavam em texto livre, aceitando qualquer coisa.
+function maskarCampoDocumento(chave, tipo, valor) {
+  if (tipo === 'date') return maskData(valor)
+  if (chave === 'telefone') return maskTelefone(valor)
+  if (chave === 'cep') return maskCep(valor)
+  if (chave === 'uf') return maskUf(valor)
+  return valor
+}
 
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
 // cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
@@ -19,10 +30,15 @@ import { abrirCertificado } from '../lib/enauticaDocumentos'
 // pagamento (ao contrário do AlunoFlow.jsx original do rsnautica) — o único
 // "gate" é a matrícula ser aprovada pela equipe da escola.
 //
-// Aulas, Agendamentos e Meus certificados têm conteúdo real, ligado ao
-// Supabase (matrículas/agendamentos/certificados de enautica) — só o vídeo
-// de cada aula preparatória é opcional (ver ConfiguracoesENautica.jsx: sem
-// a escola cadastrar o link, a aula mostra "Conteúdo em preparação").
+// Aulas e Agendamentos têm conteúdo real, ligado ao Supabase (matrículas/
+// agendamentos de enautica) — só o vídeo de cada aula preparatória é
+// opcional (ver ConfiguracoesENautica.jsx: sem a escola cadastrar o link, a
+// aula mostra "Conteúdo em preparação").
+//
+// NÃO existe mais (removida a pedido do Alex) uma aba de "Meus
+// certificados": o aluno não acompanha mais o certificado interno pelo
+// app — isso volta a ser um controle só da escola, pelo Painel de Controle
+// (TelaAlunosENautica.jsx, que continua emitindo/marcando entregue).
 //
 // NÃO existe (nunca existiu de verdade, a pedido do Alex) uma aba de
 // "Documentos" aqui: os 4 documentos de matrícula não são entregues pelo
@@ -34,9 +50,8 @@ import { abrirCertificado } from '../lib/enauticaDocumentos'
 // enviado, um RG digitado errado ficava travado pra sempre.
 const ABAS_ALUNO = [
   { chave: 'inicio', label: 'Início', Icone: IconHome },
-  { chave: 'aulas', label: 'Aulas preparatórias', Icone: IconPlayerPlay },
+  { chave: 'aulas', label: 'Aulas', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
-  { chave: 'certs', label: 'Meus certificados', Icone: IconCertificate },
   { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
 ]
 
@@ -45,16 +60,19 @@ const ABAS_ALUNO = [
 // de ser aprovado e não sabe bem o que vem a seguir. É só leitura (nenhum
 // dado do Supabase aqui) e por isso fica fora do carregar()/estado do
 // componente — cada passo aponta pra aba de verdade onde a ação acontece.
-// Os números da prova teórica (quantidade de questões, nota mínima) são
-// informação pública sobre o exame da autoridade marítima para Arrais
-// Amador — não são específicos da RV Invictus nem inventados — mas o texto
-// avisa que podem variar conforme a Capitania, porque a escola é quem
-// confirma o formato exato com o aluno antes da prova.
+// Os números da prova teórica (quantidade de questões, nota mínima) foram
+// checados em fontes independentes (a própria Marinha do Brasil, via a
+// página da Capitania de Itajaí, e duas escolas náuticas de fora do
+// sistema) antes de entrar aqui: 40 questões de múltipla escolha (5
+// alternativas cada), 20 acertos (50%) pra aprovar, até 2 horas de prova.
+// O conteúdo é definido pelo Anexo 5-A da NORMAM-211/DPC, então é o mesmo
+// formato em qualquer Capitania do país — não varia de escola pra escola
+// nem de região pra região, ao contrário do que o texto dizia antes.
 const TRILHA_INICIO = [
   {
-    onde: 'Aba "Aulas preparatórias"',
+    onde: 'Aba "Aulas"',
     titulo: 'Assista às aulas preparatórias',
-    texto: 'Estude no seu ritmo pelos módulos em vídeo liberados pela escola. Marque cada um como concluído conforme for terminando.',
+    texto: 'Estude no seu ritmo pelos módulos em vídeo liberados pela escola.',
   },
   {
     onde: 'Aba "Agendamentos"',
@@ -64,7 +82,7 @@ const TRILHA_INICIO = [
   {
     onde: 'Na Capitania dos Portos',
     titulo: 'Realize a prova teórica',
-    texto: 'A avaliação teórica é aplicada diretamente pela autoridade marítima (Capitania dos Portos), não pela escola. Costuma ser de múltipla escolha, com cerca de 20 questões sobre nomenclatura náutica, segurança da navegação, mecânica e motores, meteorologia e regras de tráfego aquaviário, exigindo em torno de 50% de acertos para aprovação — confirme o formato exato com a escola antes da data, pois pode variar conforme a Capitania.',
+    texto: 'A avaliação teórica é aplicada diretamente pela autoridade marítima (Capitania dos Portos), não pela escola. São 40 questões de múltipla escolha, sobre regras de tráfego aquaviário, sinalização náutica, manobra, segurança e combate a incêndio, sobrevivência no mar, primeiros socorros e meteorologia. É preciso acertar pelo menos 20 (50%) para ser aprovado, em até duas horas.',
   },
   {
     onde: 'Aba "Agendamentos"',
@@ -79,7 +97,7 @@ const TRILHA_INICIO = [
   {
     onde: 'Na escola',
     titulo: 'Realize a aula/avaliação prática',
-    texto: 'Acontece presencialmente na escola, com instrutores habilitados da RV Invictus.',
+    texto: 'Acontece presencialmente na escola, com instrutores habilitados.',
   },
   {
     onde: 'Feito pela escola',
@@ -96,28 +114,41 @@ const TRILHA_INICIO = [
 function TelaInicio() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p className="dica">Do estudo até a sua carteira na mão (ou melhor, no app): veja o caminho completo, passo a passo.</p>
-      {TRILHA_INICIO.map((passo, i) => (
-        <div key={passo.titulo} className="cliente-card">
-          <div className="cabecalho-cliente">
-            <div className="titulo-cliente">
-              <span
-                aria-hidden="true"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 22, height: 22, borderRadius: '50%', background: 'var(--cor-primaria)', color: '#fff',
-                  fontSize: 12, fontWeight: 700, marginRight: 8, flexShrink: 0,
-                }}
-              >
-                {i + 1}
-              </span>
-              <span className="nome">{passo.titulo}</span>
+      {/* Mesma fonte/peso do título "Diário de Bordo" do painel do RV
+          Marine (.diario-titulo, ver TelaClienteDashboard.jsx) — título de
+          seção, não da tela (esse já é o header lá em cima). */}
+      <h3 className="diario-titulo">Trilha da Habilitação</h3>
+      {TRILHA_INICIO.map((passo, i) => {
+        // Último passo (a CHA chegando pelo Gov.br) é o "destino final" da
+        // trilha — ganha o tratamento escuro com trama de losangos dourados
+        // do manual de marca (mesmo usado nas telas de entrada e nos
+        // painéis do cliente do RV Marine, ver ".cliente-card--marca" no
+        // index.css), só pra se diferenciar visualmente dos passos
+        // intermediários, sem criar nenhuma cor nova.
+        const ultimo = i === TRILHA_INICIO.length - 1
+        return (
+          <div key={passo.titulo} className={`cliente-card${ultimo ? ' cliente-card--marca' : ''}`}>
+            <div className="cabecalho-cliente">
+              <div className="titulo-cliente">
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: ultimo ? '#D4AF37' : 'var(--cor-primaria)', color: ultimo ? '#0D1B2A' : '#fff',
+                    fontSize: 12, fontWeight: 700, marginRight: 8, flexShrink: 0,
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span className="nome">{passo.titulo}</span>
+              </div>
             </div>
+            <div className="dica" style={{ fontWeight: 600, margin: '2px 0 4px' }}>{passo.onde}</div>
+            <div className="linha">{passo.texto}</div>
           </div>
-          <div className="dica" style={{ fontWeight: 600, margin: '2px 0 4px' }}>{passo.onde}</div>
-          <div className="linha">{passo.texto}</div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -183,8 +214,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [erroCarregamento, setErroCarregamento] = useState(null)
   const [aba, setAba] = useState('inicio')
   const [agendamentos, setAgendamentos] = useState([])
-  const [certificados, setCertificados] = useState([])
-  const [concluidas, setConcluidas] = useState(() => new Set())
   const [notificacoes, setNotificacoes] = useState([])
 
   const [habilitacao, setHabilitacao] = useState('arrais')
@@ -294,19 +323,16 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
       setCliente(cli)
       setErroCarregamento(null)
       if (!cli) return
-      const [mat, mar, ags, certs, notifs] = await Promise.all([
+      const [mat, mar, ags, notifs] = await Promise.all([
         buscarMinhaMatricula(cli.id),
         buscarMarina(cli.marina_id),
         listarMeusAgendamentos(cli.id),
-        listarMeusCertificados(cli.id),
         listarMinhasNotificacoes(cli.id),
       ])
       setMatricula(mat)
       setMarina(mar)
       setAgendamentos(ags)
-      setCertificados(certs)
       setNotificacoes(notifs)
-      setConcluidas(aulasConcluidas(cli.id))
     } catch (err) {
       setErroCarregamento(err.message)
     } finally {
@@ -323,15 +349,14 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     const canal = supabase
       .channel(`enautica-minha-matricula-${cliente.id}`)
       .on('postgres_changes', { event: '*', schema: 'enautica', table: 'matriculas', filter: `cliente_id=eq.${cliente.id}` }, () => carregar())
-      // Certificados filtram por cliente_id igual matrículas; agendamentos
-      // não têm essa coluna (é `alunos_ids`, um array — não dá pra filtrar
-      // no `filter:` do realtime), então escuta a tabela inteira da escola
-      // e recarrega, deixando o RLS/query decidir o que é meu na hora do
-      // `carregar()`. Tráfego baixo (poucos agendamentos por escola).
-      .on('postgres_changes', { event: '*', schema: 'enautica', table: 'certificados', filter: `cliente_id=eq.${cliente.id}` }, () => carregar())
+      // Agendamentos não têm coluna cliente_id (é `alunos_ids`, um array —
+      // não dá pra filtrar no `filter:` do realtime), então escuta a tabela
+      // inteira da escola e recarrega, deixando o RLS/query decidir o que é
+      // meu na hora do `carregar()`. Tráfego baixo (poucos agendamentos por
+      // escola).
       .on('postgres_changes', { event: '*', schema: 'enautica', table: 'agendamentos' }, () => carregar())
-      // Notificação nova (matrícula decidida, agendamento marcado,
-      // certificado emitido) aparece no sino na hora, sem F5.
+      // Notificação nova (matrícula decidida, agendamento marcado etc.)
+      // aparece no sino na hora, sem F5.
       .on('postgres_changes', { event: '*', schema: 'enautica', table: 'notificacoes', filter: `cliente_id=eq.${cliente.id}` }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
@@ -367,20 +392,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
   const camposFaltando = cliente ? camposDocumentoFaltando(cliente) : []
 
-  function marcarAula(moduloId, concluida) {
-    setConcluidas(alternarAulaConcluida(cliente.id, moduloId, concluida))
-  }
-
-  // Antes gerava um .txt cru (conferi o rsnautica: o "Baixar certificado" de
-  // lá faz exatamente a mesma coisa — não existe um certificado formatado em
-  // nenhum dos dois sistemas). Agora usa o mesmo motor de impressão dos
-  // outros documentos (enauticaDocumentos.js/abrirCertificado), num desenho
-  // próprio da RV Invictus — ver comentário em gerarCertificado().
-  function baixarCertificado(cert) {
-    const docConfig = marina?.config_json?.documentos || {}
-    abrirCertificado(cert, cliente, marina, docConfig, labelHabilitacao)
-  }
-
   async function abrirNotificacao(n) {
     if (n.lida) return
     try {
@@ -413,7 +424,13 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 68px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
-        <strong className="painel-cliente-marina">{marina?.nome || 'RV e-Náutica'}</strong>
+        {/* Nome de exibição aqui pode ser diferente do nome da marina no RV
+            Marine (marina.nome, que aparece em TelaClienteDashboard.jsx) —
+            a mesma marina pode ter uma escola náutica com razão social/nome
+            fantasia próprio (ex.: Marina Paulo Prates → "Escola RS
+            Náutica"). config_json.nomeEscolaEnautica é opcional; sem ele,
+            cai no nome da marina normalmente. */}
+        <strong className="painel-cliente-marina">{marina?.config_json?.nomeEscolaEnautica || marina?.nome || 'RV e-Náutica'}</strong>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {cliente && (
             <SinoNotificacoes notificacoes={notificacoes} onAbrirUma={abrirNotificacao} onMarcarTodasLidas={marcarTodasLidas} />
@@ -475,12 +492,13 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                 de título fora do preenchimento. */}
             {camposFaltando.map((c) => (
               <input
-                key={c.chave} type="text" required inputMode={c.tipo === 'date' ? 'numeric' : undefined}
-                placeholder={c.tipo === 'date' ? 'Data de nascimento (dd/mm/aaaa)' : c.label}
+                key={c.chave} type="text" required
+                inputMode={c.tipo === 'date' || c.chave === 'telefone' || c.chave === 'cep' ? 'numeric' : undefined}
+                placeholder={c.tipo === 'date' ? 'Data de nascimento (dd/mm/aaaa)' : c.chave === 'cep' ? 'CEP' : c.label}
                 value={formFaltando[c.chave] || ''}
                 onChange={(e) => setFormFaltando({
                   ...formFaltando,
-                  [c.chave]: c.tipo === 'date' ? maskData(e.target.value) : e.target.value,
+                  [c.chave]: maskarCampoDocumento(c.chave, c.tipo, e.target.value),
                 })}
               />
             ))}
@@ -515,20 +533,34 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
       {cliente && matricula?.status === 'aprovada' && (
         <>
-          {/* Grade de 3x2 (ver .abas-enautica no index.css): "Início" ocupa a
-              coluna inteira à esquerda, span nas 2 linhas — os outros 4 se
-              distribuem nas colunas 2 e 3, na mesma ordem de ABAS_ALUNO. */}
+          {/* "Início" vira uma barra horizontal cheia no topo (cor fixa:
+              gradiente laranja do S.O.S.); os outros 3 ficam numa fileira
+              logo abaixo — "Aulas" fixo em azul-petróleo, Agendamentos/Meus
+              dados em branco (ver .abas-enautica* no index.css). A cor de
+              cada botão é sempre a mesma; só a aba selecionada ganha
+              destaque (sombra). O rótulo fica num <span> à parte pra
+              centralizar de verdade (verticalmente) com o ícone, mesmo em
+              botões com texto de tamanhos diferentes. */}
           <div className="abas-enautica">
-            {ABAS_ALUNO.map((a, i) => (
-              <button
-                key={a.chave}
-                className={[aba === a.chave ? 'ativo' : '', i === 0 ? 'abas-enautica-destaque' : ''].filter(Boolean).join(' ')}
-                onClick={() => setAba(a.chave)}
-              >
-                <a.Icone size={i === 0 ? 26 : 20} />
-                {a.label}
-              </button>
-            ))}
+            <button
+              className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
+              onClick={() => setAba('inicio')}
+            >
+              <IconHome size={22} />
+              <span>Início</span>
+            </button>
+            <div className="abas-enautica-linha">
+              {ABAS_ALUNO.filter((a) => a.chave !== 'inicio').map((a) => (
+                <button
+                  key={a.chave}
+                  className={[aba === a.chave ? 'ativo' : '', a.chave === 'aulas' ? 'abas-enautica-aulas' : ''].filter(Boolean).join(' ')}
+                  onClick={() => setAba(a.chave)}
+                >
+                  <a.Icone size={18} />
+                  <span>{a.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {aba === 'inicio' && <TelaInicio />}
@@ -553,10 +585,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                   ) : (
                     <p className="dica" style={{ margin: '6px 0 0' }}>Conteúdo em preparação pela escola.</p>
                   )}
-                  <label className="opcao-checkbox" style={{ marginTop: 8 }}>
-                    <input type="checkbox" checked={concluidas.has(m.id)} onChange={(e) => marcarAula(m.id, e.target.checked)} />
-                    Marcar como concluída
-                  </label>
                 </div>
               ))}
             </div>
@@ -582,19 +610,20 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                 ) : (
                   <>
                     <div className="linha">Você está pronto(a) para agendar e realizar sua avaliação teórica?</div>
+                    {/* Só "Sim, estou pronto(a)" — removido "Ainda não" a
+                        pedido do Alex: enquanto o aluno não confirma, o
+                        card já fica parado nesta pergunta (mesmo estado
+                        "ainda não respondeu"); não precisa de um botão que
+                        grava explicitamente uma resposta negativa. */}
                     <div className="cliente-card-acoes">
                       <button type="button" className="botao-secundario" disabled={salvandoProntidao} onClick={() => responderProntidao('sim')}>
                         ✓ Sim, estou pronto(a)
-                      </button>
-                      <button type="button" className="botao-secundario" disabled={salvandoProntidao} onClick={() => responderProntidao('nao')}>
-                        Ainda não
                       </button>
                     </div>
                   </>
                 )}
               </div>
 
-              {agendamentos.length === 0 && <p className="dica" style={{ textAlign: 'center' }}>Nenhum compromisso marcado ainda.</p>}
               {agendamentos.map((ag) => (
                 <div key={ag.id} className="cliente-card">
                   <div className="cabecalho-cliente">
@@ -643,50 +672,46 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             </div>
           )}
 
-          {aba === 'certs' && (
-            <div className="lista-cards">
-              <p className="dica">
-                Este é um recibo interno da escola, não o documento oficial — sua habilitação náutica é emitida
-                pela Marinha do Brasil e chega automaticamente na sua conta Gov.br depois da aprovação.
-              </p>
-              {certificados.length === 0 && <p className="dica" style={{ textAlign: 'center' }}>Nenhum certificado disponível ainda.</p>}
-              {certificados.map((c) => (
-                <div key={c.id} className="cliente-card">
-                  <div className="cabecalho-cliente">
-                    <div className="titulo-cliente"><span className="nome">{labelHabilitacao(c.habilitacao)}</span></div>
-                  </div>
-                  <div className="linha"><b>Emitido em:</b> {new Date(`${c.data_emissao}T12:00`).toLocaleDateString('pt-BR')}</div>
-                  <div className="linha"><b>Status:</b> {c.status === 'entregue' ? 'Entregue' : 'Disponível'}</div>
-                  <div className="cliente-card-acoes">
-                    <button type="button" className="botao-secundario" onClick={() => baixarCertificado(c)}>Baixar certificado</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {aba === 'dados' && !editandoDados && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            // ".dados-lista" (ver index.css) só reduz o tamanho da fonte
+            // dessas linhas — elas ficavam fora de ".cliente-card", que é
+            // quem normalmente define esse tamanho (.cliente-card .linha),
+            // então saíam no tamanho cru/grande do navegador.
+            <div className="dados-lista" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="linha"><b>Nome:</b> {cliente.nome}</div>
               <div className="linha"><b>E-mail:</b> {cliente.email || '—'}</div>
               <div className="linha"><b>Telefone:</b> {cliente.telefone || '—'}</div>
               <div className="linha"><b>Habilitação matriculada:</b> {labelHabilitacao(matricula.habilitacao)}</div>
-              <p className="dica">A habilitação matriculada não é editável por aqui — fale com a escola para alterar.</p>
 
               {/* Campos que entram nos documentos que a ESCOLA gera pra
                   Capitania (ver nota no topo do arquivo) — mostrados aqui
                   só pra conferência; "Editar dados" abaixo cobre também
-                  eles, não só nome/e-mail/telefone. */}
-              <p className="dica" style={{ marginTop: 8, fontWeight: 600 }}>Dados usados nos seus documentos de matrícula:</p>
-              {CAMPOS_DOCUMENTO.map((c) => (
+                  eles, não só nome/e-mail/telefone. "telefone" fica de fora
+                  aqui de propósito — já tem a linha dele acima, com o mesmo
+                  valor (CAMPOS_DOCUMENTO inclui telefone só pra cobrir a
+                  matrícula, que não tem um campo próprio pra ele); sem esse
+                  filtro, "Telefone" aparecia duas vezes na lista. */}
+              {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
                 <div key={c.chave} className="linha">
                   <b>{c.label}:</b> {c.tipo === 'date' ? (isoParaDataMascarada(cliente[c.chave]) || '—') : (cliente[c.chave] || '—')}
                 </div>
               ))}
 
-              <button type="button" className="botao-secundario" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={abrirEdicaoDados}>
-                Editar dados
-              </button>
+              {/* Antes era um <button className="botao-secundario"> solto,
+                  fora de ".cliente-card-acoes" — essa classe só tem estilo
+                  DENTRO desse wrapper (ver index.css), então o botão saía
+                  sem nenhuma identidade visual (aparência crua do
+                  navegador). Envolvendo em ".cliente-card-acoes" ele ganha
+                  o mesmo desenho neutro usado em todo o resto do app
+                  (Alterar resposta, Solicitar reagendamento etc.) — sem o
+                  contorno dourado (removido a pedido do Alex; a classe
+                  ".botao-secundario--dourado" continua no index.css caso
+                  sirva em outro botão no futuro). */}
+              <div className="cliente-card-acoes" style={{ marginTop: 4 }}>
+                <button type="button" className="botao-secundario" onClick={abrirEdicaoDados}>
+                  Editar dados
+                </button>
+              </div>
             </div>
           )}
 
@@ -708,17 +733,20 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               {/* Antes esses campos só eram perguntados uma vez (na
                   matrícula) e só se estivessem vazios — um dado errado não
                   tinha como ser corrigido depois. Agora ficam aqui, sempre
-                  editáveis, junto com o resto de "Meus dados". */}
-              {CAMPOS_DOCUMENTO.map((c) => (
+                  editáveis, junto com o resto de "Meus dados". "telefone"
+                  fica de fora (já tem o campo dele logo acima) — mesmo
+                  motivo da leitura, ver comentário lá. */}
+              {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
                 <label key={c.chave}>
                   {c.label}
                   <input
-                    type="text" inputMode={c.tipo === 'date' ? 'numeric' : undefined}
-                    placeholder={c.tipo === 'date' ? 'dd/mm/aaaa' : undefined}
+                    type="text"
+                    inputMode={c.tipo === 'date' || c.chave === 'cep' ? 'numeric' : undefined}
+                    placeholder={c.tipo === 'date' ? 'dd/mm/aaaa' : c.chave === 'uf' ? 'ex.: SP' : undefined}
                     value={formDados[c.chave] || ''}
                     onChange={(e) => setFormDados({
                       ...formDados,
-                      [c.chave]: c.tipo === 'date' ? maskData(e.target.value) : e.target.value,
+                      [c.chave]: maskarCampoDocumento(c.chave, c.tipo, e.target.value),
                     })}
                   />
                 </label>

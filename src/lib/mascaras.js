@@ -41,6 +41,21 @@ export function maskTelefone(valor) {
     .replace(/(\d{5})(\d{1,4})$/, '$1-$2')
 }
 
+// 00000-000 — CEP, 8 dígitos. Mesma técnica das anteriores.
+export function maskCep(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8)
+  return digitos.replace(/(\d{5})(\d{1,3})$/, '$1-$2')
+}
+
+// UF: só 2 letras maiúsculas (sigla de estado, ex.: "sp" -> "SP") — usada
+// no campo de endereço dos documentos de matrícula do e-Náutica
+// (CAMPOS_DOCUMENTO em lib/enautica.js). Não valida contra a lista real de
+// siglas (AC, AL, ... TO): só formata, mesma tolerância das demais
+// máscaras deste arquivo.
+export function maskUf(valor) {
+  return String(valor || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()
+}
+
 // dd/mm/aaaa — usada no lugar do seletor nativo <input type="date"> em
 // telas onde ele destoa do resto do formulário (ex.: modal de matrícula do
 // RV e-Náutica, fundo escuro — o calendário nativo do navegador não
