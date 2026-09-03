@@ -324,20 +324,22 @@ export default function TelaClientes({ marinaId }) {
                       const alterado = nomeAtual.trim() !== emb.nome || registroAtual.trim() !== (emb.registro || '')
                       return (
                         <div key={emb.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            {/* size (não width) faz a caixa acompanhar o
-                                tamanho do nome digitado, em vez de esticar
-                                pro resto da linha — mínimo de 6 pra não
-                                colapsar com o campo vazio. */}
-                            <input size={Math.max(nomeAtual.length, 6)} placeholder="Nome da embarcação" value={nomeAtual}
-                              onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
-                            <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
-                              onClick={() => salvarEdicaoEmbarcacao(emb)}>
-                              {salvandoEdicaoEmbarcacaoId === emb.id ? 'Salvando...' : 'Salvar'}
-                            </button>
-                          </div>
+                          {/* Sem botão "Salvar" — sem função de verdade pra
+                              quem usa (o gesto natural é digitar e sair do
+                              campo, não procurar um botão do lado). Salva
+                              sozinho no blur, se algo mudou — mesmo padrão já
+                              usado em TelaDocumentacao.jsx (responsavel_tecnico
+                              do laudo). */}
+                          {/* size (não width) faz a caixa acompanhar o
+                              tamanho do nome digitado, em vez de esticar pro
+                              resto da linha — mínimo de 6 pra não colapsar
+                              com o campo vazio. */}
+                          <input size={Math.max(nomeAtual.length, 6)} placeholder="Nome da embarcação" value={nomeAtual}
+                            onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })}
+                            onBlur={() => alterado && salvandoEdicaoEmbarcacaoId !== emb.id && salvarEdicaoEmbarcacao(emb)} />
                           <input style={{ width: 130 }} placeholder="Nº de inscrição" value={registroAtual}
-                            onChange={(e) => setRegistrosEmbarcacaoEditados({ ...registrosEmbarcacaoEditados, [emb.id]: e.target.value })} />
+                            onChange={(e) => setRegistrosEmbarcacaoEditados({ ...registrosEmbarcacaoEditados, [emb.id]: e.target.value })}
+                            onBlur={() => alterado && salvandoEdicaoEmbarcacaoId !== emb.id && salvarEdicaoEmbarcacao(emb)} />
                           <button type="button" className="voltar" style={{ alignSelf: 'flex-start' }} disabled={salvandoEdicaoEmbarcacaoId === emb.id}
                             onClick={() => removerEmbarcacaoInline(emb)}>
                             Remover embarcação
