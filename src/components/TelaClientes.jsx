@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 // listarCobrancas saiu daqui junto com o cartão "Total arrecadado": a
 // cobrança passou para o RV Finance (SaaS separado). A função continua em
 // lib/db.js e a tabela `cobrancas` segue no banco, com os dados intactos.
-import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao } from '../lib/db'
+import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, removerEmbarcacao } from '../lib/db'
 import { statusAcessoCliente } from '../lib/statusPagamento'
 import { maskCpf, maskTelefone } from '../lib/mascaras'
 import EditarClienteModal from './EditarClienteModal'
@@ -50,6 +50,12 @@ export default function TelaClientes({ marinaId }) {
   // fechado. Guarda o registro inteiro (não só o id) pra pré-preencher o
   // form sem precisar buscar de novo em `clientes`.
   const [clienteEditando, setClienteEditando] = useState(null)
+  // Exclusão simplificada de embarcação (mesma mecânica e mesmo nome de
+  // função que TelaClienteDashboard.jsx → Minha conta → Embarcações): apagar
+  // o nome e salvar exclui; qualquer outro texto renomeia. Ver
+  // salvarNomeEmbarcacao abaixo e migration_embarcacao_ativa.sql.
+  const [nomesEmbarcacaoEditados, setNomesEmbarcacaoEditados] = useState({})
+  const [salvandoEdicaoEmbarcacaoId, setSalvandoEdicaoEmbarcacaoId] = useState(null)
   // A mensalidade configurada (marinas.config_json.valorMensalidade) não é
   // mais lida aqui: a cobrança passou para o RV Finance. A configuração
   // continua existindo no banco, só deixou de aparecer nesta tela — por isso
@@ -221,6 +227,35 @@ export default function TelaClientes({ marinaId }) {
     return embarcacoes.filter((e) => e.cliente_id === clienteId)
   }
 
+  // Exclusão simplificada: apagar o texto do nome e salvar exclui a
+  // embarcação (soft-delete, ver removerEmbarcacao em lib/db.js); qualquer
+  // outro texto só renomeia. Mesma função (mesmo comportamento) do lado do
+  // cliente em TelaClienteDashboard.jsx — os dois lados enxergam a exclusão
+  // na hora um do outro via o Realtime já assinado em `embarcacoes`.
+  async function salvarNomeEmbarcacao(emb) {
+    const novoNome = (nomesEmbarcacaoEditados[emb.id] ?? emb.nome).trim()
+    if (novoNome === emb.nome) return
+    if (!novoNome && !confirm(`Excluir a embarcação "${emb.nome}"? Essa ação não pode ser desfeita.`)) return
+    setSalvandoEdicaoEmbarcacaoId(emb.id)
+    try {
+      if (novoNome) {
+        await salvarEmbarcacao({ id: emb.id, nome: novoNome })
+      } else {
+        await removerEmbarcacao(emb.id)
+      }
+      setNomesEmbarcacaoEditados((atual) => {
+        const copia = { ...atual }
+        delete copia[emb.id]
+        return copia
+      })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível salvar: ' + err.message)
+    } finally {
+      setSalvandoEdicaoEmbarcacaoId(null)
+    }
+  }
+
   return (
     <div>
       <div className="abas">
@@ -254,8 +289,28 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha"><b>Endereço:</b> {c.endereco || '—'}</div>
                   <div className="linha"><b>CPF:</b> {c.cpf_cnpj || '—'}</div>
                   <div className="linha"><b>CHA:</b> {c.documento_identidade || '—'}</div>
-                  <div className="linha">
-                    <b>Embarcações:</b> {embarcacoesDoCliente(c.id).map((e) => e.nome).join(' · ') || '—'}
+                  <div className="linha" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <b>Embarcações:</b>
+                    {embarcacoesDoCliente(c.id).length === 0 && '—'}
+                    {embarcacoesDoCliente(c.id).map((emb) => {
+                      const nomeAtual = nomesEmbarcacaoEditados[emb.id] ?? emb.nome
+                      const alterado = nomeAtual.trim() !== emb.nome
+                      return (
+                        <div key={emb.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input style={{ flex: 1 }} value={nomeAtual}
+                            onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
+                          <span className="dica" style={{ margin: 0 }}>{emb.tipo}{emb.registro ? ` · ${emb.registro}` : ''}</span>
+                          <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
+                            onClick={() => salvarNomeEmbarcacao(emb)}>
+                            {salvandoEdicaoEmbarcacaoId === emb.id ? 'Salvando...' : 'Salvar'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                    {/* Apagar o nome e clicar Salvar exclui a embarcação —
+                        mesmo mecanismo do lado do cliente (Minha conta),
+                        sem diálogo extra além da confirmação de segurança
+                        já embutida em salvarNomeEmbarcacao. */}
                   </div>
                   {/* Validade da CHA e o selo "Documentação" abaixo são
                       exclusivos deste painel — não aparecem em "Minha conta"

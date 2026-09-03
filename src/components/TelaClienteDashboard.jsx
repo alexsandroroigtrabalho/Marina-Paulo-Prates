@@ -12,7 +12,7 @@ import {
   listarAgendamentosCliente, solicitarAgendamento, atualizarStatusAgendamento, atualizarStatusResgate, listarLaudosCliente, listarDespachosCliente,
   listarOrdensServicoCliente, listarCombustiveis, listarPedidosAbastecimentoCliente,
   solicitarAbastecimento, cancelarAbastecimento, listarAutorizados, adicionarAutorizado, atualizarAutorizado, removerAutorizado, buscarMarina,
-  salvarCliente, listarHorariosOcupados, salvarEmbarcacao,
+  salvarCliente, listarHorariosOcupados, salvarEmbarcacao, removerEmbarcacao,
 } from '../lib/db'
 import { destravarAudioNaProximaInteracao, tocarApitoRespostaDiario } from '../lib/sons'
 import { labelStatusManutencao } from '../lib/statusManutencao'
@@ -380,6 +380,14 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
   // deixou de ser feita por aqui.
   const [novaEmbarcacao, setNovaEmbarcacao] = useState({ ...EMBARCACAO_NOVA })
   const [salvandoEmbarcacao, setSalvandoEmbarcacao] = useState(false)
+  // Edição/exclusão simplificada de uma embarcação já cadastrada (ver
+  // salvarNomeEmbarcacao abaixo) — nomeEmbarcacaoEditado guarda só o que
+  // ainda não foi salvo, por id; enquanto o cliente não mexe no campo, o
+  // input mostra o nome que já está no banco (embarcacoes vem de `carregar`,
+  // sempre atualizado). Apagar o texto e salvar exclui a embarcação — regra
+  // explicada no botão "Salvar" de cada item, mais abaixo.
+  const [nomesEmbarcacaoEditados, setNomesEmbarcacaoEditados] = useState({})
+  const [salvandoEdicaoEmbarcacaoId, setSalvandoEdicaoEmbarcacaoId] = useState(null)
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false)
   const [formAutorizado, setFormAutorizado] = useState({ nome: '', documento: '', telefone: '', parentesco: 'filho(a)' })
   const [salvandoAutorizado, setSalvandoAutorizado] = useState(false)
@@ -467,7 +475,10 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       setCliente(cli)
       setErroCarregamento(null)
       if (!cli) return
-      const { data: emb, error: erroEmb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id)
+      // ativa=true: uma embarcação "excluída" (nome apagado e salvo — ver
+      // removerEmbarcacao em lib/db.js) fica marcada ativa=false, não é
+      // apagada de verdade, e precisa sumir daqui na mesma hora.
+      const { data: emb, error: erroEmb } = await db.from('embarcacoes').select('*').eq('cliente_id', cli.id).eq('ativa', true)
       if (erroEmb) throw erroEmb
       setEmbarcacoes(emb || [])
       // As buscas abaixo não dependem umas das outras — rodar em paralelo
@@ -783,6 +794,36 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
     }
   }
 
+  // Exclusão simplificada de uma embarcação já cadastrada: apagar o texto do
+  // nome e clicar "Salvar" exclui a embarcação (soft-delete — ver
+  // removerEmbarcacao em lib/db.js); qualquer outro texto só renomeia. Some
+  // da tela na mesma hora dos dois lados (Diário de Bordo e Painel do
+  // Administrador) via o mesmo Realtime já assinado em `embarcacoes` — não
+  // precisa de nada extra aqui além de recarregar a própria lista.
+  async function salvarNomeEmbarcacao(emb) {
+    const novoNome = (nomesEmbarcacaoEditados[emb.id] ?? emb.nome).trim()
+    if (novoNome === emb.nome) return
+    if (!novoNome && !confirm(`Excluir a embarcação "${emb.nome}"? Essa ação não pode ser desfeita.`)) return
+    setSalvandoEdicaoEmbarcacaoId(emb.id)
+    try {
+      if (novoNome) {
+        await salvarEmbarcacao({ id: emb.id, nome: novoNome })
+      } else {
+        await removerEmbarcacao(emb.id)
+      }
+      setNomesEmbarcacaoEditados((atual) => {
+        const copia = { ...atual }
+        delete copia[emb.id]
+        return copia
+      })
+      await carregar()
+    } catch (err) {
+      alert('Não foi possível salvar: ' + err.message)
+    } finally {
+      setSalvandoEdicaoEmbarcacaoId(null)
+    }
+  }
+
   // "Minha conta" salva em DOIS lugares, porque os dados moram em dois
   // lugares: os cadastrais em marina.clientes (salvarCliente) e os de acesso
   // — e-mail de login e senha — no Supabase Auth. Editar só a coluna
@@ -933,7 +974,17 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
   const ultimaPorEmbarcacao = ultimaMovimentacaoPorEmbarcacao(agendamentos)
   const diarioDeBordo = [
     ...agendamentos.map((a) => {
-      const dataFormatada = new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      // Uma vez confirmada de verdade na rampa (status='concluido' — Navegando
+      // ou Recolhido, tanto faz o tipo), o horário que importa aqui é o REAL
+      // da confirmação (concluido_em, gravado no instante exato do clique por
+      // atualizarStatusAgendamento em lib/db.js) — não mais data_hora, que é
+      // só o horário que o cliente pediu ao solicitar a descida/subida e pode
+      // ter ficado bem diferente do que de fato aconteceu na rampa. Enquanto
+      // ainda não foi confirmado (solicitado/confirmado/cancelado sem nunca
+      // ter concluído), concluido_em é null e data_hora segue sendo o único
+      // horário que existe — daí o fallback.
+      const quandoReal = a.concluido_em || a.data_hora
+      const dataFormatada = new Date(quandoReal).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
       return {
       id: `ag-${a.id}`,
       icone: a.tipo === 'retirada' ? IconTimao : IconAnchor,
@@ -947,7 +998,7 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
         ? `Motivo do cancelamento: ${a.motivo_cancelamento}`
         : dataFormatada,
       ...statusAgendamentoDiario(a, ultimaPorEmbarcacao),
-      quando: a.data_hora,
+      quando: quandoReal,
       // Só dá pra cancelar enquanto o pedido ainda espera decisão — em
       // 'solicitado' e dentro dos 15 minutos (mesma regra do abastecimento,
       // ver aguardandoDecisaoAgendamento em lib/statusAgendamento.js e
@@ -1552,12 +1603,26 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
               {embarcacoes.length === 0 && (
                 <p className="embarcacao-vazia">Nenhuma embarcação cadastrada.</p>
               )}
-              {embarcacoes.map((emb) => (
-                <div key={emb.id} className="embarcacao-item">
-                  <b>{emb.nome}</b>
-                  <span className="embarcacao-tipo">{emb.tipo}{emb.registro ? ` · ${emb.registro}` : ''}</span>
-                </div>
-              ))}
+              {embarcacoes.length > 0 && (
+                <p className="dica" style={{ margin: '0 0 6px' }}>Corrija o nome e clique em Salvar; apagar o nome e salvar exclui a embarcação.</p>
+              )}
+              {embarcacoes.map((emb) => {
+                const nomeAtual = nomesEmbarcacaoEditados[emb.id] ?? emb.nome
+                const alterado = nomeAtual.trim() !== emb.nome
+                return (
+                  <div key={emb.id} className="embarcacao-item">
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input style={{ flex: 1 }} value={nomeAtual}
+                        onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
+                      <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
+                        onClick={() => salvarNomeEmbarcacao(emb)}>
+                        {salvandoEdicaoEmbarcacaoId === emb.id ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                    <span className="embarcacao-tipo">{emb.tipo}{emb.registro ? ` · ${emb.registro}` : ''}</span>
+                  </div>
+                )
+              })}
               <select value={novaEmbarcacao.tipo}
                 onChange={(e) => setNovaEmbarcacao({ ...novaEmbarcacao, tipo: e.target.value })}>
                 {TIPOS_EMBARCACAO.map((t) => <option key={t}>{t}</option>)}

@@ -149,11 +149,17 @@ export async function removerClienteComVinculos(clienteId) {
 }
 
 /* ---------- Embarcações ---------- */
+// `ativa=true` de propósito: uma embarcação "excluída" (ver removerEmbarcacao
+// abaixo) é só marcada ativa=false, não apagada de verdade — precisa sumir
+// de toda lista/seletor atual, mas o histórico que já referencia o id dela
+// (agendamentos, laudos, despachos, abastecimento) precisa continuar
+// resolvendo o nome normalmente. Ver migration_embarcacao_ativa.sql.
 export async function listarEmbarcacoes(marinaId) {
   const { data, error } = await db
     .from('embarcacoes')
     .select('*, clientes(nome)')
     .eq('marina_id', marinaId)
+    .eq('ativa', true)
     .order('nome')
   if (error) throw error
   return data
@@ -163,6 +169,18 @@ export async function salvarEmbarcacao(embarcacao) {
   const { data, error } = await db.from('embarcacoes').upsert(embarcacao).select()
   if (error) throw error
   return data[0]
+}
+
+// "Exclusão simplificada" (Painel de Clientes e Diário de Bordo → Minha
+// conta → Embarcações): apagar o texto do nome e salvar chama isto em vez de
+// salvarEmbarcacao. Soft-delete (ativa=false) — ver comentário acima e em
+// migration_embarcacao_ativa.sql sobre por que não é um DELETE de verdade.
+// admin_marina_embarcacoes (staff) e cliente_edita_propria_embarcacao
+// (cliente, na própria embarcação) já cobrem este UPDATE — nenhuma policy
+// nova precisou ser criada.
+export async function removerEmbarcacao(id) {
+  const { error } = await db.from('embarcacoes').update({ ativa: false }).eq('id', id)
+  if (error) throw error
 }
 
 /* ---------- Vagas ---------- */
