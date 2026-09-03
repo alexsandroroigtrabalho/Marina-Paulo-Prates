@@ -323,24 +323,30 @@ export default function TelaClientes({ marinaId }) {
                       const registroAtual = registrosEmbarcacaoEditados[emb.id] ?? (emb.registro || '')
                       const alterado = nomeAtual.trim() !== emb.nome || registroAtual.trim() !== (emb.registro || '')
                       return (
-                        <div key={emb.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input style={{ flex: 1 }} placeholder="Nome da embarcação" value={nomeAtual}
-                            onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
+                        <div key={emb.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            {/* size (não width) faz a caixa acompanhar o
+                                tamanho do nome digitado, em vez de esticar
+                                pro resto da linha — mínimo de 6 pra não
+                                colapsar com o campo vazio. */}
+                            <input size={Math.max(nomeAtual.length, 6)} placeholder="Nome da embarcação" value={nomeAtual}
+                              onChange={(e) => setNomesEmbarcacaoEditados({ ...nomesEmbarcacaoEditados, [emb.id]: e.target.value })} />
+                            <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
+                              onClick={() => salvarEdicaoEmbarcacao(emb)}>
+                              {salvandoEdicaoEmbarcacaoId === emb.id ? 'Salvando...' : 'Salvar'}
+                            </button>
+                          </div>
                           <input style={{ width: 130 }} placeholder="Nº de inscrição" value={registroAtual}
                             onChange={(e) => setRegistrosEmbarcacaoEditados({ ...registrosEmbarcacaoEditados, [emb.id]: e.target.value })} />
-                          <button type="button" className="voltar" disabled={!alterado || salvandoEdicaoEmbarcacaoId === emb.id}
-                            onClick={() => salvarEdicaoEmbarcacao(emb)}>
-                            {salvandoEdicaoEmbarcacaoId === emb.id ? 'Salvando...' : 'Salvar'}
-                          </button>
-                          <button type="button" className="voltar" disabled={salvandoEdicaoEmbarcacaoId === emb.id}
+                          <button type="button" className="voltar" style={{ alignSelf: 'flex-start' }} disabled={salvandoEdicaoEmbarcacaoId === emb.id}
                             onClick={() => removerEmbarcacaoInline(emb)}>
-                            - Embarcação
+                            Remover embarcação
                           </button>
                         </div>
                       )
                     })}
-                    {/* "+ Embarcação"/"- Embarcação" ficam aqui, junto da
-                        lista — o botão que existia lá embaixo, ao lado de
+                    {/* "+ Embarcação"/"Remover embarcação" ficam aqui, junto
+                        da lista — o botão que existia lá embaixo, ao lado de
                         "Remover cliente", saiu por ser redundante com este.
                         A exclusão tem botão próprio (removerEmbarcacaoInline);
                         apagar o nome e Salvar continua excluindo também, como
