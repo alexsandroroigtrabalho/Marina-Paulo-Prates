@@ -21,6 +21,7 @@ import {
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 import NovoPedidoAbastecimentoModal from './NovoPedidoAbastecimentoModal'
+import NovoAgendamentoModal from './NovoAgendamentoModal'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -141,6 +142,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Registro manual de pedido de combustível (botão "+" da planilha de
   // solicitações) — ver NovoPedidoAbastecimentoModal.jsx.
   const [modalNovoPedidoAberto, setModalNovoPedidoAberto] = useState(false)
+  // Registro manual de descida/subida (botão "+" da Fila de Rampa) — mesmo
+  // padrão do botão acima, ver NovoAgendamentoModal.jsx.
+  const [modalNovoAgendamentoAberto, setModalNovoAgendamentoAberto] = useState(false)
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [localizacaoClima, setLocalizacaoClima] = useState(null)
@@ -848,7 +852,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         )}
       </div>
 
-      <h2>Rampa</h2>
+      <div className="painel-titulo-com-acao">
+        <h2>Rampa</h2>
+        <button
+          type="button"
+          className="botao-inserir-pedido"
+          title="Registrar nova descida/subida"
+          onClick={() => setModalNovoAgendamentoAberto(true)}
+        >
+          <IconPlus size={18} stroke={1.75} />
+        </button>
+      </div>
 
       <div className="tabela-scroll">
       <table className="tabela tabela-fila">
@@ -1001,6 +1015,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       <NovoPedidoAbastecimentoModal
         aberto={modalNovoPedidoAberto}
         onFechar={() => setModalNovoPedidoAberto(false)}
+        marinaId={marinaId}
+        onCriado={carregar}
+      />
+
+      <NovoAgendamentoModal
+        aberto={modalNovoAgendamentoAberto}
+        onFechar={() => setModalNovoAgendamentoAberto(false)}
         marinaId={marinaId}
         onCriado={carregar}
       />
