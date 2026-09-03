@@ -491,12 +491,28 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Agora: a ausência de documentos cadastrados, sozinha, não derruba mais o
   // status — só conta como Pendente se a CHA estiver vencida/não cadastrada,
   // ou se algum documento da embarcação já tiver validade vencida.
+  //
+  // Retorna também `motivo`, um texto pronto pra virar tooltip (atributo
+  // `title`) no selo — a pedido, pra dar pra ver ao passar o mouse qual
+  // documento específico está pendente, em vez de só "Pendente" sem
+  // explicação nenhuma.
   function statusDocumentacao(a) {
     const docs = documentos.filter((d) => d.embarcacao_id === a.embarcacao_id)
-    const temDocVencido = docs.some((d) => d.data_validade && new Date(d.data_validade) < agora)
+    const docsVencidos = docs.filter((d) => d.data_validade && new Date(d.data_validade) < agora)
     const chaValidade = a.clientes?.cha_validade
-    const chaVencidaOuAusente = !chaValidade || new Date(`${chaValidade}T00:00:00`) < agora
-    return (temDocVencido || chaVencidaOuAusente) ? 'pendente' : 'regular'
+    const chaVencida = chaValidade && new Date(`${chaValidade}T00:00:00`) < agora
+
+    const motivos = []
+    if (!chaValidade) motivos.push('CHA do cliente não cadastrada')
+    else if (chaVencida) motivos.push(`CHA do cliente vencida em ${new Date(`${chaValidade}T00:00:00`).toLocaleDateString('pt-BR')}`)
+    docsVencidos.forEach((d) => {
+      motivos.push(`${(d.tipo || 'Documento').replace(/_/g, ' ')} da embarcação vencido em ${new Date(d.data_validade).toLocaleDateString('pt-BR')}`)
+    })
+
+    return {
+      classe: motivos.length > 0 ? 'pendente' : 'regular',
+      motivo: motivos.length > 0 ? motivos.join(' · ') : 'Documentação em dia',
+    }
   }
 
   // Os apitos (descida/retorno/S.O.S./cancelamento de S.O.S.) não tocam mais
@@ -581,7 +597,7 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{formatarDataHora(a.data_hora)}</td>
-        <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
+        <td><span className={`badge status-${doc.classe}`} title={doc.motivo}>{doc.classe === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td><span className={`badge status-${classeNatureza}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span></td>
         <td className="col-acoes">
           <div className="fila-tabela-acoes">
