@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao } from '../lib/db'
 import { statusAcessoCliente } from '../lib/statusPagamento'
 import { maskCpf, maskTelefone } from '../lib/mascaras'
+import EditarClienteModal from './EditarClienteModal'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
@@ -27,6 +28,10 @@ export default function TelaClientes({ marinaId }) {
   const [formEmbarcacaoExtra, setFormEmbarcacaoExtra] = useState({ ...EMBARCACAO_VAZIA })
   const [salvandoExtra, setSalvandoExtra] = useState(false)
   const [removendoId, setRemovendoId] = useState(null)
+  // Cliente aberto no modal de edição (EditarClienteModal.jsx) — null quando
+  // fechado. Guarda o registro inteiro (não só o id) pra pré-preencher o
+  // form sem precisar buscar de novo em `clientes`.
+  const [clienteEditando, setClienteEditando] = useState(null)
   // A mensalidade configurada (marinas.config_json.valorMensalidade) não é
   // mais lida aqui: a cobrança passou para o RV Finance. A configuração
   // continua existindo no banco, só deixou de aparecer nesta tela — por isso
@@ -238,6 +243,9 @@ export default function TelaClientes({ marinaId }) {
                   </div>
 
                   <div className="cliente-card-acoes">
+                    <button type="button" className="botao-secundario" onClick={() => setClienteEditando(c)}>
+                      Editar
+                    </button>
                     <button type="button" className="botao-secundario" onClick={() => alternarSuspensao(c)}>
                       {c.acesso_suspenso ? 'Reativar acesso' : 'Suspender acesso'}
                     </button>
@@ -313,6 +321,12 @@ export default function TelaClientes({ marinaId }) {
           <button type="submit" disabled={salvando}>{salvando ? 'Salvando...' : '+ Adicionar cliente'}</button>
         </form>
       )}
+
+      <EditarClienteModal
+        cliente={clienteEditando}
+        onFechar={() => setClienteEditando(null)}
+        onSalvo={carregar}
+      />
     </div>
   )
 }
