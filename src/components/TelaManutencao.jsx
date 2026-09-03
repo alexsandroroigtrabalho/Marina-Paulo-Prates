@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { listarOrdensServico, criarOrdemServico, atualizarStatusOS, listarEmbarcacoes, listarClientes } from '../lib/db'
 import { STATUS_MANUTENCAO, labelStatusManutencao } from '../lib/statusManutencao'
 
@@ -18,6 +19,25 @@ export default function TelaManutencao({ marinaId }) {
   }
 
   useEffect(() => { carregar() }, [marinaId])
+
+  // Esta tela não tinha nenhuma atualização automática — nem realtime, nem
+  // o polling de 10s que outras telas do painel usam como rede de segurança
+  // (ver TelaVagas.jsx). Resultado: uma ordem de serviço pedida pelo cliente
+  // no Diário de Bordo (Manutenção) só aparecia aqui depois de sair e voltar
+  // desta tela. Mesmo padrão das demais (ver TelaClientes.jsx): ordens_
+  // servico pra pegar pedidos/mudanças de status na hora; embarcacoes e
+  // clientes pra manter os <select> do formulário acima e os nomes já
+  // exibidos na tabela em dia sem precisar recarregar a tela.
+  useEffect(() => {
+    if (!marinaId) return
+    const canal = supabase
+      .channel(`manutencao-${marinaId}-status`)
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'ordens_servico', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'embarcacoes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'clientes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .subscribe()
+    return () => { supabase.removeChannel(canal) }
+  }, [marinaId])
 
   async function nova(e) {
     e.preventDefault()

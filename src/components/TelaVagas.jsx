@@ -314,12 +314,21 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // pedidos_abastecimento entra no mesmo canal: um pedido feito pelo cliente
   // aparece na planilha na hora, sem esperar o ciclo de 10s — que é o que
   // importa aqui, já que a equipe tem 15 minutos para decidir.
+  //
+  // embarcacoes e clientes entraram depois: sem eles, um nome de embarcação
+  // corrigido, uma embarcação excluída (ver removerEmbarcacao) ou uma CHA
+  // atualizada só refletiam aqui no próximo ciclo do polling de 10s (não
+  // instantâneo como prometido pelo pedido de sincronização bidirecional
+  // Admin ↔ Diário de Bordo — ver migration_cha_validade.sql) — o polling
+  // ainda cobria isso como rede de segurança, mas com atraso.
   useEffect(() => {
     if (!marinaId) return
     const canal = supabase
       .channel(`vagas-${marinaId}-agendamentos`)
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'agendamentos', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'embarcacoes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'clientes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [marinaId])
