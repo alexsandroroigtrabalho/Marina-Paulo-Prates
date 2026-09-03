@@ -539,6 +539,15 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'laudos', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'clientes', filter: `id=eq.${idCliente}` }, () => carregar())
+      // Embarcação cadastrada/corrigida pela administração direto no Painel
+      // de Controle (TelaClientes.jsx) — sincronização bidirecional: antes
+      // só uma alteração feita pelo PRÓPRIO cliente (adicionarEmbarcacao,
+      // acima) atualizava a tela na hora; uma edição vinda do admin só
+      // aparecia depois de um F5. cha_validade não trafega por aqui: mora só
+      // em `clientes`, e mesmo lá é ocultada desta tela de propósito (ver
+      // migration_cha_validade.sql) — não tem exposição correspondente em
+      // `embarcacoes`.
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'embarcacoes', filter: `cliente_id=eq.${idCliente}` }, () => carregar())
       // Agenda da rampa alterada pela administração (horário, intervalo,
       // manutenções, mensagens) — reflete aqui na hora, sem F5.
       .on('postgres_changes', { event: 'UPDATE', schema: 'marina', table: 'marinas', filter: `id=eq.${cliente.marina_id}` }, () => carregar())

@@ -21,7 +21,14 @@ import { maskCpf, maskTelefone } from '../lib/mascaras'
 // propósito — continuam com seus próprios controles dedicados no card do
 // cliente (botão "Suspender/Reativar acesso" etc.), pra não duplicar ação em
 // dois lugares.
-const CAMPOS_VAZIOS = { nome: '', email: '', telefone: '', cpf_cnpj: '', documento_identidade: '', endereco: '', observacoes: '' }
+// cha_validade entra aqui de propósito (diferente dos campos administrativos
+// que ficam de fora, ver comentário acima): é dado cadastral do cliente, só
+// que de acesso exclusivo do administrador — nem aparece nem pode ser
+// alterado por "Minha conta" (o trigger protege_campos_admin_clientes
+// reverte qualquer tentativa vinda de quem não é staff — ver
+// migration_cha_validade.sql). Alimenta o selo "Documentação" (REGULAR/
+// VENCIDO) no card do cliente em TelaClientes.jsx.
+const CAMPOS_VAZIOS = { nome: '', email: '', telefone: '', cpf_cnpj: '', documento_identidade: '', cha_validade: '', endereco: '', observacoes: '' }
 
 export default function EditarClienteModal({ cliente, onFechar, onSalvo }) {
   const [form, setForm] = useState(CAMPOS_VAZIOS)
@@ -39,6 +46,7 @@ export default function EditarClienteModal({ cliente, onFechar, onSalvo }) {
       telefone: cliente.telefone || '',
       cpf_cnpj: cliente.cpf_cnpj || '',
       documento_identidade: cliente.documento_identidade || '',
+      cha_validade: cliente.cha_validade || '',
       endereco: cliente.endereco || '',
       observacoes: cliente.observacoes || '',
     })
@@ -97,6 +105,11 @@ export default function EditarClienteModal({ cliente, onFechar, onSalvo }) {
             Nº da Carteira de Habilitação de Amador (CHA)
             <input value={form.documento_identidade}
               onChange={(e) => setForm({ ...form, documento_identidade: e.target.value })} />
+          </label>
+          <label>
+            Data de validade da CHA
+            <input type="date" value={form.cha_validade}
+              onChange={(e) => setForm({ ...form, cha_validade: e.target.value })} />
           </label>
           <label>
             Endereço completo

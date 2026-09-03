@@ -10,7 +10,25 @@ import EditarClienteModal from './EditarClienteModal'
 
 const TIPOS_EMBARCACAO = ['Barco', 'Veleiro', 'Jet Ski', 'Iate']
 const EMBARCACAO_VAZIA = { tipo: 'Barco', nome: '', registro: '', comprimento_m: '' }
-const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', documento_identidade: '', endereco: '', observacoes: '' }
+const CLIENTE_VAZIO = { nome: '', email: '', telefone: '', cpf_cnpj: '', documento_identidade: '', cha_validade: '', endereco: '', observacoes: '' }
+
+// Documentação (CHA) — indicador automático no card do cliente, exclusivo
+// do Painel do Administrador (ver migration_cha_validade.sql: cha_validade
+// só pode ser lida/alterada por aqui; some do Diário de Bordo e da visão do
+// cliente de propósito, então esta função e o campo que ela lê não têm
+// equivalente em TelaClienteDashboard.jsx). Compara só a DATA (meio-dia
+// local, sem hora) — "T00:00:00" evita o fuso tratar a string "AAAA-MM-DD"
+// (sem indicação de fuso) como UTC e adiantar/atrasar um dia perto da
+// virada, mesmo cuidado já usado com datetime-local em outras telas.
+function statusChaCliente(cliente) {
+  if (!cliente.cha_validade) return { texto: 'CHA não cadastrada', classe: 'cha-sem-dado' }
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const validade = new Date(`${cliente.cha_validade}T00:00:00`)
+  return validade >= hoje
+    ? { texto: 'REGULAR', classe: 'cha-regular' }
+    : { texto: 'VENCIDO', classe: 'cha-vencido' }
+}
 
 export default function TelaClientes({ marinaId }) {
   const [clientes, setClientes] = useState([])
@@ -55,6 +73,13 @@ export default function TelaClientes({ marinaId }) {
     const canal = supabase
       .channel(`clientes-${marinaId}-status`)
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'clientes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      // Embarcação cadastrada/editada pelo próprio cliente direto no Diário
+      // de Bordo (TelaClienteDashboard.jsx → "Minha conta" → Embarcações)
+      // também precisa aparecer aqui sem F5 — sincronização bidirecional:
+      // ver migration_cha_validade.sql / comentário no App sobre o pedido
+      // "Admin ↔ Diário de Bordo". Antes desta linha só a tabela `clientes`
+      // era ouvida; embarcações novas só apareciam depois de recarregar.
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'embarcacoes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [marinaId])
@@ -215,6 +240,7 @@ export default function TelaClientes({ marinaId }) {
           <div className="lista-cards">
             {clientes.map((c, i) => {
               const acesso = statusAcessoCliente(c)
+              const documentacao = statusChaCliente(c)
               return (
                 <div key={c.id} className="cliente-card">
                   <div className="cabecalho-cliente">
@@ -231,6 +257,10 @@ export default function TelaClientes({ marinaId }) {
                   <div className="linha">
                     <b>Embarcações:</b> {embarcacoesDoCliente(c.id).map((e) => e.nome).join(' · ') || '—'}
                   </div>
+                  {/* Validade da CHA e o selo "Documentação" abaixo são
+                      exclusivos deste painel — não aparecem em "Minha conta"
+                      nem no Diário de Bordo (ver migration_cha_validade.sql). */}
+                  <div className="linha"><b>Validade da CHA:</b> {c.cha_validade ? new Date(`${c.cha_validade}T00:00:00`).toLocaleDateString('pt-BR') : '—'}</div>
 
                   <div className="linha" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 16px', marginTop: 8 }}>
                     <span className={`status-texto ${c.cadastro_confirmado ? 'em-dia' : 'pendente'}`}>Cadastro: {c.cadastro_confirmado ? 'Realizado' : 'Pendente'}</span>
@@ -240,6 +270,7 @@ export default function TelaClientes({ marinaId }) {
                         seguem no banco, só não são mais mostradas nem editadas
                         nesta tela. */}
                     <span className={`status-texto ${acesso.classe}`}>Acesso à Agenda: {acesso.texto}</span>
+                    <span className={`badge status-${documentacao.classe}`}>Documentação: {documentacao.texto}</span>
                   </div>
 
                   <div className="cliente-card-acoes">
@@ -290,6 +321,11 @@ export default function TelaClientes({ marinaId }) {
             onChange={(e) => setFormCliente({ ...formCliente, cpf_cnpj: maskCpf(e.target.value) })} />
           <input placeholder="Nº da Carteira de Habilitação de Amador (CHA)" value={formCliente.documento_identidade}
             onChange={(e) => setFormCliente({ ...formCliente, documento_identidade: e.target.value })} />
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--cor-primaria)', fontWeight: 600 }}>
+            Data de validade da CHA
+            <input type="date" style={{ fontWeight: 400 }} value={formCliente.cha_validade}
+              onChange={(e) => setFormCliente({ ...formCliente, cha_validade: e.target.value })} />
+          </label>
           <input placeholder="Endereço completo" value={formCliente.endereco}
             onChange={(e) => setFormCliente({ ...formCliente, endereco: e.target.value })} />
           <input placeholder="Observações (opcional)" value={formCliente.observacoes}
