@@ -751,7 +751,7 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
   function cadastroRvMarineOk() {
     const faltando = faltandoParaRvMarine(cliente, embarcacoes)
     if (faltando.length === 0) return true
-    mostrarAviso(`Para utilizar este serviço, complete os dados da sua conta: ${faltando.join(' e ')}.`)
+    mostrarAviso(`Para utilizar este serviço, complete os dados da sua conta: ${faltando.join(' e ')}. Toque no ícone de engrenagem (⚙) no topo da tela e escolha "Minha conta".`, 7000)
     return false
   }
 
@@ -864,10 +864,10 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
   // botão fica sempre clicável e a explicação aparece só no momento em que
   // faz falta. `avisoRef` guarda o timer pra um segundo clique reiniciar a
   // contagem em vez de acumular timers.
-  function mostrarAviso(texto) {
+  function mostrarAviso(texto, duracaoMs = 4000) {
     if (avisoRef.current) clearTimeout(avisoRef.current)
     setAviso(texto)
-    avisoRef.current = setTimeout(() => setAviso(null), 4000)
+    avisoRef.current = setTimeout(() => setAviso(null), duracaoMs)
   }
 
   useEffect(() => () => { if (avisoRef.current) clearTimeout(avisoRef.current) }, [])

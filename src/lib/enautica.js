@@ -34,15 +34,25 @@ export function labelHabilitacao(chave) {
 // de Residência, Atestado de Treinamento, Procuração — mesmos modelos do
 // rsnautica antigo) precisam. É essa lista que decide o que o formulário de
 // matrícula pergunta: só o que ainda estiver vazio no cadastro do cliente.
+// numero_casa/complemento/data_emissao_rg entraram depois (varredura de
+// integração de 03/09/2026): os documentos (enauticaDocumentos.js/
+// dadosAluno) já liam cliente.numero_casa/complemento/data_emissao_rg, mas
+// nenhum formulário do e-Náutica perguntava esses 3 — numa escola que só
+// contrata o e-Náutica (sem o RV Marine, cujo "Minha conta" também pede
+// numero_casa/complemento), esses campos ficavam pra sempre em branco nos
+// documentos gerados, sem nenhum jeito de o aluno preencher.
 export const CAMPOS_DOCUMENTO = [
   { chave: 'data_nascimento', label: 'Data de nascimento', tipo: 'date' },
   { chave: 'rg', label: 'RG', tipo: 'text' },
+  { chave: 'data_emissao_rg', label: 'Data de emissão do RG', tipo: 'date' },
   { chave: 'orgao_expedidor', label: 'Órgão expedidor do RG', tipo: 'text' },
   { chave: 'naturalidade', label: 'Naturalidade (cidade onde nasceu)', tipo: 'text' },
   { chave: 'nacionalidade', label: 'Nacionalidade', tipo: 'text' },
   { chave: 'telefone', label: 'Telefone', tipo: 'text' },
   { chave: 'cep', label: 'CEP', tipo: 'text' },
   { chave: 'rua', label: 'Rua', tipo: 'text' },
+  { chave: 'numero_casa', label: 'Número', tipo: 'text' },
+  { chave: 'complemento', label: 'Complemento', tipo: 'text' },
   { chave: 'bairro', label: 'Bairro', tipo: 'text' },
   { chave: 'cidade', label: 'Cidade', tipo: 'text' },
   { chave: 'uf', label: 'UF', tipo: 'text' },
@@ -343,10 +353,14 @@ export async function emitirCertificado({ marinaId, clienteId, habilitacao }) {
     marina_id: marinaId, cliente_id: clienteId, habilitacao, status: 'disponível',
   })
   if (error) throw error
+  // Mensagem sem citar "Meus certificados" — essa aba foi removida do
+  // aluno (varredura de integração de 03/09/2026): o acompanhamento do
+  // certificado passou a ser só da escola, então o aviso agora só confirma
+  // que o certificado saiu, sem apontar pra uma tela que não existe mais.
   await criarNotificacao({
     marinaId, clienteId, tipo: 'certificado',
     titulo: 'Certificado emitido',
-    mensagem: `Seu certificado de ${labelHabilitacao(habilitacao)} já está disponível em "Meus certificados".`,
+    mensagem: `Seu certificado de ${labelHabilitacao(habilitacao)} foi emitido pela escola.`,
   })
 }
 
