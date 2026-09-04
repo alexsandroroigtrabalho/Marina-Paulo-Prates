@@ -562,7 +562,18 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
           abaixo): evita pedido duplicado enquanto o anterior ainda está em
           análise. */}
       {aba === 'inicio' && cliente && matricula?.status !== 'pendente' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        // Classe (não mais gap:12 inline) só pra dar suporte a um respiro
+        // menor no mobile — ver ".enautica-opcoes-matricula" no index.css:
+        // com a barra de endereço do navegador visível, o espaço realmente
+        // livre embaixo da barra de abas fica bem mais curto do que a tela
+        // inteira, e o botão "Habilitação Completa" (o último dos três)
+        // acabava com só a borda de cima visível, empurrado por baixo da
+        // dobra. Não dá pra genuinamente ELIMINAR a rolagem aqui (são 3
+        // botões com conteúdo de verdade, não ícones pequenos como na grade
+        // de aplicações), mas encolher a altura de cada um deixa o
+        // "Habilitação Completa" visível sem rolar em bem mais aparelhos.
+        <div className="enautica-opcoes-matricula">
+
           {matricula?.status === 'recusada' && (
             <p className="status-texto cancelado">
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.

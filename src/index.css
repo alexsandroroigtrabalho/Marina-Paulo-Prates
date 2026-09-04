@@ -296,6 +296,15 @@ body {
    presença de marca em todo o sistema, no mesmo tamanho. Antes esta avançava
    sobre o padding do painel e ficava bem maior que a das outras páginas. */
 .pagina-cliente-logo { display: block; width: min(332px, 86vw); height: auto; margin: 0 auto 14px; }
+/* Menor no mobile (RV Marine e e-Náutica, os dois usam esta classe) —
+   liberado espaço vertical de verdade: com a barra de endereço do
+   navegador visível, o "topo" da tela (logo + cabeçalho + abas) sozinho já
+   consumia boa parte do espaço realmente visível, empurrando conteúdo de
+   baixo (ex.: o 3º botão de habilitação no e-Náutica, "Habilitação
+   Completa") pra fora da dobra. */
+@media (max-width: 480px) {
+  .pagina-cliente-logo { width: min(200px, 58vw); margin: 0 auto 8px; }
+}
 .pagina-cliente-rodape {
   display: block;
   margin: 28px 0 4px;
@@ -817,33 +826,54 @@ body {
   gap: 12px;
   width: min(420px, 92vw);
 }
-/* Breakpoint subiu de 380px pra 480px: cobria só telas bem estreitas (tipo
-   iPhone SE, 375px) e deixava a maioria dos celulares comuns (390-412px)
-   ainda em 2 colunas — cada cartão ficava com uns 170px de largura, apertado
-   pro ícone + nome (às vezes 2 linhas, ex. "RV NAUTDOC") + descrição junto.
-   Com 480px praticamente todo celular cai numa coluna só: cartões mais
-   largos e confortáveis de ler/tocar, ao custo de uma lista um pouco mais
-   alta (já rola normalmente, o rodapé continua fixo). */
+/* Já teve uma versão em coluna única aqui (breakpoint 480px) — trocada de
+   volta a pedido do Alex: no celular ele quer as 7 aplicações SEMPRE em 2
+   colunas (nunca 1), e a lista inteira visível de uma vez, sem precisar
+   rolar. Coluna única deixava a lista alta demais pra caber sem rolagem;
+   a solução agora é encolher a largura/respiro de cada cartão o
+   suficiente pra 4 linhas (3 pares + o RV Finance sozinho, centralizado —
+   ver ":last-child:nth-child(odd)" abaixo) caberem inteiras entre a logo e
+   o rodapé fixo. Os valores usam vh (altura da tela) além de px fixo, pra
+   encolher ainda mais em telas baixas (ex.: iPhone SE) sem precisar de uma
+   segunda faixa de @media só pra altura. */
 @media (max-width: 480px) {
-  .selecao-apps { grid-template-columns: 1fr; width: min(320px, 88vw); gap: 10px; }
-  /* Coluna única = grade bem mais alta (7 linhas em vez de 4) — o truque de
-     centralizar ".selecao-apps-meio" com padding-bottom (sem padding-top),
-     que "puxa" a grade pra cima em direção à logo (ver comentário acima da
-     regra base), só funciona enquanto a grade cabe com folga no espaço
-     livre. Com 7 linhas ela passou a ficar mais alta que esse espaço, e o
-     "puxão pra cima" empurrava o primeiro cartão por cima da logo —
-     sobreposição real reportada pelo Alex ("os botões... sobre escritos").
-     Em telas estreitas troca pra alinhamento normal no topo (sem puxar pra
-     cima, sem centralizar verticalmente): a grade nasce logo abaixo da
-     logo, com um respiro fixo pequeno, e cresce pra baixo — nunca mais para
-     cima em cima da logo, seja qual for a altura da lista. */
+  .selecao-apps { width: min(360px, 94vw); gap: clamp(5px, 1.6vh, 10px); }
+  /* Mesmo motivo do comentário acima de ".selecao-apps-meio": com 4 linhas
+     (mesmo só 4, não mais 7) o "puxão pra cima" (padding-bottom sem
+     padding-top, ver regra base) ainda podia render a lista mais alta que
+     o espaço livre em telas bem baixas e encostar na logo. Alinhamento
+     normal no topo, com respiro pequeno e flexível (clamp), evita esse
+     risco em qualquer altura. */
   .selecao-apps-meio {
     align-items: flex-start;
     justify-content: flex-start;
-    padding-top: 12px;
-    padding-bottom: 24px;
+    padding-top: clamp(4px, 1.5vh, 14px);
+    padding-bottom: clamp(4px, 1.5vh, 16px);
   }
-  .selecao-apps .selecao-app-item { padding: 16px 12px 14px; }
+  /* Logo mais compacta SÓ nesta tela (".tela-selecao-apps", não afeta
+     login/cadastro) — libera altura extra pra grade em telas baixas, já
+     que aqui a logo divide espaço com uma lista de 7 itens, diferente das
+     outras telas com ".login-rv-logo" que só têm um card de formulário
+     embaixo. Piso um pouco menor (54vw ainda, mas floor de 175px) — o
+     valor original (210px) sozinho não deixava sobra suficiente em
+     aparelhos baixos (iPhone SE, 667px de altura) pras 4 linhas caberem
+     sem rolar, mesmo já com os cartões encolhidos abaixo. */
+  .tela-selecao-apps .login-rv-logo { width: min(175px, 50vw); margin-top: 0; }
+  .selecao-apps .selecao-app-item {
+    padding: clamp(8px, 2.6vh, 18px) 8px clamp(6px, 2vh, 14px);
+    gap: clamp(2px, 0.8vh, 6px);
+  }
+  .selecao-app-item-icone {
+    width: clamp(24px, 8vh, 40px);
+    height: clamp(24px, 8vh, 40px);
+  }
+  /* Tabler icons desenham o SVG com width/height fixos (via a prop `size`
+     no JSX) — atributo de apresentação, então uma regra CSS (mesmo sem
+     !important) já vence e redimensiona de verdade, acompanhando o selo
+     que encolheu acima. */
+  .selecao-app-item-icone svg { width: clamp(14px, 4vh, 20px); height: clamp(14px, 4vh, 20px); }
+  .selecao-app-item-nome { font-size: clamp(9.5px, 3vw, 12.5px); }
+  .selecao-app-item-desc { font-size: clamp(7.2px, 2.2vw, 10px); line-height: 1.15; }
 }
 /* :nth-child(odd) garante que isso só se aplique quando sobra mesmo um
    item ímpar sozinho na última linha (hoje: 7 aplicações) — se um dia
@@ -853,9 +883,6 @@ body {
   grid-column: 1 / -1;
   width: calc(50% - 6px);
   margin: 0 auto;
-}
-@media (max-width: 480px) {
-  .selecao-apps .selecao-app-item:last-child:nth-child(odd) { width: 100%; }
 }
 /* Cartão em coluna (ícone em cima, nome, descrição embaixo) — não em linha
    como um item de menu — porque numa grade 2x4 o formato "quase quadrado"
@@ -1637,6 +1664,12 @@ button.badge:hover { filter: brightness(0.95); }
   background: #fff; border: 1.5px solid var(--cor-secundaria-clara); color: var(--cor-primaria);
 }
 
+/* Lista dos 3 botões de habilitação (Arrais/Motonauta/Habilitação Completa)
+   na aba "Matrícula" — era gap:12 inline no JSX; virou classe só pra poder
+   encolher esse respiro no mobile (ver @media abaixo) sem tocar em mais
+   nada da estrutura. */
+.enautica-opcoes-matricula { display: flex; flex-direction: column; gap: 12px; }
+
 /* ---------- RV e-Náutica: botões de habilitação (tela de matrícula) ----------
    Arrais-Amador e Motonauta seguem a mesma linguagem do botão "Subida" do
    RV Marine (.painel-cliente-btn-outline): fundo branco, contorno dourado
@@ -1735,7 +1768,23 @@ button.badge:hover { filter: brightness(0.95); }
     --enautica-largura-foto: 50%;
     padding-right: calc(var(--enautica-largura-foto) + 10px);
   }
-  .enautica-botao-habilitacao { font-size: 12px; padding-top: 15px; padding-bottom: 15px; padding-left: 16px; }
+  .enautica-botao-habilitacao { font-size: 12px; padding-top: 15px; padding-bottom: 15px; padding-left: 16px; min-height: 72px; }
+  .enautica-botao-habilitacao--ambas { min-height: 48px; }
+  /* Mesmo motivo dos ajustes acima: 38px de respiro abaixo da barra de
+     abas é generoso demais quando a barra de endereço do navegador já
+     está tomando espaço vertical de verdade. */
+  .abas-enautica { margin-bottom: 22px; }
+  /* Respiro entre os 3 botões (Arrais/Motonauta/Habilitação Completa) e a
+     borda do card mais enxutos no mobile: com a barra de endereço do
+     navegador visível, o espaço realmente livre embaixo da barra de abas
+     é bem menor que a tela inteira, e o card do e-Náutica tem
+     padding:24px 24px 68px (reservado pro rodapé fixo) somando ainda mais
+     altura fixa. Encolher gap/min-height aqui é o que sobra pra controlar
+     — não dá pra genuinamente eliminar a rolagem numa lista com 3 botões
+     de conteúdo de verdade (diferente da grade de ícones da tela de
+     aplicações), mas isso deixa "Habilitação Completa" visível sem rolar
+     em bem mais aparelhos/orientações de barra do navegador. */
+  .enautica-opcoes-matricula { gap: 8px; }
 }
 .enautica-botao-habilitacao--arrais::after,
 .enautica-botao-habilitacao--motonauta::after {
