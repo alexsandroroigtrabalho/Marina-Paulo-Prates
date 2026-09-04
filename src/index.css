@@ -1370,6 +1370,33 @@ button.badge:hover { filter: brightness(0.95); }
   background: transparent; color: #A23B2E; border: 1px solid rgba(162,59,46,0.35);
 }
 .cliente-card-acoes .botao-secundario.perigo:hover { background: rgba(162,59,46,0.06); }
+
+/* "Sua CHA chega pelo Gov.br" (último passo da Trilha da Habilitação,
+   TelaClienteENautica.jsx) — o mesmo fundo azul-petróleo com trama de
+   losangos dourados do manual de marca ("padrão gráfico auxiliar",
+   combinação preferencial "fundo escuro + dourado"), já usado nas telas de
+   entrada e nos painéis do cliente do RV Marine (ver
+   ".painel-cliente .modal-card" mais abaixo) — aqui aplicado direto num
+   .cliente-card comum (não um modal), só pra destacar o destino final da
+   trilha dos passos intermediários, sem inventar nenhuma cor nova. */
+/* Seletor qualificado com ".painel-cliente" de propósito: a regra mais
+   abaixo (".painel-cliente .cliente-card { border: 1px solid
+   var(--dourado-texto) }") tem a MESMA especificidade de ".cliente-card
+   .cliente-card--marca" sozinha e vem depois no arquivo — empataria e
+   sobrescreveria a borda customizada aqui (mesmo bug de especificidade já
+   visto na navegação, ver .abas-enautica acima). */
+.painel-cliente .cliente-card.cliente-card--marca {
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 420px 260px at 50% -20%, rgba(212,175,55,0.16), transparent 62%),
+    repeating-linear-gradient(45deg, rgba(212,175,55,0.06) 0, rgba(212,175,55,0.06) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(-45deg, rgba(212,175,55,0.06) 0, rgba(212,175,55,0.06) 1px, transparent 1px, transparent 40px);
+  border-color: rgba(212,175,55,0.4);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.28);
+}
+.cliente-card.cliente-card--marca .nome { font-family: 'Cinzel', serif; color: #D4AF37; font-size: 15px; }
+.cliente-card.cliente-card--marca .dica { color: rgba(245,245,240,0.65); }
+.cliente-card.cliente-card--marca .linha { color: #F5F5F0; }
 .status-texto { font-size: 13px; font-weight: 600; }
 .status-texto.em-dia { color: var(--cor-secundaria); }
 .status-texto.pendente { color: var(--cor-alerta); }
