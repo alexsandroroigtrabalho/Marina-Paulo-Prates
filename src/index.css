@@ -1950,6 +1950,17 @@ button.badge:hover { filter: brightness(0.95); }
   color: rgba(245,245,240,0.85);
   font-family: 'Montserrat', sans-serif;
   font-size: 13px;
+  /* A regra ".painel-cliente .modal-card label" (acima) força TODO <label>
+     dentro de um modal pra column (rótulo em cima do campo de texto) — mas
+     ".opcao-checkbox" é um <label> de um tipo diferente (checkbox + frase ao
+     lado, não rótulo + campo embaixo) e tem a MESMA especificidade (2
+     classes + elemento implícito nenhum vs. 1 classe... na prática
+     ".modal-card label" tem 2 classes+elemento, ".opcao-checkbox" só 1
+     classe — perde e herda "flex-direction:column", jogando o texto pra
+     baixo da caixinha). Repetido aqui, com a MESMA especificidade da regra
+     que definiu column (2 classes), pra garantir que vença por vir depois
+     no arquivo. */
+  display: flex; flex-direction: row; align-items: center; gap: 8px;
 }
 .painel-cliente .modal-card .opcao-checkbox input[type="checkbox"] {
   appearance: none; -webkit-appearance: none;
