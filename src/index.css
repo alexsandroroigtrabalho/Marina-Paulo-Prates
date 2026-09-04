@@ -825,7 +825,25 @@ body {
    largos e confortáveis de ler/tocar, ao custo de uma lista um pouco mais
    alta (já rola normalmente, o rodapé continua fixo). */
 @media (max-width: 480px) {
-  .selecao-apps { grid-template-columns: 1fr; width: min(320px, 88vw); }
+  .selecao-apps { grid-template-columns: 1fr; width: min(320px, 88vw); gap: 10px; }
+  /* Coluna única = grade bem mais alta (7 linhas em vez de 4) — o truque de
+     centralizar ".selecao-apps-meio" com padding-bottom (sem padding-top),
+     que "puxa" a grade pra cima em direção à logo (ver comentário acima da
+     regra base), só funciona enquanto a grade cabe com folga no espaço
+     livre. Com 7 linhas ela passou a ficar mais alta que esse espaço, e o
+     "puxão pra cima" empurrava o primeiro cartão por cima da logo —
+     sobreposição real reportada pelo Alex ("os botões... sobre escritos").
+     Em telas estreitas troca pra alinhamento normal no topo (sem puxar pra
+     cima, sem centralizar verticalmente): a grade nasce logo abaixo da
+     logo, com um respiro fixo pequeno, e cresce pra baixo — nunca mais para
+     cima em cima da logo, seja qual for a altura da lista. */
+  .selecao-apps-meio {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-top: 12px;
+    padding-bottom: 24px;
+  }
+  .selecao-apps .selecao-app-item { padding: 16px 12px 14px; }
 }
 /* :nth-child(odd) garante que isso só se aplique quando sobra mesmo um
    item ímpar sozinho na última linha (hoje: 7 aplicações) — se um dia
