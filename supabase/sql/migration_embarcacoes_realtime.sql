@@ -1,0 +1,11 @@
+-- Correção: a sincronização em tempo real de `embarcacoes` (Admin ↔ Diário
+-- de Bordo, pedido "Sincronização Bidirecional") não funcionava mesmo com os
+-- canais certos assinados nos dois lados (TelaClientes.jsx e
+-- TelaClienteDashboard.jsx) porque a tabela `marina.embarcacoes` nunca tinha
+-- sido adicionada à publicação `supabase_realtime` — sem isso, o Postgres
+-- nem manda o evento pro Realtime, então nenhum `.on('postgres_changes', ...)"
+-- escutando essa tabela dispara, não importa o filtro. `marina.clientes` já
+-- estava na publicação (por isso "Minha conta" já sincronizava); `embarcacoes`
+-- ficou de fora por descuido na hora de implementar os dois recursos
+-- anteriores (Documentação/CHA e exclusão simplificada de embarcação).
+ALTER PUBLICATION supabase_realtime ADD TABLE marina.embarcacoes;

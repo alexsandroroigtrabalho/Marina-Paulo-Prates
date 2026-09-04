@@ -1,0 +1,27 @@
+-- Exclusão "simplificada" de embarcação: apagar o texto do campo Nome e
+-- salvar remove a embarcação da tela (Painel do Administrador → Clientes, e
+-- Diário de Bordo → Minha conta → Embarcações), tanto pelo admin quanto pelo
+-- próprio cliente.
+--
+-- É soft-delete (ativa=false), não DELETE de verdade, de propósito: a tabela
+-- `embarcacoes` é referenciada por agendamentos, pedidos_abastecimento,
+-- laudos, despachos e ordens_servico (várias com embarcacao_id NOT NULL, sem
+-- ON DELETE CASCADE — ver schema.sql), então um DELETE físico falharia com
+-- violação de chave estrangeira assim que a embarcação tivesse qualquer
+-- histórico (praticamente sempre) — exatamente o cenário que
+-- removerClienteComVinculos (lib/db.js) já trata com uma segunda confirmação
+-- explícita, mas que aqui o pedido foi por remoção instantânea, sem diálogo
+-- nenhum. Marcar ativa=false em vez de apagar de fato resolve os dois lados:
+-- some na hora de toda lista/seletor "atual" (listarEmbarcacoes já filtra
+-- ativa=true — ver lib/db.js), e o Histórico de manobras/abastecimento/
+-- laudos/despachos antigos, que ainda referenciam essa embarcação por id,
+-- continuam mostrando o nome dela normalmente (o JOIN embarcacoes(nome)
+-- continua funcionando — a linha só fica invisível nas listagens "de hoje").
+ALTER TABLE marina.embarcacoes ADD COLUMN IF NOT EXISTS ativa BOOLEAN NOT NULL DEFAULT true;
+
+-- Nenhuma policy nova precisa ser criada: "admin_marina_embarcacoes" (FOR
+-- ALL) já cobre o UPDATE do lado do administrador, e
+-- "cliente_edita_propria_embarcacao" (FOR UPDATE, já existente) já cobre o
+-- UPDATE do lado do cliente na própria embarcação — nenhuma das duas
+-- restringe colunas, então marcar ativa=false (ou renomear `nome`) por
+-- qualquer um dos dois caminhos já funciona sem mudança nenhuma de RLS.

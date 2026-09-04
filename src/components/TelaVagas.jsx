@@ -21,6 +21,7 @@ import {
 import { linhasFilaAtivas } from '../lib/filaRampa'
 import ConfiguracoesPainel from './ConfiguracoesPainel'
 import NovoPedidoAbastecimentoModal from './NovoPedidoAbastecimentoModal'
+import NovoAgendamentoModal from './NovoAgendamentoModal'
 
 // Apitos: quantidade padrão de sinais sonoros pra cada tipo de manobra,
 // usada até a marina configurar a própria (Painel de Controle → engrenagem
@@ -141,6 +142,9 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Registro manual de pedido de combustível (botão "+" da planilha de
   // solicitações) — ver NovoPedidoAbastecimentoModal.jsx.
   const [modalNovoPedidoAberto, setModalNovoPedidoAberto] = useState(false)
+  // Registro manual de descida/subida (botão "+" da Fila de Rampa) — mesmo
+  // padrão do botão acima, ver NovoAgendamentoModal.jsx.
+  const [modalNovoAgendamentoAberto, setModalNovoAgendamentoAberto] = useState(false)
   const [agora, setAgora] = useState(new Date())
   const [clima, setClima] = useState(null)
   const [localizacaoClima, setLocalizacaoClima] = useState(null)
@@ -310,12 +314,21 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // pedidos_abastecimento entra no mesmo canal: um pedido feito pelo cliente
   // aparece na planilha na hora, sem esperar o ciclo de 10s — que é o que
   // importa aqui, já que a equipe tem 15 minutos para decidir.
+  //
+  // embarcacoes e clientes entraram depois: sem eles, um nome de embarcação
+  // corrigido, uma embarcação excluída (ver removerEmbarcacao) ou uma CHA
+  // atualizada só refletiam aqui no próximo ciclo do polling de 10s (não
+  // instantâneo como prometido pelo pedido de sincronização bidirecional
+  // Admin ↔ Diário de Bordo — ver migration_cha_validade.sql) — o polling
+  // ainda cobria isso como rede de segurança, mas com atraso.
   useEffect(() => {
     if (!marinaId) return
     const canal = supabase
       .channel(`vagas-${marinaId}-agendamentos`)
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'agendamentos', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'marina', table: 'pedidos_abastecimento', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'embarcacoes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
+      .on('postgres_changes', { event: '*', schema: 'marina', table: 'clientes', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [marinaId])
@@ -469,19 +482,50 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // Vencer o prazo sozinho (ver autoConfirmarVencidos acima) NÃO basta —
   // isso só grava 'confirmado', que ainda não é uma manobra concluída aqui.
   // Não some quando a embarcação volta, como acontece com a tabela
-  // Navegando.
+  // Navegando. Ordena por concluido_em (o horário REAL da confirmação na
+  // rampa) em vez de data_hora (o horário que só foi solicitado) — a mesma
+  // correção do Diário de Bordo (TelaClienteDashboard.jsx): sem isso, uma
+  // manobra confirmada bem depois (ou bem antes) do horário pedido podia
+  // aparecer fora de ordem aqui.
   const historicoManobras = agendamentos
     .filter((a) => a.status === 'concluido')
-    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora))
+    .sort((a, b) => new Date(b.concluido_em || b.data_hora) - new Date(a.concluido_em || a.data_hora))
 
-  // Documentação da embarcação: Regular (nada vencido) ou Pendente (algo
-  // vencido, ou nenhum documento cadastrado ainda) — resumo de 1 palavra pra
-  // caber numa linha só na Fila de Rampa.
-  function statusDocumentacao(embarcacaoId) {
-    const docs = documentos.filter((d) => d.embarcacao_id === embarcacaoId)
-    if (docs.length === 0) return 'pendente'
-    const temVencido = docs.some((d) => d.data_validade && new Date(d.data_validade) < agora)
-    return temVencido ? 'pendente' : 'regular'
+  // Documentação: junta dois sinais — a validade da CHA do cliente (ver
+  // migration_cha_validade.sql / TelaClientes.jsx) e os documentos da
+  // embarcação cadastrados na aba "Documentos" (TIE, seguro, habilitação do
+  // condutor, vistoria — ver TelaDocumentacao.jsx). Antes desta correção
+  // este selo olhava só pra documentos_embarcacao e tratava "nenhum
+  // documento cadastrado" como Pendente; como a aba "Documentos" está
+  // temporariamente desativada (TelaDocumentacao.jsx — clique nela só mostra
+  // "Em construção"), ninguém consegue mais registrar documento nenhum lá, e
+  // todo cliente ficava eternamente "Pendente" aqui mesmo com a CHA em dia —
+  // daí a divergência com o selo "Documentação: REGULAR" da aba Clientes.
+  // Agora: a ausência de documentos cadastrados, sozinha, não derruba mais o
+  // status — só conta como Pendente se a CHA estiver vencida/não cadastrada,
+  // ou se algum documento da embarcação já tiver validade vencida.
+  //
+  // Retorna também `motivo`, um texto pronto pra virar tooltip (atributo
+  // `title`) no selo — a pedido, pra dar pra ver ao passar o mouse qual
+  // documento específico está pendente, em vez de só "Pendente" sem
+  // explicação nenhuma.
+  function statusDocumentacao(a) {
+    const docs = documentos.filter((d) => d.embarcacao_id === a.embarcacao_id)
+    const docsVencidos = docs.filter((d) => d.data_validade && new Date(d.data_validade) < agora)
+    const chaValidade = a.clientes?.cha_validade
+    const chaVencida = chaValidade && new Date(`${chaValidade}T00:00:00`) < agora
+
+    const motivos = []
+    if (!chaValidade) motivos.push('CHA do cliente não cadastrada')
+    else if (chaVencida) motivos.push(`CHA do cliente vencida em ${new Date(`${chaValidade}T00:00:00`).toLocaleDateString('pt-BR')}`)
+    docsVencidos.forEach((d) => {
+      motivos.push(`${(d.tipo || 'Documento').replace(/_/g, ' ')} da embarcação vencido em ${new Date(d.data_validade).toLocaleDateString('pt-BR')}`)
+    })
+
+    return {
+      classe: motivos.length > 0 ? 'pendente' : 'regular',
+      motivo: motivos.length > 0 ? motivos.join(' · ') : 'Documentação em dia',
+    }
   }
 
   // Os apitos (descida/retorno/S.O.S./cancelamento de S.O.S.) não tocam mais
@@ -560,13 +604,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // só esse selo informativo, sem clique nem consequência nenhuma.
   // Responsável é a 1ª coluna agora, alinhada à esquerda.
   function linhaNotificacao(a) {
-    const doc = statusDocumentacao(a.embarcacao_id)
+    const doc = statusDocumentacao(a)
     const classeNatureza = a.tipo === 'retirada' ? 'descida' : 'subida'
     return (
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
         <td>{formatarDataHora(a.data_hora)}</td>
-        <td><span className={`badge status-${doc}`}>{doc === 'regular' ? 'Regular' : 'Pendente'}</span></td>
+        <td><span className={`badge status-${doc.classe}`} title={doc.motivo}>{doc.classe === 'regular' ? 'Regular' : 'Pendente'}</span></td>
         <td><span className={`badge status-${classeNatureza}`}>{TIPO_AGENDAMENTO_LABEL[a.tipo] || a.tipo}</span></td>
         <td className="col-acoes">
           <div className="fila-tabela-acoes">
@@ -664,12 +708,16 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
   // atrasar). Sem a natureza do pedido e sem o indicativo luminoso — isso já
   // fica na Fila de Rampa, antes de sair pra água. Informação de
   // abastecimento não aparece em lugar nenhum do painel: foi pro RV Finance.
+  // "Desde" usa concluido_em (o horário REAL em que a descida foi confirmada
+  // na rampa, gravado por atualizarStatusAgendamento) — não data_hora, que é
+  // só o horário que o cliente pediu ao solicitar e pode ter ficado bem
+  // diferente do que de fato aconteceu (mesma correção do Diário de Bordo).
   function linhaNavegando(a) {
     const status = statusNavegando(a)
     return (
       <tr key={a.id}>
         <td className="col-responsavel"><b>{a.clientes?.nome}</b>{a.embarcacoes?.nome ? ` · ${a.embarcacoes.nome}` : ''}</td>
-        <td>{formatarDataHora(a.data_hora)}</td>
+        <td>{formatarDataHora(a.concluido_em || a.data_hora)}</td>
         <td>{a.previsao_retorno ? formatarDataHora(a.previsao_retorno) : 'Sem previsão informada'}</td>
         <td>
           {a.resgate_status === 'cancelado' && status.classe === 'estou-bem' ? (
@@ -813,7 +861,17 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
         )}
       </div>
 
-      <h2>Rampa</h2>
+      <div className="painel-titulo-com-acao">
+        <h2>Rampa</h2>
+        <button
+          type="button"
+          className="botao-inserir-pedido"
+          title="Registrar nova descida/subida"
+          onClick={() => setModalNovoAgendamentoAberto(true)}
+        >
+          <IconPlus size={18} stroke={1.75} />
+        </button>
+      </div>
 
       <div className="tabela-scroll">
       <table className="tabela tabela-fila">
@@ -966,6 +1024,13 @@ export default function TelaVagas({ marinaId, perfil, onAcoes }) {
       <NovoPedidoAbastecimentoModal
         aberto={modalNovoPedidoAberto}
         onFechar={() => setModalNovoPedidoAberto(false)}
+        marinaId={marinaId}
+        onCriado={carregar}
+      />
+
+      <NovoAgendamentoModal
+        aberto={modalNovoAgendamentoAberto}
+        onFechar={() => setModalNovoAgendamentoAberto(false)}
         marinaId={marinaId}
         onCriado={carregar}
       />

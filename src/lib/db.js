@@ -149,7 +149,29 @@ export async function removerClienteComVinculos(clienteId) {
 }
 
 /* ---------- Embarcações ---------- */
+// `ativa=true` de propósito: uma embarcação "excluída" (ver removerEmbarcacao
+// abaixo) é só marcada ativa=false, não apagada de verdade — precisa sumir
+// de toda lista/seletor atual, mas o histórico que já referencia o id dela
+// (agendamentos, laudos, despachos, abastecimento) precisa continuar
+// resolvendo o nome normalmente. Ver migration_embarcacao_ativa.sql.
 export async function listarEmbarcacoes(marinaId) {
+  const { data, error } = await db
+    .from('embarcacoes')
+    .select('*, clientes(nome)')
+    .eq('marina_id', marinaId)
+    .eq('ativa', true)
+    .order('nome')
+  if (error) throw error
+  return data
+}
+
+// Igual acima, mas SEM o filtro ativa=true — só pra montar lookups sobre
+// histórico já concluído (ex: exportarHistoricoManobrasCsv, que casa cada
+// manobra antiga por embarcacao_id pra descobrir o tipo do barco). Usar
+// listarEmbarcacoes() ali faria uma manobra antiga de uma embarcação já
+// excluída (ativa=false) perder essa coluna silenciosamente — o registro
+// continua existindo, só não aparece mais nas listas "atuais".
+export async function listarEmbarcacoesTodas(marinaId) {
   const { data, error } = await db
     .from('embarcacoes')
     .select('*, clientes(nome)')
@@ -163,6 +185,18 @@ export async function salvarEmbarcacao(embarcacao) {
   const { data, error } = await db.from('embarcacoes').upsert(embarcacao).select()
   if (error) throw error
   return data[0]
+}
+
+// "Exclusão simplificada" (Painel de Clientes e Diário de Bordo → Minha
+// conta → Embarcações): apagar o texto do nome e salvar chama isto em vez de
+// salvarEmbarcacao. Soft-delete (ativa=false) — ver comentário acima e em
+// migration_embarcacao_ativa.sql sobre por que não é um DELETE de verdade.
+// admin_marina_embarcacoes (staff) e cliente_edita_propria_embarcacao
+// (cliente, na própria embarcação) já cobrem este UPDATE — nenhuma policy
+// nova precisou ser criada.
+export async function removerEmbarcacao(id) {
+  const { error } = await db.from('embarcacoes').update({ ativa: false }).eq('id', id)
+  if (error) throw error
 }
 
 /* ---------- Vagas ---------- */
@@ -338,9 +372,13 @@ export async function listarAgendamentosCliente(clienteId) {
 }
 
 export async function listarAgendamentos(marinaId) {
+  // cha_validade entra aqui (só nesta versão staff, não em
+  // listarAgendamentosCliente acima) pro selo "Documentação" da Fila de
+  // Rampa em TelaVagas.jsx — mesmo dado, mesma regra de exclusividade ao
+  // staff já usada em TelaClientes.jsx (ver migration_cha_validade.sql).
   const { data, error } = await db
     .from('agendamentos')
-    .select('*, clientes(nome), embarcacoes(nome), autorizados(nome, parentesco)')
+    .select('*, clientes(nome, cha_validade), embarcacoes(nome), autorizados(nome, parentesco)')
     .eq('marina_id', marinaId)
     .order('data_hora', { ascending: true })
   if (error) throw error
