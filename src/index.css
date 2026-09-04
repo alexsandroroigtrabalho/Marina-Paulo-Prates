@@ -752,12 +752,13 @@ body {
    2) a grade de 2 colunas (em vez de 1 coluna corrida) quebra os 7 blocos
       numa mancha compacta e quadrada — mais parecida com uma tela inicial
       de aplicativos do que com uma lista de configurações.
-   Um item ímpar (7 é ímpar) sobra sozinho na última linha — sem
-   grid-column:span, de propósito: forçar o último item a ocupar as duas
-   colunas destacaria ele mais que os outros sem nenhum motivo (não é o
-   app "principal"), então ele fica do tamanho normal, alinhado à
-   esquerda da grade, igual um ícone "impar" numa tela de apps de
-   verdade. */
+   Um item ímpar (7 é ímpar) sobra sozinho na última linha — mantém o
+   tamanho normal (mesma largura de uma coluna, não as duas), só que
+   CENTRALIZADO na linha em vez de alinhado à esquerda (ver
+   ".selecao-apps .selecao-app-item:last-child:nth-child(odd)" abaixo) —
+   sozinho, colado à esquerda ficava com uma "sobra" vazia esquisita do
+   lado direito; centralizado lê como o item natural que fecha a grade,
+   sem chamar mais atenção que os outros seis. */
 .selecao-apps {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -767,6 +768,18 @@ body {
 }
 @media (max-width: 380px) {
   .selecao-apps { grid-template-columns: 1fr; width: min(300px, 88vw); }
+}
+/* :nth-child(odd) garante que isso só se aplique quando sobra mesmo um
+   item ímpar sozinho na última linha (hoje: 7 aplicações) — se um dia
+   entrar uma 8ª aplicação (par), a grade fecha certinho e esta regra
+   simplesmente não bate em nenhum item, sem precisar mexer aqui. */
+.selecao-apps .selecao-app-item:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  width: calc(50% - 6px);
+  margin: 0 auto;
+}
+@media (max-width: 380px) {
+  .selecao-apps .selecao-app-item:last-child:nth-child(odd) { width: 100%; }
 }
 /* Cartão em coluna (ícone em cima, nome, descrição embaixo) — não em linha
    como um item de menu — porque numa grade 2x4 o formato "quase quadrado"

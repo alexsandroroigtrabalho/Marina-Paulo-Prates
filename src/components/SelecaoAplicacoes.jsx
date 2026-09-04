@@ -39,7 +39,7 @@ const ICONES = {
 // pelo menu do administrador, que não precisa desta descrição.
 const DESCRICOES = {
   marine: 'Gestão de marina',
-  nautdoc: 'Documentação e despachos',
+  nautdoc: 'Documentos e regularização',
   enautica: 'Escola náutica',
   enge: 'Engenharia e projetos',
   manut: 'Ordens de serviço',
