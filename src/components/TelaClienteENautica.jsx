@@ -439,7 +439,11 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
     // barra), então o rodapé sobe junto e fica visível sem precisar rolar.
     <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 68px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <img src="/rv-invictus-logo.png" alt="RV Invictus · Consultoria e Gestão de Processos" className="pagina-cliente-logo" />
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
+      {/* "enautica-cabecalho" (era só inline style) — precisa de uma classe
+          pra poder encolher esse respiro no mobile (ver index.css), a
+          mesma folga que sobrou pra aumentar a logo acima sem voltar a
+          esconder o botão "Habilitação Completa". */}
+      <header className="enautica-cabecalho" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
         {/* Nome de exibição aqui pode ser diferente do nome da marina no RV
             Marine (marina.nome, que aparece em TelaClienteDashboard.jsx) —
             a mesma marina pode ter uma escola náutica com razão social/nome

@@ -301,9 +301,19 @@ body {
    navegador visível, o "topo" da tela (logo + cabeçalho + abas) sozinho já
    consumia boa parte do espaço realmente visível, empurrando conteúdo de
    baixo (ex.: o 3º botão de habilitação no e-Náutica, "Habilitação
-   Completa") pra fora da dobra. */
+   Completa") pra fora da dobra.
+   220px (era 200px): o Alex pediu pra aumentar a logo até o limite
+   possível sem voltar a esconder "Habilitação Completa" — testei com a
+   barra de endereço do navegador visível (o pior caso real) e, encolhendo
+   também o respiro do cabeçalho/abas abaixo (".enautica-cabecalho" e
+   ".abas-enautica" nesta mesma faixa), 220px é o maior valor que ainda
+   sobra folga de verdade (não só cabe raspando). */
 @media (max-width: 480px) {
-  .pagina-cliente-logo { width: min(200px, 58vw); margin: 0 auto 8px; }
+  .pagina-cliente-logo { width: min(220px, 58vw); margin: 0 auto 8px; }
+  /* Só existe no e-Náutica (RV Marine não usa esta classe) — respiro do
+     cabeçalho (nome da escola + sino/engrenagem/sair) menor no mobile,
+     parte do mesmo ajuste acima. */
+  .enautica-cabecalho { margin-top: 8px !important; margin-bottom: 10px !important; }
 }
 .pagina-cliente-rodape {
   display: block;
@@ -826,55 +836,6 @@ body {
   gap: 12px;
   width: min(420px, 92vw);
 }
-/* Já teve uma versão em coluna única aqui (breakpoint 480px) — trocada de
-   volta a pedido do Alex: no celular ele quer as 7 aplicações SEMPRE em 2
-   colunas (nunca 1), e a lista inteira visível de uma vez, sem precisar
-   rolar. Coluna única deixava a lista alta demais pra caber sem rolagem;
-   a solução agora é encolher a largura/respiro de cada cartão o
-   suficiente pra 4 linhas (3 pares + o RV Finance sozinho, centralizado —
-   ver ":last-child:nth-child(odd)" abaixo) caberem inteiras entre a logo e
-   o rodapé fixo. Os valores usam vh (altura da tela) além de px fixo, pra
-   encolher ainda mais em telas baixas (ex.: iPhone SE) sem precisar de uma
-   segunda faixa de @media só pra altura. */
-@media (max-width: 480px) {
-  .selecao-apps { width: min(360px, 94vw); gap: clamp(5px, 1.6vh, 10px); }
-  /* Mesmo motivo do comentário acima de ".selecao-apps-meio": com 4 linhas
-     (mesmo só 4, não mais 7) o "puxão pra cima" (padding-bottom sem
-     padding-top, ver regra base) ainda podia render a lista mais alta que
-     o espaço livre em telas bem baixas e encostar na logo. Alinhamento
-     normal no topo, com respiro pequeno e flexível (clamp), evita esse
-     risco em qualquer altura. */
-  .selecao-apps-meio {
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding-top: clamp(4px, 1.5vh, 14px);
-    padding-bottom: clamp(4px, 1.5vh, 16px);
-  }
-  /* Logo mais compacta SÓ nesta tela (".tela-selecao-apps", não afeta
-     login/cadastro) — libera altura extra pra grade em telas baixas, já
-     que aqui a logo divide espaço com uma lista de 7 itens, diferente das
-     outras telas com ".login-rv-logo" que só têm um card de formulário
-     embaixo. Piso um pouco menor (54vw ainda, mas floor de 175px) — o
-     valor original (210px) sozinho não deixava sobra suficiente em
-     aparelhos baixos (iPhone SE, 667px de altura) pras 4 linhas caberem
-     sem rolar, mesmo já com os cartões encolhidos abaixo. */
-  .tela-selecao-apps .login-rv-logo { width: min(175px, 50vw); margin-top: 0; }
-  .selecao-apps .selecao-app-item {
-    padding: clamp(8px, 2.6vh, 18px) 8px clamp(6px, 2vh, 14px);
-    gap: clamp(2px, 0.8vh, 6px);
-  }
-  .selecao-app-item-icone {
-    width: clamp(24px, 8vh, 40px);
-    height: clamp(24px, 8vh, 40px);
-  }
-  /* Tabler icons desenham o SVG com width/height fixos (via a prop `size`
-     no JSX) — atributo de apresentação, então uma regra CSS (mesmo sem
-     !important) já vence e redimensiona de verdade, acompanhando o selo
-     que encolheu acima. */
-  .selecao-app-item-icone svg { width: clamp(14px, 4vh, 20px); height: clamp(14px, 4vh, 20px); }
-  .selecao-app-item-nome { font-size: clamp(9.5px, 3vw, 12.5px); }
-  .selecao-app-item-desc { font-size: clamp(7.2px, 2.2vw, 10px); line-height: 1.15; }
-}
 /* :nth-child(odd) garante que isso só se aplique quando sobra mesmo um
    item ímpar sozinho na última linha (hoje: 7 aplicações) — se um dia
    entrar uma 8ª aplicação (par), a grade fecha certinho e esta regra
@@ -937,6 +898,58 @@ body {
 .selecao-app-item-desc {
   font-family: 'Montserrat', sans-serif; font-size: 10.5px; line-height: 1.3;
   color: rgba(245, 245, 240, 0.48);
+}
+/* Já teve uma versão em coluna única aqui (breakpoint 480px) — trocada de
+   volta a pedido do Alex: no celular ele quer as 7 aplicações SEMPRE em 2
+   colunas (nunca 1), e a lista inteira visível de uma vez, sem precisar
+   rolar. Coluna única deixava a lista alta demais pra caber sem rolagem;
+   a solução agora é encolher a largura/respiro de cada cartão o
+   suficiente pra 4 linhas (3 pares + o RV Finance sozinho, centralizado —
+   ver ":last-child:nth-child(odd)" acima) caberem inteiras entre a logo e
+   o rodapé fixo. Os valores usam vh (altura da tela) além de px fixo, pra
+   encolher ainda mais em telas baixas (ex.: iPhone SE) sem precisar de uma
+   segunda faixa de @media só pra altura.
+   IMPORTANTE: este bloco precisa vir DEPOIS das regras base acima (mesma
+   especificidade de seletor — uma classe só — então quem vier por último
+   no arquivo vence, independente do @media bater ou não). Antes ele
+   ficava ANTES das regras base e por isso nunca tinha efeito nenhum no
+   mobile, mesmo com o media query batendo certinho. */
+@media (max-width: 480px) {
+  .selecao-apps { width: min(360px, 94vw); gap: clamp(5px, 1.4vh, 9px); }
+  /* Mesmo motivo do comentário acima de ".selecao-apps-meio": com 4 linhas
+     (mesmo só 4, não mais 7) o "puxão pra cima" (padding-bottom sem
+     padding-top, ver regra base) ainda podia render a lista mais alta que
+     o espaço livre em telas bem baixas e encostar na logo. Alinhamento
+     normal no topo, com respiro pequeno e flexível (clamp), evita esse
+     risco em qualquer altura. */
+  .selecao-apps-meio {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-top: clamp(3px, 1.1vh, 12px);
+    padding-bottom: clamp(3px, 1.1vh, 12px);
+  }
+  /* 220px — igualada de propósito ao mesmo tamanho de logo do RV Marine/
+     e-Náutica no mobile (".pagina-cliente-logo", mesma faixa de largura,
+     ver comentário lá): pedido do Alex pra as 3 logos (aplicações, RV
+     Marine, e-Náutica) ficarem do mesmo tamanho no celular, sem mexer
+     mais nelas — daqui pra frente, qualquer ajuste de espaço nesta tela
+     deve encolher a GRADE (cartões abaixo), não a logo. */
+  .tela-selecao-apps .login-rv-logo { width: min(220px, 58vw); margin-top: 0; }
+  .selecao-apps .selecao-app-item {
+    padding: clamp(6px, 1.9vh, 14px) 7px clamp(5px, 1.4vh, 10px);
+    gap: clamp(1.5px, 0.6vh, 5px);
+  }
+  .selecao-app-item-icone {
+    width: clamp(22px, 6.6vh, 35px);
+    height: clamp(22px, 6.6vh, 35px);
+  }
+  /* Tabler icons desenham o SVG com width/height fixos (via a prop `size`
+     no JSX) — atributo de apresentação, então uma regra CSS (mesmo sem
+     !important) já vence e redimensiona de verdade, acompanhando o selo
+     que encolheu acima. */
+  .selecao-app-item-icone svg { width: clamp(13px, 3.4vh, 18px); height: clamp(13px, 3.4vh, 18px); }
+  .selecao-app-item-nome { font-size: clamp(9px, 2.9vw, 11.5px); }
+  .selecao-app-item-desc { font-size: clamp(7px, 2.1vw, 9.3px); line-height: 1.12; }
 }
 
 /* Aplicação ainda não desenvolvida, vista pelo cliente
@@ -1472,10 +1485,13 @@ button.badge:hover { filter: brightness(0.95); }
      resto. */
   border: 1px solid var(--dourado-texto); border-radius: 14px; cursor: pointer;
   background: #fff; color: var(--cor-primaria);
-  /* Mesmo tamanho de fonte do par Descida/Subida do RV Marine
-     (.painel-cliente-btn-primario/outline: 13.5px) — antes estava em 12px,
-     menor que o padrão da marca pros botões pareados. */
-  padding: 12px 6px; font-weight: 600; font-size: 13.5px; text-align: center; line-height: 1.2;
+  /* Era 600/13.5px (pareado com o Descida/Subida do RV Marine) — o Alex
+     comparou essas abas com os 3 botões de habilitação logo abaixo
+     (.enautica-botao-habilitacao: 700/16px/letter-spacing 0.01em, ver
+     mais abaixo) e pediu pra igualar DENTRO desta mesma tela, já que os
+     dois grupos de botão aparecem juntos aqui — a referência que importa
+     agora é a vizinha na mesma tela, não mais o RV Marine. */
+  padding: 12px 6px; font-weight: 700; font-size: 16px; letter-spacing: 0.01em; text-align: center; line-height: 1.2;
   transition: box-shadow 120ms ease-in-out, transform 120ms ease-in-out;
 }
 /* Rótulo num <span> à parte (ver JSX): garante que ícone+texto formem um
@@ -1501,11 +1517,11 @@ button.badge:hover { filter: brightness(0.95); }
 .abas-enautica button.abas-enautica-inicio {
   flex-direction: row; align-items: center; justify-content: center; border: none; padding: 16px;
   background: linear-gradient(135deg, #D9713E, #A23B2E); color: #fff;
-  /* Mesmo tamanho/peso de fonte do S.O.S./Abastecimento do RV Marine
-     (.painel-cliente-btn-sos/.painel-cliente-btn-servicos: 14.5px/600) —
-     antes estava em 15px/700, maior que o padrão da marca pra botão de
-     largura cheia. */
-  font-size: 14.5px; font-weight: 600; letter-spacing: 0.02em;
+  /* Era 600/14.5px (pareado com o S.O.S./Abastecimento do RV Marine) —
+     igualado aos botões de habilitação (700/16px/0.01em), mesmo motivo do
+     ".abas-enautica button" acima: nesta tela específica, o Alex quer os
+     dois grupos de botão com a mesma "espessura" de texto. */
+  font-size: 16px; font-weight: 700; letter-spacing: 0.01em;
 }
 /* Ícone e texto do "Início" desalinhavam verticalmente: havia um nó de
    texto solto (o espaço em branco entre o ícone e o <span> no JSX) virando
@@ -1768,12 +1784,15 @@ button.badge:hover { filter: brightness(0.95); }
     --enautica-largura-foto: 50%;
     padding-right: calc(var(--enautica-largura-foto) + 10px);
   }
-  .enautica-botao-habilitacao { font-size: 12px; padding-top: 15px; padding-bottom: 15px; padding-left: 16px; min-height: 72px; }
+  .enautica-botao-habilitacao { font-size: 12px; padding-top: 13px; padding-bottom: 13px; padding-left: 16px; min-height: 64px; }
   .enautica-botao-habilitacao--ambas { min-height: 48px; }
   /* Mesmo motivo dos ajustes acima: 38px de respiro abaixo da barra de
      abas é generoso demais quando a barra de endereço do navegador já
-     está tomando espaço vertical de verdade. */
-  .abas-enautica { margin-bottom: 22px; }
+     está tomando espaço vertical de verdade. 14px (era 22px) — reduzido
+     de novo pra abrir espaço suficiente pra aumentar a logo do cabeçalho
+     (ver ".pagina-cliente-logo" acima) sem voltar a esconder o botão
+     "Habilitação Completa". */
+  .abas-enautica { margin-bottom: 10px; }
   /* Respiro entre os 3 botões (Arrais/Motonauta/Habilitação Completa) e a
      borda do card mais enxutos no mobile: com a barra de endereço do
      navegador visível, o espaço realmente livre embaixo da barra de abas
@@ -1784,7 +1803,14 @@ button.badge:hover { filter: brightness(0.95); }
      de conteúdo de verdade (diferente da grade de ícones da tela de
      aplicações), mas isso deixa "Habilitação Completa" visível sem rolar
      em bem mais aparelhos/orientações de barra do navegador. */
-  .enautica-opcoes-matricula { gap: 8px; }
+  .enautica-opcoes-matricula { gap: 6px; }
+  /* Abas (Matrícula/Trilha/Aulas/Agendamentos) acompanham os botões de
+     habilitação também no mobile: mesma fonte 12px que ".enautica-botao-
+     habilitacao" usa nesta faixa (linha acima) — "Agendamentos" (a mais
+     longa) ainda cabe numa linha só nos 3 botões de largura igual da
+     grade, testado no aparelho mais estreito em uso normal hoje (320px). */
+  .abas-enautica button { font-size: 12px; }
+  .abas-enautica button.abas-enautica-inicio { font-size: 12px; }
 }
 .enautica-botao-habilitacao--arrais::after,
 .enautica-botao-habilitacao--motonauta::after {
