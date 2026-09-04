@@ -10,7 +10,7 @@ import { resolverMarinaPeloSublink } from '../lib/tenant'
 // própria aplicação, quando fizerem falta — não mais aqui. O motivo é que
 // este formulário atende as 7 aplicações, e exigir de antemão os dados de
 // uma delas barrava quem vinha pelas outras: alguém que quer abrir um
-// processo no RV NautDoc não tem, necessariamente, uma embarcação atracada
+// processo no RV Nautdoc não tem, necessariamente, uma embarcação atracada
 // pra informar. Por isso saíram daqui telefone, documento de identidade,
 // endereço e embarcações — tudo isso é do RV Marine e agora é completado
 // dentro dele (ver "Minha conta" no painel do cliente).

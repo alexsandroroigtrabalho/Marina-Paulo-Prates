@@ -32,7 +32,7 @@ import { tenantSuspenso } from './lib/rvMaster'
 // já existiam e funcionavam, em vez de reescrevê-las.
 //
 // "Despachos" continua fora do menu (não foi apagado — ver
-// TelaDocumentacao.jsx): vai virar a base do RV NautDoc.
+// TelaDocumentacao.jsx): vai virar a base do RV Nautdoc.
 const TELAS = {
   // O título do Painel de Controle é o nome da marina (não "Painel de
   // Controle" — esse nome já aparece no item do menu lateral).
@@ -348,7 +348,7 @@ export default function App() {
     )
   }
 
-  // Aplicações ainda sem telas (NautDoc, Enge, Stock): só o título
+  // Aplicações ainda sem telas (Nautdoc, Enge, Stock): só o título
   // escolhido na sidebar e "Em construção" com a marca d'água.
   if (!temTelas(app)) {
     return (

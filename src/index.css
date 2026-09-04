@@ -90,7 +90,7 @@ body {
    (nenhuma das 4 aplicações escolhida ainda) e as 3 aplicações ainda sem
    tela própria (todas menos o RV Marine). Não reaproveita
    .pagina-marca-dagua-despachos de propósito — aquela classe/tela continua
-   intacta, pronta para virar a base do RV NautDoc mais adiante. */
+   intacta, pronta para virar a base do RV Nautdoc mais adiante. */
 /* padding-left: 220px (largura da sidebar) — centraliza o conteúdo em
    relação ao espaço visível quando a sidebar está aberta, não em relação à
    largura total da página. Sem isso, "centralizado" fica meio pra esquerda
@@ -678,7 +678,7 @@ body {
 .nav-rvmaster { margin-top: 0; }
 .nav-rvmaster-espaco { margin-top: auto; }
 
-/* Título da aplicação escolhida (RV Marine, RV NautDoc, RV e-Náutica,
+/* Título da aplicação escolhida (RV Marine, RV Nautdoc, RV e-Náutica,
    RV Enge, RV Manut, RV Stock, RV Finance) — rótulo fixo, não clicável,
    no topo da lista de itens.
    Mesma "categoria Destaque" do manual (Cinzel, caixa alta, dourado) já
@@ -1757,7 +1757,7 @@ button.badge:hover { filter: brightness(0.95); }
    / Regularização) — só ícone + nome curto, sem texto descritivo; o
    detalhamento fica pra dentro de cada opção. */
 /* O seletor de serviços (.servicos-seletor) foi removido junto com o painel
-   "Serviços": Manutenção passou ao RV Manut, Regularização ao RV NautDoc e
+   "Serviços": Manutenção passou ao RV Manut, Regularização ao RV Nautdoc e
    Pagamentos ao RV Finance, sobrando só o abastecimento — que virou botão
    direto no painel do cliente (.painel-cliente-btn-servicos, mantida). */
 

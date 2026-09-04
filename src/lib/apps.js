@@ -29,7 +29,7 @@ export const APLICACOES = [
       // isso passa a ser assunto do RV Finance. O componente
       // (TelaAbastecimento.jsx) e as funções de banco continuam no projeto,
       // desligados da interface — mesmo tratamento dado ao Despachos, que
-      // espera o RV NautDoc.
+      // espera o RV Nautdoc.
       // Financeiro e Manutenção saíram daqui na Etapa 11, DEPOIS que o RV
       // Finance e o RV Manut já estavam funcionando com as mesmas telas
       // (TelaFinanceiro.jsx / TelaManutencao.jsx, reaproveitadas inteiras).
@@ -39,7 +39,7 @@ export const APLICACOES = [
       // aplicação o item aparece no menu.
     ],
   },
-  { chave: 'nautdoc', prefixo: 'RV', nome: 'NautDoc', clientePronto: false, telas: [] },
+  { chave: 'nautdoc', prefixo: 'RV', nome: 'Nautdoc', clientePronto: false, telas: [] },
   // e-Náutica: sem NADA de pagamento/plano (diferente do rsnautica antigo,
   // que foi desligado) — o "gate" de acesso do aluno é a matrícula ser
   // aprovada pela equipe da escola (ver src/lib/enautica.js), não um

@@ -919,7 +919,7 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
 
   // As funções do antigo painel "Serviços" (navegação entre categorias,
   // pedido de manutenção e pedido de regularização) foram removidas junto
-  // com ele: manutenção passou ao RV Manut e regularização ao RV NautDoc.
+  // com ele: manutenção passou ao RV Manut e regularização ao RV Nautdoc.
   // As funções de banco correspondentes (criarOrdemServico, criarDespacho em
   // lib/db.js) continuam existindo, intactas, para essas aplicações.
 
@@ -1350,7 +1350,7 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
 
             {/* O antigo botão "Serviços" abria um seletor com quatro
                 opções; três migraram para os outros SaaS (Manutenção → RV
-                Manut, Regularização → RV NautDoc, Pagamentos → RV Finance).
+                Manut, Regularização → RV Nautdoc, Pagamentos → RV Finance).
                 Sobrou o abastecimento, que virou botão direto — e sem nada
                 de financeiro: o cliente pede, a marina confirma, e o valor
                 se acerta fora do RV Marine. */}
@@ -1474,7 +1474,7 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       )}
 
       {/* O painel "Serviços" foi removido: Manutenção passou ao RV Manut,
-          Regularização ao RV NautDoc e Pagamentos ao RV Finance. O
+          Regularização ao RV Nautdoc e Pagamentos ao RV Finance. O
           abastecimento voltou como botão direto, e o modal abaixo é todo
           ele — o pedido e nada mais. Os modais "Pedido registrado", o QR de
           pagamento e a lista "Pagamentos" não voltaram: cobrança não existe
