@@ -53,7 +53,7 @@ function maskarCampoDocumento(chave, tipo, valor) {
 // de "Meus dados" (removida daqui a pedido do Alex: a edição de dados saiu
 // das abas e foi pra engrenagem, então sobrou o espaço pra trilha).
 const ABAS_ALUNO = [
-  { chave: 'inicio', label: 'Início', Icone: IconHome },
+  { chave: 'inicio', label: 'Matrícula', Icone: IconHome },
   { chave: 'trilha', label: 'Trilha', Icone: IconRoute },
   { chave: 'aulas', label: 'Aulas', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
@@ -118,10 +118,6 @@ const TRILHA_INICIO = [
 function TelaInicio() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Mesma fonte/peso do título "Diário de Bordo" do painel do RV
-          Marine (.diario-titulo, ver TelaClienteDashboard.jsx) — título de
-          seção, não da tela (esse já é o header lá em cima). */}
-      <h3 className="diario-titulo">Trilha da Habilitação</h3>
       {TRILHA_INICIO.map((passo, i) => {
         // Último passo (a CHA chegando pelo Gov.br) é o "destino final" da
         // trilha — ganha o tratamento escuro com trama de losangos dourados
@@ -504,8 +500,8 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
             onClick={() => setAba('inicio')}
           >
-            <IconHome size={22} />
-            <span>Início</span>
+            <IconHome size={22} stroke={1.5} />
+            <span>Matrícula</span>
           </button>
           <div className="abas-enautica-linha">
             {ABAS_ALUNO.filter((a) => a.chave !== 'inicio').map((a) => (
@@ -520,7 +516,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                   setAba(a.chave)
                 }}
               >
-                <a.Icone size={18} />
+                <a.Icone size={18} stroke={1.5} />
                 <span>{a.label}</span>
               </button>
             ))}
