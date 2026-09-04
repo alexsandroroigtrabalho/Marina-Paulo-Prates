@@ -10,9 +10,14 @@ import { nomeCompleto } from '../lib/apps'
 // Mesma linguagem da tela de seleção (fundo azul-petróleo, logo dourada,
 // rodapé) pra não introduzir um terceiro visual: o cliente continua
 // claramente "na entrada do sistema", com um caminho óbvio de volta.
+//
+// "tela-em-construcao" só pra fixar o rodapé nesta tela (ver
+// .tela-em-construcao .login-rv-footer no index.css) — pedido do Alex pra
+// ele ficar sempre visível, mesmo tratamento já dado à seleção de
+// aplicações.
 export default function AplicacaoEmConstrucao({ app, onVoltar }) {
   return (
-    <div className="tela-central tela-login-rv">
+    <div className="tela-central tela-login-rv tela-em-construcao">
       <img
         src="/rv-invictus-logo-dourado.png"
         alt="RV Invictus — Consultoria e Gestão de Processos"

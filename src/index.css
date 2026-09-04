@@ -759,19 +759,28 @@ body {
    sozinho, colado à esquerda ficava com uma "sobra" vazia esquisita do
    lado direito; centralizado lê como o item natural que fecha a grade,
    sem chamar mais atenção que os outros seis. */
-/* Rodapé fixo nesta tela: com 7 aplicações a grade é mais alta que a tela
-   de login (que só tem um formulário curto), então em telas baixas o
-   rodapé "Developed by RV Invictus.com.br" ficava fora da área visível até
-   rolar até o fim — pedido do Alex pra ele ficar sempre visível.
+/* Rodapé fixo: com 7 aplicações a grade é mais alta que a tela de login (que
+   só tem um formulário curto), então em telas baixas o rodapé "Developed by
+   RV Invictus.com.br" ficava fora da área visível até rolar até o fim —
+   pedido do Alex pra ele ficar sempre visível. Mesmo pedido, depois,
+   estendido às telas de login (Home.jsx, ".tela-login") e às telas "em
+   construção"/bloqueio de aplicação (AplicacaoEmConstrucao.jsx,
+   AplicacaoNaoContratada.jsx, AcessoSuspenso.jsx — todas ".tela-em-construcao",
+   mesmo bloco .em-construcao-bloco reaproveitado pelas três), pra manter o
+   mesmo comportamento em toda tela que usa essa linguagem visual.
    position:fixed tira o rodapé do fluxo (a ".tela-login-rv" tem
    position:relative, mas isso não muda o "containing block" de um filho
    fixed — ele posiciona relativo à JANELA mesmo assim, então
    left/right/bottom:0 já cobrem a largura toda sem precisar do truque de
    margem negativa que ".login-rv-footer" usa nas outras telas). O
-   padding-bottom extra no container garante que a grade role até acabar
-   sem o último cartão ficar embaixo do rodapé fixo. */
-.tela-selecao-apps { padding-bottom: 88px; }
-.tela-selecao-apps .login-rv-footer {
+   padding-bottom extra no container garante que o conteúdo role até acabar
+   sem o último elemento ficar embaixo do rodapé fixo. */
+.tela-selecao-apps,
+.tela-login,
+.tela-em-construcao { padding-bottom: 88px; }
+.tela-selecao-apps .login-rv-footer,
+.tela-login .login-rv-footer,
+.tela-em-construcao .login-rv-footer {
   position: fixed;
   left: 0; right: 0; bottom: 0;
   width: 100%;

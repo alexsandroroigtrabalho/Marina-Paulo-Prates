@@ -12,9 +12,13 @@ import { nomeCompleto } from '../lib/apps'
 // Só a RV Master decide quem contratou o quê (trava já existe no banco) —
 // por isso o texto aqui aponta pra "fale com a RV Invictus", nunca oferece
 // um jeito de o próprio tenant liberar isso sozinho.
+//
+// "tela-em-construcao" só pra fixar o rodapé nesta tela (ver
+// .tela-em-construcao .login-rv-footer no index.css) — mesmo bloco visual
+// de AplicacaoEmConstrucao, mesmo tratamento de rodapé.
 export default function AplicacaoNaoContratada({ app, onVoltar }) {
   return (
-    <div className="tela-central tela-login-rv">
+    <div className="tela-central tela-login-rv tela-em-construcao">
       <img
         src="/rv-invictus-logo-dourado.png"
         alt="RV Invictus — Consultoria e Gestão de Processos"

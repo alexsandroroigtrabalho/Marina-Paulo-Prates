@@ -63,7 +63,13 @@ export default function Home({ onCadastro }) {
   }
 
   return (
-    <div className="tela-central tela-login-rv">
+    // "tela-login" só pra fixar o rodapé nesta tela (ver .tela-login
+    // .login-rv-footer no index.css) — pedido do Alex pra ele ficar sempre
+    // visível, mesmo tratamento já dado à seleção de aplicações. O card de
+    // login/recuperação é posicionado sozinho (.login-card-centralizado,
+    // position:absolute no centro da tela), então não depende do fluxo
+    // flex deste container — o rodapé virar fixed não desloca o card.
+    <div className="tela-central tela-login-rv tela-login">
       {/* Logo horizontal oficial da RV Invictus, com a assinatura "Consultoria
           e Gestão de Processos" — mesma versão já usada na Ficha de Cadastro
           e na sidebar interna, dourada sobre fundo escuro (combinação
