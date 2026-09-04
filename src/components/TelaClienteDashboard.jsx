@@ -1267,7 +1267,11 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
         className="pagina-cliente-logo"
       />
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+        {/* minWidth:0 é necessário pro filho flex (.painel-cliente-marina,
+            que tem flex:1 1 auto no CSS) conseguir encolher de verdade e
+            truncar com reticências em vez de empurrar os ícones do
+            cabeçalho pra fora da tela em nomes mais longos. */}
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
           {/* Nome da marina vem do banco (mesmo padrão do RV e-Náutica,
               TelaClienteENautica.jsx) — antes ficava fixo em texto
               ("Marina Paulo Prates"), o que estava certo enquanto só

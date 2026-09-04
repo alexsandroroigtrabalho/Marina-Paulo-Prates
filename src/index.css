@@ -817,8 +817,15 @@ body {
   gap: 12px;
   width: min(420px, 92vw);
 }
-@media (max-width: 380px) {
-  .selecao-apps { grid-template-columns: 1fr; width: min(300px, 88vw); }
+/* Breakpoint subiu de 380px pra 480px: cobria só telas bem estreitas (tipo
+   iPhone SE, 375px) e deixava a maioria dos celulares comuns (390-412px)
+   ainda em 2 colunas — cada cartão ficava com uns 170px de largura, apertado
+   pro ícone + nome (às vezes 2 linhas, ex. "RV NAUTDOC") + descrição junto.
+   Com 480px praticamente todo celular cai numa coluna só: cartões mais
+   largos e confortáveis de ler/tocar, ao custo de uma lista um pouco mais
+   alta (já rola normalmente, o rodapé continua fixo). */
+@media (max-width: 480px) {
+  .selecao-apps { grid-template-columns: 1fr; width: min(320px, 88vw); }
 }
 /* :nth-child(odd) garante que isso só se aplique quando sobra mesmo um
    item ímpar sozinho na última linha (hoje: 7 aplicações) — se um dia
@@ -829,7 +836,7 @@ body {
   width: calc(50% - 6px);
   margin: 0 auto;
 }
-@media (max-width: 380px) {
+@media (max-width: 480px) {
   .selecao-apps .selecao-app-item:last-child:nth-child(odd) { width: 100%; }
 }
 /* Cartão em coluna (ícone em cima, nome, descrição embaixo) — não em linha
@@ -2190,10 +2197,22 @@ button.badge:hover { filter: brightness(0.95); }
 .painel-cliente-marina {
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: clamp(17px, 5vw, 22px);
+  /* mínimo desceu de 17px pra 13px: em telas estreitas, com os ícones do
+     cabeçalho (sino + engrenagem + Sair) tomando boa parte da largura, um
+     nome mais longo (ex.: "Escola RS Náutica") ainda cabia menos que o
+     piso de 17px e quebrava em duas linhas (relato do Alex). flex+min-width
+     abaixo garantem que, mesmo assim, nunca quebra linha: encolhe até o
+     piso e, se ainda não couber, corta com reticências em vez de quebrar. */
+  font-size: clamp(13px, 5vw, 22px);
   letter-spacing: 0.02em;
   color: var(--cor-primaria);
   line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 /* Enquanto o nome de verdade (marina.nome / config_json.nomeEscolaEnautica)
    ainda não chegou do banco, o cabeçalho do cliente ficava, por um instante

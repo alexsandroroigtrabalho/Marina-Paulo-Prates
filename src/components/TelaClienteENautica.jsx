@@ -591,12 +591,27 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                 nascimento usa uma máscara dd/mm/aaaa em vez do seletor
                 nativo <input type="date">, que destoa do tema escuro deste
                 modal. O rótulo de cada campo vira só o placeholder — nada
-                de título fora do preenchimento. */}
+                de título fora do preenchimento.
+                Atenção: CAMPOS_DOCUMENTO tem DOIS campos com tipo:'date'
+                (data_nascimento e data_emissao_rg) — antes o placeholder
+                testava só c.tipo==='date' e escrevia "Data de nascimento"
+                nos dois, fazendo o campo de emissão do RG parecer uma
+                repetição do campo de nascimento. Agora só data_nascimento
+                usa esse texto fixo; qualquer outro campo tipo:'date' usa
+                o próprio rótulo + "(dd/mm/aaaa)". */}
             {camposFaltando.map((c) => (
               <input
                 key={c.chave} type="text" required
                 inputMode={c.tipo === 'date' || c.chave === 'telefone' || c.chave === 'cep' ? 'numeric' : undefined}
-                placeholder={c.tipo === 'date' ? 'Data de nascimento (dd/mm/aaaa)' : c.chave === 'cep' ? 'CEP' : c.label}
+                placeholder={
+                  c.chave === 'data_nascimento'
+                    ? 'Data de nascimento (dd/mm/aaaa)'
+                    : c.tipo === 'date'
+                      ? `${c.label} (dd/mm/aaaa)`
+                      : c.chave === 'cep'
+                        ? 'CEP'
+                        : c.label
+                }
                 value={formFaltando[c.chave] || ''}
                 onChange={(e) => setFormFaltando({
                   ...formFaltando,

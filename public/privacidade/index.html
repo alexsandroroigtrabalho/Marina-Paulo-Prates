@@ -68,6 +68,21 @@
     border-top: 1px solid rgba(13,27,42,0.08);
   }
   .atualizado { font-size: 12.5px; color: var(--texto-suave); margin-top: -6px; }
+
+  /* Mobile: a página nunca tinha nenhuma regra @media — no desktop passava
+     despercebido porque o `main` já limita a 720px, mas em telas estreitas
+     (celular) o logo de 150px e os paddings largos do header/main sobravam
+     grandes demais, empurrando o conteúdo real pra baixo da dobra sem
+     necessidade. Só reduz espaçamentos/tamanhos, não muda a estrutura. */
+  @media (max-width: 480px) {
+    header { padding: 32px 18px 26px; }
+    header img { height: 96px; margin-bottom: 16px; }
+    header h1 { font-size: 18px; }
+    main { padding: 28px 18px 56px; }
+    h2 { font-size: 15px; }
+    p, li { font-size: 14px; }
+    .card { padding: 14px 16px; }
+  }
 </style>
 </head>
 <body>
