@@ -54,9 +54,9 @@ function maskarCampoDocumento(chave, tipo, valor) {
 // das abas e foi pra engrenagem, então sobrou o espaço pra trilha).
 const ABAS_ALUNO = [
   { chave: 'inicio', label: 'Início', Icone: IconHome },
+  { chave: 'trilha', label: 'Trilha', Icone: IconRoute },
   { chave: 'aulas', label: 'Aulas', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
-  { chave: 'trilha', label: 'Trilha', Icone: IconRoute },
 ]
 
 // "Início" (aba nova, a pedido do Alex) — um guia de estudos da trilha
@@ -236,6 +236,20 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [formDados, setFormDados] = useState(null)
   const [salvandoDados, setSalvandoDados] = useState(false)
   const [erroDados, setErroDados] = useState(null)
+
+  // Aviso temporário (mesmo padrão do RV Marine — TelaClienteDashboard.jsx —
+  // usado lá pro aviso de "complete seu cadastro" antes de solicitar a
+  // descida). Aqui avisa o aluno, ao tentar abrir Trilha/Aulas/Agendamentos
+  // antes da matrícula ser aprovada, que essas abas ainda não estão
+  // liberadas — em vez de simplesmente trocar de aba sem mostrar conteúdo.
+  const [aviso, setAviso] = useState(null)
+  const avisoRef = useRef(null)
+  function mostrarAviso(texto, duracaoMs = 4000) {
+    if (avisoRef.current) clearTimeout(avisoRef.current)
+    setAviso(texto)
+    avisoRef.current = setTimeout(() => setAviso(null), duracaoMs)
+  }
+  useEffect(() => () => { if (avisoRef.current) clearTimeout(avisoRef.current) }, [])
 
   // "Estou pronto para a prova teórica" — ver declararProntidaoTeste em
   // lib/enautica.js. `alterandoProntidao` reabre a pergunta mesmo depois de
@@ -475,7 +489,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
           só entram os campos de documento que ainda faltam (ver
           camposDocumentoFaltando). Também cobre o caso de matrícula
           recusada: o aluno pode mandar um novo pedido pelos mesmos botões. */}
-      {cliente && (!matricula || matricula.status === 'recusada') && (
+      {aba === 'inicio' && cliente && (!matricula || matricula.status === 'recusada') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {matricula?.status === 'recusada' && (
             <p className="status-texto cancelado">
@@ -540,51 +554,63 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
         </div>
       )}
 
-      {cliente && matricula?.status === 'pendente' && (
+      {aba === 'inicio' && cliente && matricula?.status === 'pendente' && (
         <div style={{ textAlign: 'center', marginTop: 32 }}>
           <p className="status-texto pendente">Matrícula em análise</p>
           <p className="dica">Seu pedido para <b>{labelHabilitacao(matricula.habilitacao)}</b> está aguardando aprovação da escola. Você será avisado assim que a decisão sair.</p>
         </div>
       )}
 
-      {cliente && matricula?.status === 'aprovada' && (
-        <>
-          {/* "Início" vira uma barra horizontal cheia no topo (cor fixa:
-              gradiente laranja do S.O.S.); os outros 3 ficam numa fileira
-              logo abaixo — "Aulas" fixo em azul-petróleo, Agendamentos/Meus
-              dados em branco (ver .abas-enautica* no index.css). A cor de
-              cada botão é sempre a mesma; só a aba selecionada ganha
-              destaque (sombra). O rótulo fica num <span> à parte pra
-              centralizar de verdade (verticalmente) com o ícone, mesmo em
-              botões com texto de tamanhos diferentes. */}
-          <div className="abas-enautica">
-            <button
-              className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
-              onClick={() => setAba('inicio')}
-            >
-              <IconHome size={22} />
-              <span>Início</span>
-            </button>
-            <div className="abas-enautica-linha">
-              {ABAS_ALUNO.filter((a) => a.chave !== 'inicio').map((a) => (
-                <button
-                  key={a.chave}
-                  className={[aba === a.chave ? 'ativo' : '', a.chave === 'aulas' ? 'abas-enautica-aulas' : ''].filter(Boolean).join(' ')}
-                  onClick={() => setAba(a.chave)}
-                >
-                  <a.Icone size={18} />
-                  <span>{a.label}</span>
-                </button>
-              ))}
-            </div>
+      {/* Barra de abas — sempre visível pra quem já tem cadastro, mesmo
+          antes da matrícula ser aprovada: é assim que o aluno chega em
+          "Início" pra solicitar a matrícula. Trilha/Aulas/Agendamentos só
+          têm conteúdo de verdade depois da aprovação — antes disso, clicar
+          nelas mostra um aviso (ver mostrarAviso) em vez de trocar de aba.
+          "Início" vira uma barra horizontal cheia no topo (cor fixa:
+          gradiente laranja do S.O.S.); os outros 3 ficam numa fileira
+          logo abaixo — "Aulas" fixo em azul-petróleo, Agendamentos/Trilha
+          em branco (ver .abas-enautica* no index.css). A cor de cada botão
+          é sempre a mesma; só a aba selecionada ganha destaque (sombra). O
+          rótulo fica num <span> à parte pra centralizar de verdade
+          (verticalmente) com o ícone, mesmo em botões com texto de
+          tamanhos diferentes. */}
+      {cliente && (
+        <div className="abas-enautica">
+          <button
+            className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
+            onClick={() => setAba('inicio')}
+          >
+            <IconHome size={22} />
+            <span>Início</span>
+          </button>
+          <div className="abas-enautica-linha">
+            {ABAS_ALUNO.filter((a) => a.chave !== 'inicio').map((a) => (
+              <button
+                key={a.chave}
+                className={[aba === a.chave ? 'ativo' : '', a.chave === 'aulas' ? 'abas-enautica-aulas' : ''].filter(Boolean).join(' ')}
+                onClick={() => {
+                  if (matricula?.status !== 'aprovada') {
+                    mostrarAviso('Esta área libera assim que sua matrícula for aprovada pela escola.')
+                    return
+                  }
+                  setAba(a.chave)
+                }}
+              >
+                <a.Icone size={18} />
+                <span>{a.label}</span>
+              </button>
+            ))}
           </div>
+        </div>
+      )}
 
+      {matricula?.status === 'aprovada' && (
+        <>
           {/* "Início" = página da matrícula: habilitação escolhida, status
-              (sempre "aprovada" aqui dentro, já que as abas só existem
-              depois disso — ver o bloco `matricula?.status === 'aprovada'`
-              mais acima) e os dados cadastrados, só pra conferência. Edição
-              fica atrás da engrenagem no cabeçalho (abrirEdicaoDados), não
-              aqui — mesmo texto/campos que "Meus dados" mostrava antes. */}
+              (sempre "aprovada" aqui dentro) e os dados cadastrados, só pra
+              conferência. Edição fica atrás da engrenagem no cabeçalho
+              (abrirEdicaoDados), não aqui — mesmo texto/campos que "Meus
+              dados" mostrava antes. */}
           {aba === 'inicio' && (
             <div className="dados-lista" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="cliente-card">
@@ -776,6 +802,8 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
           </form>
         </div>
       )}
+
+      {aviso && <div className="aviso-temporario" role="status">{aviso}</div>}
 
       <a className="pagina-cliente-rodape pagina-cliente-rodape--fixo" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
     </div>
