@@ -12,6 +12,18 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Web App Manifest: sem isso, "Instalar app"/"Adicionar à tela inicial"
+         (Android, Chrome/Edge desktop) não tinha nenhum ícone em alta
+         resolução pra usar — só sobrava o favicon (32px) ou o
+         apple-touch-icon (180px), esticados pro tamanho do ícone
+         instalado (normalmente 512px), daí o brasão borrado que o Alex viu
+         na lista de apps. manifest.webmanifest aponta ícones de até 512px
+         de verdade, "any" (fundo transparente, mesmo brasão do favicon) e
+         "maskable" (fundo azul-petróleo sólido preenchendo o quadrado
+         inteiro — o formato que o sistema recorta em círculo/squircle sem
+         cortar o brasão ou sobrar transparência esquisita). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0D1B2A" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Título da aba: era "marina-manager" (nome técnico do projeto,
          sobrado da criação do repositório) — nunca tinha sido trocado pelo
