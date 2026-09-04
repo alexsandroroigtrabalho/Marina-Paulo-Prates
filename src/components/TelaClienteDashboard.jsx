@@ -1254,7 +1254,10 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
   }
 
   return (
-    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: 24 }}>
+    // padding-bottom extra (68px, mesma medida do RV e-Náutica) reserva
+    // espaço pro rodapé fixo (.pagina-cliente-rodape--fixo, ver abaixo) —
+    // sem isso o fim do conteúdo rolável ficaria escondido atrás dele.
+    <div className="painel-cliente" style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 68px' }}>
       <img
         src="/rv-invictus-logo.png"
         alt="RV Invictus · Consultoria e Gestão de Processos"
@@ -1743,8 +1746,11 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
       {/* Mesma assinatura do rodapé do Painel de Controle: identifica a
           aplicação (RV Marine) e credita a RV Invictus. As telas de entrada
           — login, cadastro e seleção de aplicações — seguem com "Developed
-          by", porque ali o usuário ainda não escolheu aplicação nenhuma. */}
-      <a className="pagina-cliente-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV Marine by RVinvictus.com.br</a>
+          by", porque ali o usuário ainda não escolheu aplicação nenhuma.
+          "--fixo" (mesmo tratamento já usado no RV e-Náutica, pedido do
+          Alex pra ficar sempre visível): fica preso na base da tela em vez
+          de só aparecer rolando até o fim do painel. */}
+      <a className="pagina-cliente-rodape pagina-cliente-rodape--fixo" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV Marine by RVinvictus.com.br</a>
     </div>
   )
 }
