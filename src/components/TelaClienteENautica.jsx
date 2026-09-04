@@ -447,6 +447,15 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
           {cliente && (
             <SinoNotificacoes notificacoes={notificacoes} onAbrirUma={abrirNotificacao} onMarcarTodasLidas={marcarTodasLidas} />
           )}
+          {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
+              (mesmo padrão do "Voltar" nas telas de "Em construção"/"Não
+              contratada" em App.jsx). A sessão do Supabase segue ativa.
+              Antes da engrenagem, na mesma ordem do RV Marine
+              (TelaClienteDashboard.jsx: "Sair" primeiro, depois a
+              engrenagem/MenuConfigCliente). */}
+          <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair" onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
+            <IconLogout size={16} />
+          </button>
           {/* Engrenagem: única porta pra editar os dados pessoais/documento
               (nome, RG, endereço etc.) — mesmo padrão do RV Marine
               (MenuConfigCliente → "Minha conta" em TelaClienteDashboard.jsx),
@@ -461,12 +470,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               <IconSettings size={16} />
             </button>
           )}
-          {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
-              (mesmo padrão do "Voltar" nas telas de "Em construção"/"Não
-              contratada" em App.jsx). A sessão do Supabase segue ativa. */}
-          <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair" onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
-            <IconLogout size={16} />
-          </button>
         </div>
       </header>
 
