@@ -37,14 +37,18 @@ const ICONES = {
 // pra repetir o nome. Fica junto da lista de aplicações (não em apps.js)
 // porque é um texto só desta tela — apps.js é a fonte única usada também
 // pelo menu do administrador, que não precisa desta descrição.
+// Todas no singular (pedido do Alex) — "documentos"/"projetos"/"ordens"/
+// "cobranças" no plural soavam como se cada aplicação lidasse com uma
+// COLEÇÃO de itens, quando a ideia é nomear a ÁREA/processo que ela cobre,
+// no singular, igual "Gestão de marina" e "Escola náutica" já estavam.
 const DESCRICOES = {
   marine: 'Gestão de marina',
-  nautdoc: 'Documentos e regularização',
+  nautdoc: 'Documento e regularização',
   enautica: 'Escola náutica',
-  enge: 'Engenharia e projetos',
-  manut: 'Ordens de serviço',
+  enge: 'Engenharia e projeto',
+  manut: 'Ordem de serviço',
   stock: 'Estoque e inventário',
-  finance: 'Financeiro e cobranças',
+  finance: 'Financeiro e cobrança',
 }
 
 export default function SelecaoAplicacoes({ onSelecionar }) {
@@ -62,25 +66,39 @@ export default function SelecaoAplicacoes({ onSelecionar }) {
         className="login-rv-logo"
       />
 
-      <nav className="selecao-apps">
-        {APLICACOES.map(({ chave, prefixo, nome }) => {
-          const Icone = ICONES[chave]
-          return (
-            <button
-              key={chave}
-              type="button"
-              className="selecao-app-item"
-              onClick={(e) => { e.currentTarget.blur(); onSelecionar(chave) }}
-            >
-              {/* stroke 1.25 (era 1.5) — a pedido do Alex, ícones mais finos
-                  aqui do que o padrão de 1.5 usado no resto do app. */}
-              <span className="selecao-app-item-icone"><Icone size={22} stroke={1.25} /></span>
-              <span className="selecao-app-item-nome">{prefixo} {nome}</span>
-              <span className="selecao-app-item-desc">{DESCRICOES[chave]}</span>
-            </button>
-          )
-        })}
-      </nav>
+      {/* Envolve a grade num wrapper que ocupa o espaço INTEIRO entre a logo
+          e o rodapé (flex:1) e centraliza o conteúdo dentro dele mesmo
+          (align-items/justify-content:center) — antes a grade centralizava
+          com margin:auto direto no <nav>, mas o rodapé virou position:fixed
+          (fora do fluxo), então sobrava só a logo como "vizinho" no fluxo
+          flex e a centralização por margem automática não batia mais com o
+          espaço realmente livre na tela, deixando a grade mais pra baixo
+          do que devia. Este wrapper mede o espaço certo (min-height:0 pra
+          não travar o scroll em telas baixas com muitas aplicações) e
+          centraliza ali dentro, sem depender de auto-margin. */}
+      <div className="selecao-apps-meio">
+        <nav className="selecao-apps">
+          {APLICACOES.map(({ chave, prefixo, nome }) => {
+            const Icone = ICONES[chave]
+            return (
+              <button
+                key={chave}
+                type="button"
+                className="selecao-app-item"
+                onClick={(e) => { e.currentTarget.blur(); onSelecionar(chave) }}
+              >
+                {/* stroke 1 (era 1.5, depois 1.25 — ainda "espesso" pro Alex) —
+                    1 é o traço mais fino que o tabler-icons oferece sem
+                    quebrar o desenho do ícone; mais fino que isso some no
+                    tamanho pequeno do selo (22px). */}
+                <span className="selecao-app-item-icone"><Icone size={22} stroke={1} /></span>
+                <span className="selecao-app-item-nome">{prefixo} {nome}</span>
+                <span className="selecao-app-item-desc">{DESCRICOES[chave]}</span>
+              </button>
+            )
+          })}
+        </nav>
+      </div>
 
       <footer className="login-rv-footer">
         <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>

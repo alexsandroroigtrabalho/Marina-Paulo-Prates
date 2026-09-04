@@ -778,11 +778,26 @@ body {
   margin: 0;
   z-index: 20;
 }
+/* flex:1 faz este wrapper ocupar TODO o espaço livre entre a logo (acima)
+   e o respiro reservado pro rodapé fixo (.tela-selecao-apps
+   padding-bottom, acima) — dentro dele, align-items+justify-content:center
+   centraliza a grade de verdade nesse espaço. min-height:0 é necessário
+   pra um filho flex:1 conseguir encolher abaixo do tamanho do seu
+   conteúdo quando a lista de 7 aplicações não cabe inteira — sem isso o
+   wrapper travava do tamanho do conteúdo e quebrava a rolagem da página
+   em telas baixas. */
+.selecao-apps-meio {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
 .selecao-apps {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  margin: auto 0;
   width: min(420px, 92vw);
 }
 @media (max-width: 380px) {
