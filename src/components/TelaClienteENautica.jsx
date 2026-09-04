@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconLogout, IconHome, IconPlayerPlay, IconCalendarEvent, IconUserCircle, IconBell } from '@tabler/icons-react'
+import { IconLogout, IconHome, IconPlayerPlay, IconCalendarEvent, IconRoute, IconBell, IconSettings } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
 import { buscarMarina, salvarCliente } from '../lib/db'
 import {
@@ -44,15 +44,19 @@ function maskarCampoDocumento(chave, tipo, valor) {
 // "Documentos" aqui: os 4 documentos de matrícula não são entregues pelo
 // aluno — são gerados pela ESCOLA a partir dos dados da matrícula (ver
 // ModalDocumentosAluno.jsx, aberto pelo Painel de Controle). O aluno só
-// entra nisso preenchendo os dados corretamente — por isso "Meus dados"
-// abaixo cobre também os campos de documento (RG, endereço etc.), não só
-// nome/e-mail/telefone: sem um jeito de corrigir um dado errado depois de
-// enviado, um RG digitado errado ficava travado pra sempre.
+// entra nisso preenchendo os dados corretamente — por isso a edição desses
+// campos (RG, endereço etc.) continua existindo, só que agora atrás da
+// engrenagem no cabeçalho (ver abrirEdicaoDados), não numa aba própria.
+//
+// "Início" virou a página da matrícula (habilitação, status, dados
+// cadastrados) — antes era a Trilha da Habilitação, que se mudou pro lugar
+// de "Meus dados" (removida daqui a pedido do Alex: a edição de dados saiu
+// das abas e foi pra engrenagem, então sobrou o espaço pra trilha).
 const ABAS_ALUNO = [
   { chave: 'inicio', label: 'Início', Icone: IconHome },
   { chave: 'aulas', label: 'Aulas', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
-  { chave: 'dados', label: 'Meus dados', Icone: IconUserCircle },
+  { chave: 'trilha', label: 'Trilha', Icone: IconRoute },
 ]
 
 // "Início" (aba nova, a pedido do Alex) — um guia de estudos da trilha
@@ -223,13 +227,11 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   const [modalMatriculaAberto, setModalMatriculaAberto] = useState(false)
   const [aceitouPrivacidade, setAceitouPrivacidade] = useState(false)
 
-  // "Meus dados" (aba 'dados') — era só leitura, com um texto avisando
-  // "edição chega numa próxima fase". Agora edita de verdade, reaproveitando
-  // salvarCliente (mesma função do RV Marine) — os dados moram na mesma
-  // tabela (marina.clientes), então não precisa de nada novo no banco.
-  // `editandoDados`/`formDados` só existem enquanto o aluno está de fato
-  // editando; fora disso a aba mostra os valores como texto simples, igual
-  // antes.
+  // "Meus dados" (modal aberto pela engrenagem do cabeçalho, ver
+  // abrirEdicaoDados) — edita de verdade, reaproveitando salvarCliente
+  // (mesma função do RV Marine) — os dados moram na mesma tabela
+  // (marina.clientes), então não precisa de nada novo no banco.
+  // `editandoDados`/`formDados` controlam se o modal está aberto.
   const [editandoDados, setEditandoDados] = useState(false)
   const [formDados, setFormDados] = useState(null)
   const [salvandoDados, setSalvandoDados] = useState(false)
@@ -435,6 +437,20 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
           {cliente && (
             <SinoNotificacoes notificacoes={notificacoes} onAbrirUma={abrirNotificacao} onMarcarTodasLidas={marcarTodasLidas} />
           )}
+          {/* Engrenagem: única porta pra editar os dados pessoais/documento
+              (nome, RG, endereço etc.) — mesmo padrão do RV Marine
+              (MenuConfigCliente → "Minha conta" em TelaClienteDashboard.jsx),
+              só que aqui é um botão direto (não um menu) porque só existe
+              essa ação. Só aparece com matrícula aprovada, que é quando
+              existe algo pra editar de fato. */}
+          {cliente && matricula?.status === 'aprovada' && (
+            <button
+              type="button" className="nav-item" style={{ color: 'var(--cor-primaria)' }}
+              title="Editar meus dados" aria-label="Editar meus dados" onClick={abrirEdicaoDados}
+            >
+              <IconSettings size={16} />
+            </button>
+          )}
           {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
               (mesmo padrão do "Voltar" nas telas de "Em construção"/"Não
               contratada" em App.jsx). A sessão do Supabase segue ativa. */}
@@ -563,7 +579,38 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             </div>
           </div>
 
-          {aba === 'inicio' && <TelaInicio />}
+          {/* "Início" = página da matrícula: habilitação escolhida, status
+              (sempre "aprovada" aqui dentro, já que as abas só existem
+              depois disso — ver o bloco `matricula?.status === 'aprovada'`
+              mais acima) e os dados cadastrados, só pra conferência. Edição
+              fica atrás da engrenagem no cabeçalho (abrirEdicaoDados), não
+              aqui — mesmo texto/campos que "Meus dados" mostrava antes. */}
+          {aba === 'inicio' && (
+            <div className="dados-lista" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="cliente-card">
+                <div className="cabecalho-cliente">
+                  <div className="titulo-cliente"><span className="nome">Matrícula</span></div>
+                </div>
+                <div className="linha status-texto em-dia">✓ Aprovada</div>
+                <div className="linha"><b>Habilitação:</b> {labelHabilitacao(matricula.habilitacao)}</div>
+              </div>
+              <div className="linha"><b>Nome:</b> {cliente.nome}</div>
+              <div className="linha"><b>E-mail:</b> {cliente.email || '—'}</div>
+              <div className="linha"><b>Telefone:</b> {cliente.telefone || '—'}</div>
+              {/* Campos que entram nos documentos que a ESCOLA gera pra
+                  Capitania (ver nota no topo do arquivo) — "telefone" fica
+                  de fora de propósito, já tem a linha dele acima (mesmo
+                  valor; CAMPOS_DOCUMENTO inclui telefone só pra cobrir a
+                  matrícula, que não tem um campo próprio pra ele). */}
+              {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
+                <div key={c.chave} className="linha">
+                  <b>{c.label}:</b> {c.tipo === 'date' ? (isoParaDataMascarada(cliente[c.chave]) || '—') : (cliente[c.chave] || '—')}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {aba === 'trilha' && <TelaInicio />}
 
           {aba === 'aulas' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -672,94 +719,62 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             </div>
           )}
 
-          {aba === 'dados' && !editandoDados && (
-            // ".dados-lista" (ver index.css) só reduz o tamanho da fonte
-            // dessas linhas — elas ficavam fora de ".cliente-card", que é
-            // quem normalmente define esse tamanho (.cliente-card .linha),
-            // então saíam no tamanho cru/grande do navegador.
-            <div className="dados-lista" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div className="linha"><b>Nome:</b> {cliente.nome}</div>
-              <div className="linha"><b>E-mail:</b> {cliente.email || '—'}</div>
-              <div className="linha"><b>Telefone:</b> {cliente.telefone || '—'}</div>
-              <div className="linha"><b>Habilitação matriculada:</b> {labelHabilitacao(matricula.habilitacao)}</div>
-
-              {/* Campos que entram nos documentos que a ESCOLA gera pra
-                  Capitania (ver nota no topo do arquivo) — mostrados aqui
-                  só pra conferência; "Editar dados" abaixo cobre também
-                  eles, não só nome/e-mail/telefone. "telefone" fica de fora
-                  aqui de propósito — já tem a linha dele acima, com o mesmo
-                  valor (CAMPOS_DOCUMENTO inclui telefone só pra cobrir a
-                  matrícula, que não tem um campo próprio pra ele); sem esse
-                  filtro, "Telefone" aparecia duas vezes na lista. */}
-              {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
-                <div key={c.chave} className="linha">
-                  <b>{c.label}:</b> {c.tipo === 'date' ? (isoParaDataMascarada(cliente[c.chave]) || '—') : (cliente[c.chave] || '—')}
-                </div>
-              ))}
-
-              {/* Antes era um <button className="botao-secundario"> solto,
-                  fora de ".cliente-card-acoes" — essa classe só tem estilo
-                  DENTRO desse wrapper (ver index.css), então o botão saía
-                  sem nenhuma identidade visual (aparência crua do
-                  navegador). Envolvendo em ".cliente-card-acoes" ele ganha
-                  o mesmo desenho neutro usado em todo o resto do app
-                  (Alterar resposta, Solicitar reagendamento etc.) — sem o
-                  contorno dourado (removido a pedido do Alex; a classe
-                  ".botao-secundario--dourado" continua no index.css caso
-                  sirva em outro botão no futuro). */}
-              <div className="cliente-card-acoes" style={{ marginTop: 4 }}>
-                <button type="button" className="botao-secundario" onClick={abrirEdicaoDados}>
-                  Editar dados
-                </button>
-              </div>
-            </div>
-          )}
-
-          {aba === 'dados' && editandoDados && (
-            <form onSubmit={salvarMeusDados} className="form-vertical" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label>
-                Nome
-                <input required type="text" value={formDados.nome} onChange={(e) => setFormDados({ ...formDados, nome: e.target.value })} />
-              </label>
-              <label>
-                E-mail
-                <input type="email" value={formDados.email} onChange={(e) => setFormDados({ ...formDados, email: e.target.value })} />
-              </label>
-              <label>
-                Telefone
-                <input type="text" value={formDados.telefone} onChange={(e) => setFormDados({ ...formDados, telefone: maskTelefone(e.target.value) })} />
-              </label>
-
-              {/* Antes esses campos só eram perguntados uma vez (na
-                  matrícula) e só se estivessem vazios — um dado errado não
-                  tinha como ser corrigido depois. Agora ficam aqui, sempre
-                  editáveis, junto com o resto de "Meus dados". "telefone"
-                  fica de fora (já tem o campo dele logo acima) — mesmo
-                  motivo da leitura, ver comentário lá. */}
-              {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
-                <label key={c.chave}>
-                  {c.label}
-                  <input
-                    type="text"
-                    inputMode={c.tipo === 'date' || c.chave === 'cep' ? 'numeric' : undefined}
-                    placeholder={c.tipo === 'date' ? 'dd/mm/aaaa' : c.chave === 'uf' ? 'ex.: SP' : undefined}
-                    value={formDados[c.chave] || ''}
-                    onChange={(e) => setFormDados({
-                      ...formDados,
-                      [c.chave]: maskarCampoDocumento(c.chave, c.tipo, e.target.value),
-                    })}
-                  />
-                </label>
-              ))}
-
-              {erroDados && <p className="erro">{erroDados}</p>}
-              <div className="acoes-modal" style={{ padding: 0 }}>
-                <button type="button" onClick={() => setEditandoDados(false)} disabled={salvandoDados}>Cancelar</button>
-                <button type="submit" disabled={salvandoDados}>{salvandoDados ? 'Salvando…' : 'Salvar'}</button>
-              </div>
-            </form>
-          )}
         </>
+      )}
+
+      {/* Edição de "Meus dados" — agora um modal aberto pela engrenagem no
+          cabeçalho (não mais uma aba própria; ver nota em ABAS_ALUNO acima),
+          mesmo padrão visual/estrutura do modal "Minha conta" do RV Marine
+          (TelaClienteDashboard.jsx): .modal-fundo + .modal-card ganham o
+          fundo escuro com losango dourado automaticamente (ver
+          ".painel-cliente .modal-card" no index.css), sem precisar de
+          nenhuma classe extra aqui. */}
+      {editandoDados && formDados && (
+        <div className="modal-fundo" onClick={() => setEditandoDados(false)}>
+          <form onSubmit={salvarMeusDados} className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Meus dados</h3>
+            <label>
+              Nome
+              <input required type="text" value={formDados.nome} onChange={(e) => setFormDados({ ...formDados, nome: e.target.value })} />
+            </label>
+            <label>
+              E-mail
+              <input type="email" value={formDados.email} onChange={(e) => setFormDados({ ...formDados, email: e.target.value })} />
+            </label>
+            <label>
+              Telefone
+              <input type="text" value={formDados.telefone} onChange={(e) => setFormDados({ ...formDados, telefone: maskTelefone(e.target.value) })} />
+            </label>
+
+            {/* Antes esses campos só eram perguntados uma vez (na
+                matrícula) e só se estivessem vazios — um dado errado não
+                tinha como ser corrigido depois. Agora ficam aqui, sempre
+                editáveis, junto com o resto de "Meus dados". "telefone"
+                fica de fora (já tem o campo dele logo acima) — mesmo
+                motivo da leitura, ver comentário lá. */}
+            {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
+              <label key={c.chave}>
+                {c.label}
+                <input
+                  type="text"
+                  inputMode={c.tipo === 'date' || c.chave === 'cep' ? 'numeric' : undefined}
+                  placeholder={c.tipo === 'date' ? 'dd/mm/aaaa' : c.chave === 'uf' ? 'ex.: SP' : undefined}
+                  value={formDados[c.chave] || ''}
+                  onChange={(e) => setFormDados({
+                    ...formDados,
+                    [c.chave]: maskarCampoDocumento(c.chave, c.tipo, e.target.value),
+                  })}
+                />
+              </label>
+            ))}
+
+            {erroDados && <p className="erro">{erroDados}</p>}
+            <div className="acoes-modal">
+              <button type="button" onClick={() => setEditandoDados(false)} disabled={salvandoDados}>Cancelar</button>
+              <button type="submit" disabled={salvandoDados}>{salvandoDados ? 'Salvando…' : 'Salvar'}</button>
+            </div>
+          </form>
+        </div>
       )}
 
       <a className="pagina-cliente-rodape pagina-cliente-rodape--fixo" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RV e-Náutica by RVinvictus.com.br</a>
