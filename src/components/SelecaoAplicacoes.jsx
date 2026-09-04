@@ -49,7 +49,13 @@ const DESCRICOES = {
 
 export default function SelecaoAplicacoes({ onSelecionar }) {
   return (
-    <div className="tela-central tela-login-rv">
+    // "tela-selecao-apps" (além das classes já usadas no login/cadastro) só
+    // pra fixar o rodapé nesta tela específica (ver .tela-selecao-apps
+    // .login-rv-footer no index.css) — as outras telas com
+    // .tela-login-rv (Home, FichaCadastro) precisam do rodapé rolando
+    // junto do conteúdo, então essa mudança não pode ir na classe
+    // compartilhada.
+    <div className="tela-central tela-login-rv tela-selecao-apps">
       <img
         src="/rv-invictus-logo-dourado.png"
         alt="RV Invictus — Consultoria e Gestão de Processos"
@@ -66,7 +72,9 @@ export default function SelecaoAplicacoes({ onSelecionar }) {
               className="selecao-app-item"
               onClick={(e) => { e.currentTarget.blur(); onSelecionar(chave) }}
             >
-              <span className="selecao-app-item-icone"><Icone size={22} stroke={1.5} /></span>
+              {/* stroke 1.25 (era 1.5) — a pedido do Alex, ícones mais finos
+                  aqui do que o padrão de 1.5 usado no resto do app. */}
+              <span className="selecao-app-item-icone"><Icone size={22} stroke={1.25} /></span>
               <span className="selecao-app-item-nome">{prefixo} {nome}</span>
               <span className="selecao-app-item-desc">{DESCRICOES[chave]}</span>
             </button>
