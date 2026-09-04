@@ -1281,14 +1281,6 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
           </strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
-              (mesmo padrão do RV e-Náutica e do "Voltar" nas telas de "Em
-              construção"/"Não contratada" em App.jsx). A sessão do
-              Supabase segue ativa. */}
-          <button className="nav-item" style={{ color: 'var(--cor-primaria)' }} title="Sair" aria-label="Sair"
-            onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
-            <IconLogout size={16} />
-          </button>
           {cliente && (
             <MenuConfigCliente
               autorizadosCount={autorizados.filter((a) => a.ativo).length}
@@ -1300,6 +1292,21 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
               cadastroPendente={faltandoParaRvMarine(cliente, embarcacoes).length > 0}
             />
           )}
+          {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
+              (mesmo padrão do RV e-Náutica e do "Voltar" nas telas de "Em
+              construção"/"Não contratada" em App.jsx). A sessão do
+              Supabase segue ativa.
+              Depois da engrenagem agora (era antes) — pedido do Alex pra
+              "Sair" ficar no canto direito de verdade, no lugar que a
+              engrenagem ocupava. Classe "botao-sair" (a mesma já usada no
+              cabeçalho do administrador, Layout.jsx) em vez de "nav-item"
+              cru: dá um alvo de toque de 32px de verdade (nav-item não tem
+              largura/altura fixas, só padding de texto) e o ícone sobe de
+              16 pra 18px — maior que antes, também pedido do Alex. */}
+          <button className="botao-sair" title="Sair" aria-label="Sair"
+            onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
+            <IconLogout size={18} />
+          </button>
         </div>
       </header>
 
