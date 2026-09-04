@@ -32,7 +32,7 @@ export default function SelecaoAplicacoes({ onSelecionar }) {
             className="nav-app-item selecao-app-item"
             onClick={(e) => { e.currentTarget.blur(); onSelecionar(chave) }}
           >
-            <span className="nav-app-item-prefixo">{prefixo}</span>{' '}
+            <span className="nav-app-item-prefixo">{prefixo}</span>
             <span className="nav-app-item-nome">{nome}</span>
           </button>
         ))}

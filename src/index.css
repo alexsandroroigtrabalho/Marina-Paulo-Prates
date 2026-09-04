@@ -746,11 +746,41 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  gap: 12px;
   margin: auto 0;
-  width: min(320px, 88vw);
+  width: min(360px, 88vw);
 }
-.selecao-apps .selecao-app-item { padding: 13px 4px; }
-.selecao-apps .nav-app-item-prefixo { font-size: 13px; }
+/* Antes era só texto solto, centralizado, um embaixo do outro — sem
+   nenhuma borda/preenchimento, não lia como algo clicável (parecia uma
+   lista de rótulos). Agora cada aplicação é um botão de verdade: cartão
+   com contorno dourado fino (mesma linguagem do resto da marca — contorno
+   dourado sutil sobre o azul-petróleo, ver .cliente-card etc.), texto
+   alinhado à ESQUERDA (mais fácil de escanear numa lista vertical do que
+   texto centralizado) mas com o conjunto ícone-prefixo+nome centralizado
+   na vertical dentro do botão (align-items: center no flex row). O nome
+   ainda cresce um pouco no hover (mesmo gesto de antes), e agora o
+   cartão também ganha fundo/contorno dourado mais forte + leve
+   "levantada", pra reforçar visualmente o estado de hover. */
+.selecao-apps .selecao-app-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 20px;
+  margin: 0;
+  background: rgba(245, 245, 240, 0.03);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 12px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.selecao-apps .selecao-app-item:hover {
+  background: rgba(212, 175, 55, 0.08);
+  border-color: rgba(212, 175, 55, 0.6);
+  transform: translateY(-1px);
+}
+.selecao-apps .nav-app-item-prefixo { font-size: 13px; flex-shrink: 0; }
 .selecao-apps .nav-app-item-nome { font-size: 16px; }
 .selecao-apps .selecao-app-item:hover .nav-app-item-nome { font-size: 17.5px; }
 
