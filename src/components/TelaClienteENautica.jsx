@@ -89,14 +89,14 @@ const TRILHA_INICIO = [
     texto: 'A avaliação teórica é aplicada diretamente pela autoridade marítima (Capitania dos Portos), não pela escola. São 40 questões de múltipla escolha, sobre regras de tráfego aquaviário, sinalização náutica, manobra, segurança e combate a incêndio, sobrevivência no mar, primeiros socorros e meteorologia. É preciso acertar pelo menos 20 (50%) para ser aprovado, em até duas horas.',
   },
   {
-    onde: 'Aba "Agendamentos"',
-    titulo: 'Aprovado na teórica, solicite a prova prática',
-    texto: 'Com a teórica concluída, peça à escola o agendamento da avaliação prática (o mesmo card acima, ou diretamente com seu instrutor).',
-  },
-  {
+    // Removido o passo intermediário "solicite a prova prática": no fluxo
+    // atual o aluno não pede o agendamento da avaliação prática — só
+    // avisa que está pronto na teórica (passo acima). Depois de aprovado,
+    // quem agenda a aula/avaliação prática é a própria escola, por conta
+    // própria; o aluno só é avisado quando já está marcada (este passo).
     onde: 'Sino de notificações',
-    titulo: 'Você recebe a data da aula prática',
-    texto: 'A escola marca o compromisso e você é avisado por notificação aqui dentro, com data, hora e local.',
+    titulo: 'Aprovado? A escola agenda a aula prática',
+    texto: 'Com a teórica concluída, a escola organiza e marca sua aula/avaliação prática — você não precisa solicitar nada. Assim que estiver marcada, você é avisado por notificação aqui dentro, com data, hora e local.',
   },
   {
     onde: 'Na escola',
