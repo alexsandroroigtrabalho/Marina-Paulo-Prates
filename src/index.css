@@ -1255,7 +1255,7 @@ button.badge:hover { filter: brightness(0.95); }
    ganha só um leve destaque de opacidade/sombra — a cor de cada botão não
    muda com a seleção, ela é fixa. */
 .abas-enautica {
-  display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px;
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 38px;
   font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
 }
 .abas-enautica-linha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -1851,6 +1851,19 @@ button.badge:hover { filter: brightness(0.95); }
   border: 1px solid rgba(212,175,55,0.34);
   box-shadow: 0 22px 54px rgba(0,0,0,0.45);
   color: #F5F5F0;
+  gap: 16px;
+}
+/* Rótulo sempre EM CIMA do campo, nunca ao lado — sem isto, o <label>
+   (texto + input soltos dentro dele, ver JSX) segue o fluxo inline padrão:
+   rótulos curtos ("Nome", "CEP") ficavam colados no campo na mesma linha,
+   e rótulos longos ("Data de emissão do RG", "Naturalidade...") empurravam
+   o campo pra quebrar numa segunda linha — os dois formatos misturados no
+   mesmo formulário (ver "Meus dados"/matrícula em TelaClienteENautica.jsx)
+   ficavam com espaçamento inconsistente e difícil de escanear. */
+.painel-cliente .modal-card label {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em;
+  color: rgba(245,245,240,0.65);
 }
 
 /* Modal de matrícula (RV e-Náutica): sem o texto explicativo que ocupava

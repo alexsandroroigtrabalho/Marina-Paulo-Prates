@@ -586,7 +586,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               <input type="checkbox" required checked={aceitouPrivacidade} onChange={(e) => setAceitouPrivacidade(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
               <span>
                 Li e aceito a{' '}
-                <a href="https://rvinvictus.com.br/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: '#D4AF37', fontWeight: 600 }}>
+                <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: '#D4AF37', fontWeight: 600 }}>
                   Política de Privacidade
                 </a>{' '}
                 e autorizo o uso dos meus dados para fins de matrícula.
