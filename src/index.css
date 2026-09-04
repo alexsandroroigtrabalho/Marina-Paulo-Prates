@@ -1291,7 +1291,12 @@ button.badge:hover { filter: brightness(0.95); }
 .abas-enautica-linha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .abas-enautica button {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  border: 1.5px solid var(--dourado-texto); border-radius: 14px; cursor: pointer;
+  /* Era 1.5px — sozinha entre os contornos dourados do app, todos os outros
+     (cards de Arrais/Motonauta, cliente-card, modal-card etc.) usam 1px.
+     Sem nenhum motivo de design pra essa exceção, só destoava visualmente
+     das abas Aulas/Agendamentos ficarem com o traço mais grosso que o
+     resto. */
+  border: 1px solid var(--dourado-texto); border-radius: 14px; cursor: pointer;
   background: #fff; color: var(--cor-primaria);
   /* Mesmo tamanho de fonte do par Descida/Subida do RV Marine
      (.painel-cliente-btn-primario/outline: 13.5px) — antes estava em 12px,
@@ -1346,6 +1351,16 @@ button.badge:hover { filter: brightness(0.95); }
    uma caixa do mesmo tamanho — corrige o desalinhamento vertical sem
    depender do metric interno da fonte. */
 .abas-enautica button.abas-enautica-inicio span { display: flex; align-items: center; height: 22px; line-height: 1; }
+/* Mesmo com as duas caixas (ícone e texto) ocupando exatamente os mesmos
+   22px, ainda sobrava uma sensação de desalinhamento: o ícone de casa é um
+   triângulo (telhado) afinando pra cima sobre uma base larga (porta) — o
+   peso visual dele fica concentrado na metade de baixo da caixa, enquanto
+   as letras do texto (traço uniforme) pesam de forma mais equilibrada. O
+   olho compara os "centros de massa", não as caixas: por isso o ícone
+   parece flutuar um pouco mais alto que o texto mesmo estando com o mesmo
+   bounding box. 1px pra baixo no ícone corrige essa ilusão de ótica sem
+   mexer no espaçamento entre os dois. */
+.abas-enautica button.abas-enautica-inicio svg { transform: translateY(1px); }
 
 /* Azul-petróleo preenchido, mesma cor de ação primária do resto do RV
    Marine (.painel-cliente-btn-primario) — aplicada em "Trilha" (ver classe
