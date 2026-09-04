@@ -542,16 +542,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
           análise. */}
       {aba === 'inicio' && cliente && matricula?.status !== 'pendente' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {matricula?.status === 'aprovada' && (
-            <div className="cliente-card">
-              <div className="cabecalho-cliente">
-                <div className="titulo-cliente"><span className="nome">Matrícula</span></div>
-              </div>
-              <div className="linha status-texto em-dia">✓ Aprovada</div>
-              <div className="linha"><b>Habilitação:</b> {labelHabilitacao(matricula.habilitacao)}</div>
-              <div className="dica" style={{ marginTop: 6 }}>Quer se matricular em outra habilitação também? Escolha abaixo.</div>
-            </div>
-          )}
           {matricula?.status === 'recusada' && (
             <p className="status-texto cancelado">
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
