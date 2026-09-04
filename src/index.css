@@ -1351,16 +1351,13 @@ button.badge:hover { filter: brightness(0.95); }
    uma caixa do mesmo tamanho — corrige o desalinhamento vertical sem
    depender do metric interno da fonte. */
 .abas-enautica button.abas-enautica-inicio span { display: flex; align-items: center; height: 22px; line-height: 1; }
-/* Mesmo com as duas caixas (ícone e texto) ocupando exatamente os mesmos
-   22px, ainda sobrava uma sensação de desalinhamento: o ícone de casa é um
-   triângulo (telhado) afinando pra cima sobre uma base larga (porta) — o
-   peso visual dele fica concentrado na metade de baixo da caixa, enquanto
-   as letras do texto (traço uniforme) pesam de forma mais equilibrada. O
-   olho compara os "centros de massa", não as caixas: por isso o ícone
-   parece flutuar um pouco mais alto que o texto mesmo estando com o mesmo
-   bounding box. 1px pra baixo no ícone corrige essa ilusão de ótica sem
-   mexer no espaçamento entre os dois. */
-.abas-enautica button.abas-enautica-inicio svg { transform: translateY(1px); }
+/* Não tem mais o ajuste de translateY(1px) que existia aqui: aquele pixel
+   compensava especificamente a assimetria do ícone de casa (telhado
+   triangular afinando pra cima sobre uma base larga), que não existe no
+   ícone de livro (IconBook2) — formato bem mais simétrico na vertical, sem
+   sobrar peso visual concentrado embaixo. Com as duas caixas (ícone e
+   texto) já do mesmo tamanho (22px, ver regra do <span> acima), o
+   alinhamento fica correto sem precisar de nenhum ajuste manual extra. */
 
 /* Azul-petróleo preenchido, mesma cor de ação primária do resto do RV
    Marine (.painel-cliente-btn-primario) — aplicada em "Trilha" (ver classe

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { IconLogout, IconHome, IconPlayerPlay, IconCalendarEvent, IconRoute, IconBell, IconSettings } from '@tabler/icons-react'
+import { IconLogout, IconBook2, IconPlayerPlay, IconCalendarEvent, IconRoute, IconBell, IconSettings } from '@tabler/icons-react'
 import { supabase, db } from '../lib/supabase'
 import { buscarMarina, salvarCliente } from '../lib/db'
 import {
@@ -53,7 +53,7 @@ function maskarCampoDocumento(chave, tipo, valor) {
 // de "Meus dados" (removida daqui a pedido do Alex: a edição de dados saiu
 // das abas e foi pra engrenagem, então sobrou o espaço pra trilha).
 const ABAS_ALUNO = [
-  { chave: 'inicio', label: 'Matrícula', Icone: IconHome },
+  { chave: 'inicio', label: 'Matrícula', Icone: IconBook2 },
   { chave: 'trilha', label: 'Trilha', Icone: IconRoute },
   { chave: 'aulas', label: 'Aulas', Icone: IconPlayerPlay },
   { chave: 'agenda', label: 'Agendamentos', Icone: IconCalendarEvent },
@@ -503,7 +503,7 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
             onClick={() => setAba('inicio')}
           >
-            <IconHome size={22} stroke={1.5} />
+            <IconBook2 size={22} stroke={1.5} />
             <span>Matrícula</span>
           </button>
           <div className="abas-enautica-linha">
