@@ -38,7 +38,7 @@ const ICONES = {
 // porque é um texto só desta tela — apps.js é a fonte única usada também
 // pelo menu do administrador, que não precisa desta descrição.
 const DESCRICOES = {
-  marine: 'Gestão de frota e vagas',
+  marine: 'Gestão de marina',
   nautdoc: 'Documentação e despachos',
   enautica: 'Escola náutica',
   enge: 'Engenharia e projetos',
