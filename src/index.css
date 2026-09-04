@@ -785,7 +785,14 @@ body {
    pra um filho flex:1 conseguir encolher abaixo do tamanho do seu
    conteúdo quando a lista de 7 aplicações não cabe inteira — sem isso o
    wrapper travava do tamanho do conteúdo e quebrava a rolagem da página
-   em telas baixas. */
+   em telas baixas.
+   padding-bottom aqui não é "respiro" nenhum — é o que desloca a grade pra
+   cima do centro exato (pedido do Alex: mais perto da logo). Com
+   align-items:center puro a grade ficava a meia distância entre a logo e o
+   rodapé; encolher o espaço de centralização só por baixo (padding-bottom,
+   sem padding-top) empurra esse meio pra cima, aproximando a grade da logo
+   sem precisar de um valor fixo em pixels pro topo (que quebraria em telas
+   de altura diferente). */
 .selecao-apps-meio {
   flex: 1;
   min-height: 0;
@@ -793,6 +800,7 @@ body {
   align-items: center;
   justify-content: center;
   width: 100%;
+  padding-bottom: 64px;
 }
 .selecao-apps {
   display: grid;
