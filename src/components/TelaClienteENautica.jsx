@@ -96,7 +96,7 @@ const TRILHA_INICIO = [
     // própria; o aluno só é avisado quando já está marcada (este passo).
     onde: 'Sino de notificações',
     titulo: 'Aprovado? A escola agenda a aula prática',
-    texto: 'Com a teórica concluída, a escola organiza e marca sua aula/avaliação prática — você não precisa solicitar nada. Assim que estiver marcada, você é avisado por notificação aqui dentro, com data, hora e local.',
+    texto: 'Com a teórica concluída, a escola organiza e marca sua aula/avaliação prática. Você é avisado por notificação aqui dentro, com data, hora e local.',
   },
   {
     onde: 'Na escola',
