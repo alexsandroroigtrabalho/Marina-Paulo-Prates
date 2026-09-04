@@ -482,6 +482,52 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
       {!carregando && !cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração.</p>}
 
+      {/* Barra de abas — sempre visível pra quem já tem cadastro, mesmo
+          antes da matrícula ser aprovada: é assim que o aluno chega em
+          "Início" pra solicitar a matrícula. Fica no topo, antes de
+          qualquer conteúdo de aba, pra não ficar "escondida" atrás dos
+          cards/botões de matrícula quando Início tem bastante coisa pra
+          mostrar. Trilha/Aulas/Agendamentos só têm conteúdo de verdade
+          depois da aprovação — antes disso, clicar nelas mostra um aviso
+          (ver mostrarAviso) em vez de trocar de aba. "Início" vira uma
+          barra horizontal cheia no topo (cor fixa: gradiente laranja do
+          S.O.S.); os outros 3 ficam numa fileira logo abaixo — "Trilha"
+          fixo em azul-petróleo, Aulas/Agendamentos em branco (ver
+          .abas-enautica* no index.css). A cor de cada botão é sempre a
+          mesma; só a aba selecionada ganha destaque (sombra). O rótulo
+          fica num <span> à parte pra centralizar de verdade
+          (verticalmente) com o ícone, mesmo em botões com texto de
+          tamanhos diferentes. */}
+      {cliente && (
+        <div className="abas-enautica">
+          <button
+            className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
+            onClick={() => setAba('inicio')}
+          >
+            <IconHome size={22} />
+            <span>Início</span>
+          </button>
+          <div className="abas-enautica-linha">
+            {ABAS_ALUNO.filter((a) => a.chave !== 'inicio').map((a) => (
+              <button
+                key={a.chave}
+                className={[aba === a.chave ? 'ativo' : '', a.chave === 'trilha' ? 'abas-enautica-aulas' : ''].filter(Boolean).join(' ')}
+                onClick={() => {
+                  if (matricula?.status !== 'aprovada') {
+                    mostrarAviso('Esta área libera assim que sua matrícula for aprovada pela escola.')
+                    return
+                  }
+                  setAba(a.chave)
+                }}
+              >
+                <a.Icone size={18} />
+                <span>{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Início = a própria página de solicitação de matrícula, sempre — a
           pedido do Alex, ela continua aparecendo mesmo depois de aprovada,
           porque o aluno pode voltar aqui e pedir uma habilitação diferente
@@ -573,49 +619,6 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
         <div style={{ textAlign: 'center', marginTop: 32 }}>
           <p className="status-texto pendente">Matrícula em análise</p>
           <p className="dica">Seu pedido para <b>{labelHabilitacao(matricula.habilitacao)}</b> está aguardando aprovação da escola. Você será avisado assim que a decisão sair.</p>
-        </div>
-      )}
-
-      {/* Barra de abas — sempre visível pra quem já tem cadastro, mesmo
-          antes da matrícula ser aprovada: é assim que o aluno chega em
-          "Início" pra solicitar a matrícula. Trilha/Aulas/Agendamentos só
-          têm conteúdo de verdade depois da aprovação — antes disso, clicar
-          nelas mostra um aviso (ver mostrarAviso) em vez de trocar de aba.
-          "Início" vira uma barra horizontal cheia no topo (cor fixa:
-          gradiente laranja do S.O.S.); os outros 3 ficam numa fileira
-          logo abaixo — "Aulas" fixo em azul-petróleo, Agendamentos/Trilha
-          em branco (ver .abas-enautica* no index.css). A cor de cada botão
-          é sempre a mesma; só a aba selecionada ganha destaque (sombra). O
-          rótulo fica num <span> à parte pra centralizar de verdade
-          (verticalmente) com o ícone, mesmo em botões com texto de
-          tamanhos diferentes. */}
-      {cliente && (
-        <div className="abas-enautica">
-          <button
-            className={`abas-enautica-inicio${aba === 'inicio' ? ' ativo' : ''}`}
-            onClick={() => setAba('inicio')}
-          >
-            <IconHome size={22} />
-            <span>Início</span>
-          </button>
-          <div className="abas-enautica-linha">
-            {ABAS_ALUNO.filter((a) => a.chave !== 'inicio').map((a) => (
-              <button
-                key={a.chave}
-                className={[aba === a.chave ? 'ativo' : '', a.chave === 'aulas' ? 'abas-enautica-aulas' : ''].filter(Boolean).join(' ')}
-                onClick={() => {
-                  if (matricula?.status !== 'aprovada') {
-                    mostrarAviso('Esta área libera assim que sua matrícula for aprovada pela escola.')
-                    return
-                  }
-                  setAba(a.chave)
-                }}
-              >
-                <a.Icone size={18} />
-                <span>{a.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
       )}
 

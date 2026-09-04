@@ -1308,9 +1308,12 @@ button.badge:hover { filter: brightness(0.95); }
 .abas-enautica button.abas-enautica-inicio svg { display: block; flex-shrink: 0; }
 .abas-enautica button.abas-enautica-inicio span { line-height: 1; }
 
-/* "Aulas preparatórias": azul-petróleo preenchido, mesma cor de ação
-   primária do resto do RV Marine (.painel-cliente-btn-primario). Mesmo
-   motivo do "button." acima em .abas-enautica-inicio. */
+/* Azul-petróleo preenchido, mesma cor de ação primária do resto do RV
+   Marine (.painel-cliente-btn-primario) — aplicada em "Trilha" (ver classe
+   condicional no JSX de TelaClienteENautica.jsx; o nome da classe CSS ficou
+   "abas-enautica-aulas" por histórico, mas hoje é o botão de Trilha que
+   recebe essa cor fixa). Mesmo motivo do "button." acima em
+   .abas-enautica-inicio. */
 .abas-enautica button.abas-enautica-aulas { background: var(--cor-secundaria); border-color: var(--cor-secundaria); color: #fff; }
 
 
