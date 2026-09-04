@@ -2176,6 +2176,32 @@ button.badge:hover { filter: brightness(0.95); }
   color: var(--cor-primaria);
   line-height: 1.15;
 }
+/* Enquanto o nome de verdade (marina.nome / config_json.nomeEscolaEnautica)
+   ainda não chegou do banco, o cabeçalho do cliente ficava, por um instante
+   curto mas visível, mostrando um nome ERRADO — "RV Marine"/"RV e-Náutica"
+   fixos no texto, substituídos pelo nome real (ex.: "Marina Paulo Prates",
+   "Escola RS Náutica") assim que o fetch terminava (relato do Alex: o nome
+   certo só aparece "milissegundos depois"). Show errado-depois-certo é pior
+   que só mostrar um placeholder neutro: esta barrinha ocupa o mesmo lugar
+   sem afirmar nada de errado enquanto carrega — ver uso em
+   TelaClienteDashboard.jsx/TelaClienteENautica.jsx (classe aplicada só
+   enquanto `marina` ainda é null). */
+.painel-cliente-marina--carregando {
+  display: inline-block;
+  width: 150px;
+  max-width: 55vw;
+  height: 0.85em;
+  border-radius: 6px;
+  background: var(--cor-secundaria-clara);
+  animation: painel-cliente-marina-pulso 1.1s ease-in-out infinite;
+}
+@keyframes painel-cliente-marina-pulso {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .painel-cliente-marina--carregando { animation: none; opacity: 0.6; }
+}
 
 /* ============================================================
    DENSIDADE DO PAINEL DE CONTROLE (RV Marine)

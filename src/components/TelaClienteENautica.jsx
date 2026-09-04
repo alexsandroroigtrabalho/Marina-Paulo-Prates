@@ -441,8 +441,15 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
             a mesma marina pode ter uma escola náutica com razão social/nome
             fantasia próprio (ex.: Marina Paulo Prates → "Escola RS
             Náutica"). config_json.nomeEscolaEnautica é opcional; sem ele,
-            cai no nome da marina normalmente. */}
-        <strong className="painel-cliente-marina">{marina?.config_json?.nomeEscolaEnautica || marina?.nome || 'RV e-Náutica'}</strong>
+            cai no nome da marina normalmente.
+            Enquanto `marina` ainda não chegou do banco, NÃO cai mais em
+            "RV e-Náutica" fixo — esse nome errado aparecia por um instante
+            antes do nome real (mesmo relato do Alex sobre o RV Marine).
+            Mostra uma barrinha neutra (.painel-cliente-marina--carregando)
+            em vez disso. */}
+        <strong className={`painel-cliente-marina${marina ? '' : ' painel-cliente-marina--carregando'}`}>
+          {marina?.config_json?.nomeEscolaEnautica || marina?.nome || ''}
+        </strong>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {cliente && (
             <SinoNotificacoes notificacoes={notificacoes} onAbrirUma={abrirNotificacao} onMarcarTodasLidas={marcarTodasLidas} />

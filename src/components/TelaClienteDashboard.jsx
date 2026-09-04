@@ -1267,8 +1267,15 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
               ("Marina Paulo Prates"), o que estava certo enquanto só
               existia essa marina, mas passou a mostrar o nome errado para
               clientes de qualquer outro tenant (ex: CCPP) assim que o RV
-              Marine passou a atender mais de uma marina. */}
-          <strong className="painel-cliente-marina">{marina?.nome || 'RV Marine'}</strong>
+              Marine passou a atender mais de uma marina.
+              Enquanto `marina` ainda não chegou (fetch em carregar(), mais
+              abaixo), NÃO cai mais em "RV Marine" fixo — isso fazia esse
+              nome errado aparecer por um instante antes do nome real
+              (relato do Alex). Mostra uma barrinha neutra
+              (.painel-cliente-marina--carregando) em vez disso. */}
+          <strong className={`painel-cliente-marina${marina ? '' : ' painel-cliente-marina--carregando'}`}>
+            {marina?.nome || ''}
+          </strong>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
