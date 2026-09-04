@@ -302,14 +302,14 @@ body {
    consumia boa parte do espaço realmente visível, empurrando conteúdo de
    baixo (ex.: o 3º botão de habilitação no e-Náutica, "Habilitação
    Completa") pra fora da dobra.
-   220px (era 200px): o Alex pediu pra aumentar a logo até o limite
-   possível sem voltar a esconder "Habilitação Completa" — testei com a
-   barra de endereço do navegador visível (o pior caso real) e, encolhendo
-   também o respiro do cabeçalho/abas abaixo (".enautica-cabecalho" e
-   ".abas-enautica" nesta mesma faixa), 220px é o maior valor que ainda
-   sobra folga de verdade (não só cabe raspando). */
+   248px (era 220px, antes 200px): o Alex achou a logo ainda pequena
+   demais pra ler no celular e pediu pra aumentar mais um pouco — testado
+   de novo com a barra de endereço do navegador visível (o pior caso
+   real) e encolhendo mais um pouco o respiro do cabeçalho/abas abaixo
+   (".enautica-cabecalho" e ".abas-enautica" nesta mesma faixa) pra
+   "Habilitação Completa" continuar cabendo sem cortar. */
 @media (max-width: 480px) {
-  .pagina-cliente-logo { width: min(220px, 58vw); margin: 0 auto 8px; }
+  .pagina-cliente-logo { width: min(248px, 62vw); margin: 0 auto 8px; }
   /* Só existe no e-Náutica (RV Marine não usa esta classe) — respiro do
      cabeçalho (nome da escola + sino/engrenagem/sair) menor no mobile,
      parte do mesmo ajuste acima. */
@@ -916,25 +916,21 @@ body {
    mobile, mesmo com o media query batendo certinho. */
 @media (max-width: 480px) {
   .selecao-apps { width: min(360px, 94vw); gap: clamp(5px, 1.4vh, 9px); }
-  /* Mesmo motivo do comentário acima de ".selecao-apps-meio": com 4 linhas
-     (mesmo só 4, não mais 7) o "puxão pra cima" (padding-bottom sem
-     padding-top, ver regra base) ainda podia render a lista mais alta que
-     o espaço livre em telas bem baixas e encostar na logo. Alinhamento
-     normal no topo, com respiro pequeno e flexível (clamp), evita esse
-     risco em qualquer altura. */
+  /* Voltou a centralizar de verdade (era flex-start): com a grade já
+     compacta o bastante pra caber inteira mesmo com a barra de endereço
+     do navegador visível (sobra folga real, ver medições), o Alex pediu
+     pra os cartões ficarem centralizados verticalmente no espaço entre a
+     logo e o rodapé, não "grudados" no topo. */
   .selecao-apps-meio {
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding-top: clamp(3px, 1.1vh, 12px);
-    padding-bottom: clamp(3px, 1.1vh, 12px);
+    align-items: center;
+    justify-content: center;
+    padding-top: clamp(2px, 0.8vh, 10px);
+    padding-bottom: clamp(2px, 0.8vh, 10px);
   }
-  /* 220px — igualada de propósito ao mesmo tamanho de logo do RV Marine/
-     e-Náutica no mobile (".pagina-cliente-logo", mesma faixa de largura,
-     ver comentário lá): pedido do Alex pra as 3 logos (aplicações, RV
-     Marine, e-Náutica) ficarem do mesmo tamanho no celular, sem mexer
-     mais nelas — daqui pra frente, qualquer ajuste de espaço nesta tela
-     deve encolher a GRADE (cartões abaixo), não a logo. */
-  .tela-selecao-apps .login-rv-logo { width: min(220px, 58vw); margin-top: 0; }
+  /* 248px (era 220px) — o Alex achou a logo pequena demais pra ler no
+     celular; aumentada de novo, igual nas 3 telas (aplicações, RV Marine,
+     e-Náutica — ver ".pagina-cliente-logo" pro mesmo ajuste). */
+  .tela-selecao-apps .login-rv-logo { width: min(248px, 62vw); margin-top: 0; }
   .selecao-apps .selecao-app-item {
     padding: clamp(6px, 1.9vh, 14px) 7px clamp(5px, 1.4vh, 10px);
     gap: clamp(1.5px, 0.6vh, 5px);
@@ -1473,7 +1469,12 @@ button.badge:hover { filter: brightness(0.95); }
    muda com a seleção, ela é fixa. */
 .abas-enautica {
   display: flex; flex-direction: column; gap: 8px; margin-bottom: 38px;
-  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  /* Era 'Poppins' — mesmo já pareado em peso/tamanho (700/16px) com os
+     botões de habilitação logo abaixo, a fonte em si continuava diferente
+     (Poppins aqui vs. o Inter padrão do app nos botões de habilitação,
+     que usam "font-family: inherit"), então as duas famílias de botão
+     ainda pareciam "diferentes" lado a lado. Tirando o override, esta
+     aba volta a herdar o Inter padrão, igual aos botões de habilitação. */
 }
 .abas-enautica-linha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .abas-enautica button {
@@ -1491,6 +1492,13 @@ button.badge:hover { filter: brightness(0.95); }
      mais abaixo) e pediu pra igualar DENTRO desta mesma tela, já que os
      dois grupos de botão aparecem juntos aqui — a referência que importa
      agora é a vizinha na mesma tela, não mais o RV Marine. */
+  /* font-family: inherit — sem isso, um <button> não herda a fonte do
+     ancestral (é um controle de formulário, a stylesheet do navegador dá
+     a ele uma fonte de sistema própria, tipo Arial), então mesmo depois
+     de tirar o "Poppins" daqui ele continuava numa fonte diferente do
+     Inter usado pelos botões de habilitação — só ficava invisível numa
+     comparação rápida, mas dava pra notar de perto. */
+  font-family: inherit;
   padding: 12px 6px; font-weight: 700; font-size: 16px; letter-spacing: 0.01em; text-align: center; line-height: 1.2;
   transition: box-shadow 120ms ease-in-out, transform 120ms ease-in-out;
 }
