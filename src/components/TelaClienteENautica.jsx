@@ -585,8 +585,23 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
             {erroEnvio && <p className="erro">{erroEnvio}</p>}
 
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
-              <input type="checkbox" required checked={aceitouPrivacidade} onChange={(e) => setAceitouPrivacidade(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
+            {/* Reaproveita ".opcao-checkbox" (mesmo checkbox redesenhado —
+                quadradinho fino com contorno dourado — usado no resto do
+                painel do cliente, ver index.css) em vez de deixar o
+                checkbox cru: sem essa classe, ele herdava o padding/borda
+                genéricos de ".modal-card input" (pensados pra campo de
+                texto), ficando um quadrado grande e desalinhado do texto
+                ao lado. `alignItems: flex-start` sobrescreve o
+                `align-items: center` padrão de ".opcao-checkbox" (pensado
+                pra um texto de uma linha só) — aqui o texto quebra em 3
+                linhas, então o checkbox alinha pelo topo, com a mesma
+                margem do topo da primeira linha. */}
+            <label className="opcao-checkbox" style={{ alignItems: 'flex-start', fontSize: 13, marginTop: 4 }}>
+              <input
+                type="checkbox" required checked={aceitouPrivacidade}
+                onChange={(e) => setAceitouPrivacidade(e.target.checked)}
+                style={{ marginTop: 2 }}
+              />
               <span>
                 Li e aceito a{' '}
                 <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: '#D4AF37', fontWeight: 600 }}>

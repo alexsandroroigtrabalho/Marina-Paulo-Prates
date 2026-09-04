@@ -2,9 +2,34 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Ícone da aba do navegador: era o logo padrão do Vite (o raio roxo),
+         sobrado de quando o projeto foi criado — nunca tinha sido trocado
+         pelo brasão dourado da RV Invictus. ".ico" primeiro por
+         compatibilidade ampla (Safari/Windows antigos só reconhecem esse
+         formato), com um PNG maior como alternativa pra telas de alta
+         densidade; "apple-touch-icon" é o ícone usado quando a página é
+         salva na tela inicial de um iPhone/iPad. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>marina-manager</title>
+    <!-- Título da aba: era "marina-manager" (nome técnico do projeto,
+         sobrado da criação do repositório) — nunca tinha sido trocado pelo
+         nome da marca que o cliente final vê. -->
+    <title>RV Invictus</title>
+    <!-- Cartão de pré-visualização ao compartilhar o link (WhatsApp,
+         Telegram, etc.) — sem essas tags Open Graph, o link aparecia sem
+         nenhuma prévia (ou com dados genéricos do navegador). og:image
+         aponta pra um cartão dedicado (fundo azul-petróleo + losangos +
+         brasão dourado), não pro logo cru, pra ficar legível no formato
+         retangular que o WhatsApp usa. URL absoluta porque apps de
+         mensagem não resolvem caminho relativo ao gerar a prévia. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="RV Invictus" />
+    <meta property="og:description" content="Consultoria e Gestão de Processos — RV Invictus." />
+    <meta property="og:image" content="https://prates.rvinvictus.com.br/og-image.png" />
+    <meta property="og:url" content="https://prates.rvinvictus.com.br" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Fonte de toda a interface (título, tabelas, menus) — Inter, escolhida
          pelo cliente entre algumas opções por ter ótima legibilidade em
          painéis com bastante densidade de dados. Antes o título usava uma

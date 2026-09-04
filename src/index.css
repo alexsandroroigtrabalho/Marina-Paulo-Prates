@@ -1306,7 +1306,16 @@ button.badge:hover { filter: brightness(0.95); }
    (sem baseline) e o rótulo sem folga de line-height, pra alinhar pelo
    centro geométrico dos dois, não pela linha de base do texto. */
 .abas-enautica button.abas-enautica-inicio svg { display: block; flex-shrink: 0; }
-.abas-enautica button.abas-enautica-inicio span { line-height: 1; }
+/* line-height:1 sozinho ainda deixava o texto meio pixel mais baixo que o
+   ícone — a caixa da linha de um texto em line-height:1 não é exatamente a
+   altura visual da fonte (sobra um respiro do próprio metric da fonte), então
+   o centro geométrico calculado pelo align-items:center do "vizinho" (o
+   <svg>, esse sim com altura exata de 22px) não batia com o centro óptico do
+   texto. Forçar a caixa do <span> para os mesmos 22px do ícone, com
+   display:flex + align-items:center nele mesmo, centraliza o texto dentro de
+   uma caixa do mesmo tamanho — corrige o desalinhamento vertical sem
+   depender do metric interno da fonte. */
+.abas-enautica button.abas-enautica-inicio span { display: flex; align-items: center; height: 22px; line-height: 1; }
 
 /* Azul-petróleo preenchido, mesma cor de ação primária do resto do RV
    Marine (.painel-cliente-btn-primario) — aplicada em "Trilha" (ver classe
