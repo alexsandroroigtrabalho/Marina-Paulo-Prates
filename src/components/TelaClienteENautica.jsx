@@ -178,7 +178,11 @@ function SinoNotificacoes({ notificacoes, onAbrirUma, onMarcarTodasLidas }) {
     <div className="menu-acoes" ref={ref}>
       <button type="button" className="nav-item" style={{ color: 'var(--cor-primaria)', position: 'relative' }}
         title="Notificações" aria-label="Notificações" onClick={() => setAberto(!aberto)}>
-        <IconBell size={16} />
+        {/* size 18 — mesmo tamanho da engrenagem do RV Marine
+            (.menu-acoes-botao), pedido do Alex pra todos os ícones
+            "normais" do cabeçalho ficarem do mesmo tamanho nos dois apps;
+            só "Sair" fica maior (ver botão logo abaixo). */}
+        <IconBell size={18} />
         {naoLidas > 0 && <span className="ponto-pendencia" aria-hidden="true" style={{ position: 'absolute', top: 2, right: 2 }} />}
       </button>
       {aberto && (
@@ -465,7 +469,9 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               type="button" className="nav-item" style={{ color: 'var(--cor-primaria)' }}
               title="Editar meus dados" aria-label="Editar meus dados" onClick={abrirEdicaoDados}
             >
-              <IconSettings size={16} />
+              {/* size 18 — mesmo tamanho do sino acima e da engrenagem do
+                  RV Marine (ver comentário no sino). */}
+              <IconSettings size={18} />
             </button>
           )}
           {/* "Sair" aqui não desloga — só volta pra seleção de aplicações
@@ -481,7 +487,10 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
               o ícone sobe de 16 pra 18px — maior que antes, também pedido
               do Alex. */}
           <button className="botao-sair" title="Sair" aria-label="Sair" onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
-            <IconLogout size={18} />
+            {/* size 22 (maior que os 18 do sino/engrenagem acima) — pedido
+                do Alex pra "Sair"/voltar às aplicações se destacar dos
+                demais ícones do cabeçalho, não só por ficar por último. */}
+            <IconLogout size={22} />
           </button>
         </div>
       </header>

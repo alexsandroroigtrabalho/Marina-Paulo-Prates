@@ -324,6 +324,9 @@ function MenuConfigCliente({ autorizadosCount, onAbrirAutorizados, onAbrirMinhaC
         onClick={() => setAberto(!aberto)}
         title={cadastroPendente ? 'Configurações — há dados a completar' : 'Configurações'}
       >
+        {/* size 18 — mesmo tamanho dos ícones "normais" do cabeçalho do
+            e-Náutica (sino/engrenagem, TelaClienteENautica.jsx); só "Sair"
+            fica maior. */}
         <IconSettings size={18} />
       </button>
       {aberto && (
@@ -1305,7 +1308,10 @@ export default function TelaClienteDashboard({ perfil, onVoltar }) {
               16 pra 18px — maior que antes, também pedido do Alex. */}
           <button className="botao-sair" title="Sair" aria-label="Sair"
             onClick={() => (onVoltar ? onVoltar() : supabase.auth.signOut())}>
-            <IconLogout size={18} />
+            {/* size 22 (maior que os 18 da engrenagem acima) — pedido do
+                Alex pra "Sair"/voltar às aplicações se destacar dos demais
+                ícones do cabeçalho, não só por ficar por último. */}
+            <IconLogout size={22} />
           </button>
         </div>
       </header>

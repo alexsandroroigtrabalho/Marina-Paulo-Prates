@@ -1053,6 +1053,25 @@ body {
   background: none; color: var(--cor-texto-suave); cursor: pointer;
 }
 .menu-acoes-botao:hover { background: rgba(13, 27, 42, 0.08); color: var(--cor-primaria); }
+/* No cabeçalho do CLIENTE (RV Marine/e-Náutica, .painel-cliente), os ícones
+   de "Sair" e da engrenagem (.botao-sair/.menu-acoes-botao) ficam pretos
+   (--cor-primaria) desde o repouso, não só no hover — o cinza padrão
+   dessas classes (pensado pro cabeçalho do administrador, onde continua
+   cinza) lia como "apagado demais" pro Alex. Escopado a .painel-cliente
+   pra não mudar nada no cabeçalho do administrador (Layout.jsx), que usa
+   as mesmas classes. O sino e a engrenagem do e-Náutica já usavam
+   --cor-primaria via style inline (sem essa regra), então já ficam iguais
+   aos de cá. "Sair" também ganha um alvo de toque um pouco maior (36px),
+   proporcional ao ícone maior (22px, ver TelaClienteDashboard.jsx/
+   TelaClienteENautica.jsx) que o destaca dos demais ícones do cabeçalho. */
+.painel-cliente .menu-acoes-botao,
+.painel-cliente .botao-sair {
+  color: var(--cor-primaria);
+}
+.painel-cliente .botao-sair {
+  width: 36px;
+  height: 36px;
+}
 .menu-acoes-dropdown {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
   display: flex; flex-direction: column; gap: 2px; min-width: 210px;
