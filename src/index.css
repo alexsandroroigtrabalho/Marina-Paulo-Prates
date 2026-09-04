@@ -1255,7 +1255,7 @@ button.badge:hover { filter: brightness(0.95); }
    ganha só um leve destaque de opacidade/sombra — a cor de cada botão não
    muda com a seleção, ela é fixa. */
 .abas-enautica {
-  display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px;
   font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
 }
 .abas-enautica-linha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
