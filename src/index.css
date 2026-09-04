@@ -735,54 +735,93 @@ body {
 
 /* ---------- Seleção de aplicações do cliente (SelecaoAplicacoes.jsx) ----------
    Mesma tela de entrada do login (.tela-login-rv cuida do fundo, da logo e
-   do rodapé); aqui só a lista em si. Reusa .nav-app-item do menu do
-   administrador — o mesmo gesto de seleção nos dois lugares — só subindo a
-   escala, porque no cliente a lista é o conteúdo principal da página, não
-   um menu lateral estreito.
+   do rodapé); aqui só a grade em si.
 
-   margin: auto 0 centraliza a lista verticalmente entre a logo e o rodapé
-   (o .tela-login-rv é uma coluna flex com justify-content: space-between). */
+   Já passou por duas versões antes desta: primeiro uma lista de texto solto
+   (sem contorno, não lia como clicável), depois uma lista de barras com
+   contorno mas todas IDÊNTICAS entre si (só "RV + NOME" em caixa alta) — o
+   Alex apontou que essa segunda versão ainda parecia desorganizada, e o
+   motivo é este: 7 barras da mesma cor/formato, uma embaixo da outra, sem
+   nada que diferencie uma aplicação da outra, lê como uma lista de
+   configuração inacabada, não como um seletor de aplicativos de verdade.
+
+   Esta versão resolve os dois problemas ao mesmo tempo:
+   1) cada aplicação ganha um ÍCONE PRÓPRIO (ver ICONES em
+      SelecaoAplicacoes.jsx) — a primeira coisa que o olho usa pra
+      diferenciar item de app launcher é o ícone, não o texto;
+   2) a grade de 2 colunas (em vez de 1 coluna corrida) quebra os 7 blocos
+      numa mancha compacta e quadrada — mais parecida com uma tela inicial
+      de aplicativos do que com uma lista de configurações.
+   Um item ímpar (7 é ímpar) sobra sozinho na última linha — sem
+   grid-column:span, de propósito: forçar o último item a ocupar as duas
+   colunas destacaria ele mais que os outros sem nenhum motivo (não é o
+   app "principal"), então ele fica do tamanho normal, alinhado à
+   esquerda da grade, igual um ícone "impar" numa tela de apps de
+   verdade. */
 .selecao-apps {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin: auto 0;
-  width: min(360px, 88vw);
+  width: min(420px, 92vw);
 }
-/* Antes era só texto solto, centralizado, um embaixo do outro — sem
-   nenhuma borda/preenchimento, não lia como algo clicável (parecia uma
-   lista de rótulos). Agora cada aplicação é um botão de verdade: cartão
-   com contorno dourado fino (mesma linguagem do resto da marca — contorno
-   dourado sutil sobre o azul-petróleo, ver .cliente-card etc.), texto
-   alinhado à ESQUERDA (mais fácil de escanear numa lista vertical do que
-   texto centralizado) mas com o conjunto ícone-prefixo+nome centralizado
-   na vertical dentro do botão (align-items: center no flex row). O nome
-   ainda cresce um pouco no hover (mesmo gesto de antes), e agora o
-   cartão também ganha fundo/contorno dourado mais forte + leve
-   "levantada", pra reforçar visualmente o estado de hover. */
+@media (max-width: 380px) {
+  .selecao-apps { grid-template-columns: 1fr; width: min(300px, 88vw); }
+}
+/* Cartão em coluna (ícone em cima, nome, descrição embaixo) — não em linha
+   como um item de menu — porque numa grade 2x4 o formato "quase quadrado"
+   é o que lê como ícone de aplicativo; um cartão largo e baixo (linha)
+   ficaria estranho ao lado de outro na mesma grade. */
 .selecao-apps .selecao-app-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  text-align: left;
-  gap: 10px;
+  text-align: center;
+  gap: 8px;
   width: 100%;
-  padding: 16px 20px;
+  padding: 22px 12px 18px;
   margin: 0;
   background: rgba(245, 245, 240, 0.03);
   border: 1px solid rgba(212, 175, 55, 0.28);
-  border-radius: 12px;
+  border-radius: 14px;
+  cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .selecao-apps .selecao-app-item:hover {
   background: rgba(212, 175, 55, 0.08);
   border-color: rgba(212, 175, 55, 0.6);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
-.selecao-apps .nav-app-item-prefixo { font-size: 13px; flex-shrink: 0; }
-.selecao-apps .nav-app-item-nome { font-size: 16px; }
-.selecao-apps .selecao-app-item:hover .nav-app-item-nome { font-size: 17.5px; }
+/* Selo circular pro ícone — o mesmo tratamento "contorno dourado fino
+   sobre fundo escuro" do resto da marca, só que redondo, pra destacar o
+   ícone como o ponto focal do cartão (é ele que diferencia uma aplicação
+   da outra à primeira vista, o texto vem depois). */
+.selecao-app-item-icone {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.06);
+  color: #D4AF37;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.selecao-apps .selecao-app-item:hover .selecao-app-item-icone {
+  border-color: #D4AF37;
+  background: rgba(212, 175, 55, 0.14);
+}
+.selecao-app-item-nome {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; letter-spacing: 0.03em;
+  text-transform: uppercase; font-size: 13px; color: rgba(245, 245, 240, 0.92);
+}
+/* Descrição: única linha nova de informação real (não repete o nome),
+   é o que dá contexto sobre o que cada aplicação faz — substitui o "RV"
+   repetido 7 vezes por algo que efetivamente diferencia os itens entre
+   si. Cor mais apagada e fonte menor: hierarquia clara de que o nome vem
+   primeiro, a descrição é secundária. */
+.selecao-app-item-desc {
+  font-family: 'Montserrat', sans-serif; font-size: 10.5px; line-height: 1.3;
+  color: rgba(245, 245, 240, 0.48);
+}
 
 /* Aplicação ainda não desenvolvida, vista pelo cliente
    (AplicacaoEmConstrucao.jsx). Mesma hierarquia da tela de seleção: nome da
