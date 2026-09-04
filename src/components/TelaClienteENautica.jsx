@@ -482,15 +482,30 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
       {!carregando && !cliente && !erroCarregamento && <p>Seu cadastro ainda está em análise pela administração.</p>}
 
-      {/* Sem matrícula ainda: a tela inicial só oferece 3 botões, um por
-          habilitação (ver HABILITACOES em lib/enautica.js) — escolher um
-          abre o modal de pedido (padrão dourado/navy do resto do RV Marine,
-          .modal-fundo + .modal-card) já com a habilitação decidida, e nele
-          só entram os campos de documento que ainda faltam (ver
-          camposDocumentoFaltando). Também cobre o caso de matrícula
-          recusada: o aluno pode mandar um novo pedido pelos mesmos botões. */}
-      {aba === 'inicio' && cliente && (!matricula || matricula.status === 'recusada') && (
+      {/* Início = a própria página de solicitação de matrícula, sempre — a
+          pedido do Alex, ela continua aparecendo mesmo depois de aprovada,
+          porque o aluno pode voltar aqui e pedir uma habilitação diferente
+          (ex.: já aprovado em moto, pede arrais depois). Os botões abrem o
+          mesmo modal de pedido (padrão dourado/navy do resto do RV Marine,
+          .modal-fundo + .modal-card); nele só entram os campos de documento
+          que ainda faltam (ver camposDocumentoFaltando) — como os dados já
+          preenchidos continuam salvos no cadastro, o formulário aparece
+          menor (ou vazio) num pedido seguinte. Só não mostra os botões com
+          uma matrícula "pendente" (aguardando decisão da escola — ver bloco
+          abaixo): evita pedido duplicado enquanto o anterior ainda está em
+          análise. */}
+      {aba === 'inicio' && cliente && matricula?.status !== 'pendente' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {matricula?.status === 'aprovada' && (
+            <div className="cliente-card">
+              <div className="cabecalho-cliente">
+                <div className="titulo-cliente"><span className="nome">Matrícula</span></div>
+              </div>
+              <div className="linha status-texto em-dia">✓ Aprovada</div>
+              <div className="linha"><b>Habilitação:</b> {labelHabilitacao(matricula.habilitacao)}</div>
+              <div className="dica" style={{ marginTop: 6 }}>Quer se matricular em outra habilitação também? Escolha abaixo.</div>
+            </div>
+          )}
           {matricula?.status === 'recusada' && (
             <p className="status-texto cancelado">
               Sua matrícula anterior foi recusada{matricula.motivo_recusa ? `: ${matricula.motivo_recusa}` : '.'} Você pode enviar um novo pedido abaixo.
@@ -606,36 +621,10 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
 
       {matricula?.status === 'aprovada' && (
         <>
-          {/* "Início" = página da matrícula: habilitação escolhida, status
-              (sempre "aprovada" aqui dentro) e os dados cadastrados, só pra
-              conferência. Edição fica atrás da engrenagem no cabeçalho
-              (abrirEdicaoDados), não aqui — mesmo texto/campos que "Meus
-              dados" mostrava antes. */}
-          {aba === 'inicio' && (
-            <div className="dados-lista" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div className="cliente-card">
-                <div className="cabecalho-cliente">
-                  <div className="titulo-cliente"><span className="nome">Matrícula</span></div>
-                </div>
-                <div className="linha status-texto em-dia">✓ Aprovada</div>
-                <div className="linha"><b>Habilitação:</b> {labelHabilitacao(matricula.habilitacao)}</div>
-              </div>
-              <div className="linha"><b>Nome:</b> {cliente.nome}</div>
-              <div className="linha"><b>E-mail:</b> {cliente.email || '—'}</div>
-              <div className="linha"><b>Telefone:</b> {cliente.telefone || '—'}</div>
-              {/* Campos que entram nos documentos que a ESCOLA gera pra
-                  Capitania (ver nota no topo do arquivo) — "telefone" fica
-                  de fora de propósito, já tem a linha dele acima (mesmo
-                  valor; CAMPOS_DOCUMENTO inclui telefone só pra cobrir a
-                  matrícula, que não tem um campo próprio pra ele). */}
-              {CAMPOS_DOCUMENTO.filter((c) => c.chave !== 'telefone').map((c) => (
-                <div key={c.chave} className="linha">
-                  <b>{c.label}:</b> {c.tipo === 'date' ? (isoParaDataMascarada(cliente[c.chave]) || '—') : (cliente[c.chave] || '—')}
-                </div>
-              ))}
-            </div>
-          )}
-
+          {/* Conteúdo do "Início" pra quem já está aprovado fica no bloco
+              acima (página de solicitação de matrícula, sempre visível) —
+              aqui só as outras 3 abas, que só têm conteúdo de verdade
+              depois da aprovação. */}
           {aba === 'trilha' && <TelaInicio />}
 
           {aba === 'aulas' && (
