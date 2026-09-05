@@ -826,6 +826,21 @@ body {
   min-height: 0;
   display: flex;
   align-items: center;
+  /* align-items:safe center (linha abaixo) — em janelas de desktop mais
+     baixas (ex.: notebook 1366x768 ou 1280x720 com a barra de endereço/
+     favoritos do navegador, um caso comum, não só mobile) a grade de 7
+     aplicações não cabia inteira no espaço entre a logo e o rodapé; com
+     "center" puro o flexbox estoura IGUALMENTE pra cima e pra baixo, e o
+     estouro de cima ficava literalmente por cima da logo (mesma pilha
+     visual, sem position:absolute nenhum — só overflow "normal" de
+     flexbox). "safe center" é o keyword do próprio CSS Box Alignment pra
+     esse caso exato: centraliza normalmente quando cabe, e volta a
+     alinhar pelo início (sem sobrepor nada acima) quando não cabe,
+     deixando a página rolar pro resto em vez de esconder atrás da logo.
+     Repetida a declaração "center" simples ANTES: em navegador sem
+     suporte a "safe" essa segunda linha é só ignorada (valor inválido),
+     mantendo o "center" de sempre. */
+  align-items: safe center;
   justify-content: center;
   width: 100%;
   padding-bottom: 64px;
@@ -946,6 +961,23 @@ body {
   .selecao-app-item-icone svg { width: clamp(13px, 3.4vh, 18px); height: clamp(13px, 3.4vh, 18px); }
   .selecao-app-item-nome { font-size: clamp(9px, 2.9vw, 11.5px); }
   .selecao-app-item-desc { font-size: clamp(7px, 2.1vw, 9.3px); line-height: 1.12; }
+}
+/* Desktop com janela BAIXA (não estreita) — ex.: notebook 1366x768 ou
+   1280x720 com barra de favoritos, um caso comum, não só mobile. Sem
+   esta faixa, a grade (cartões no tamanho cheio: ícone 44px etc.) não
+   cabia entre a logo e o rodapé fixo nessas alturas; o "align-items:safe
+   center" acima já evita ela cobrir a LOGO, mas a última linha (RV
+   Finance) ainda podia encostar/ficar atrás do rodapé fixo. "min-width"
+   aqui evita conflitar com o bloco mobile logo acima (larguras ≤480px já
+   têm seu próprio ajuste, mais agressivo, por largura E altura juntas). */
+@media (max-height: 800px) and (min-width: 481px) {
+  .selecao-apps-meio { padding-bottom: 20px; }
+  .selecao-apps { gap: 8px; }
+  .selecao-apps .selecao-app-item { padding: 14px 12px 12px; gap: 6px; }
+  .selecao-app-item-icone { width: 34px; height: 34px; }
+  .selecao-app-item-icone svg { width: 18px; height: 18px; }
+  .selecao-app-item-nome { font-size: 12px; }
+  .selecao-app-item-desc { font-size: 9.5px; }
 }
 
 /* Aplicação ainda não desenvolvida, vista pelo cliente
