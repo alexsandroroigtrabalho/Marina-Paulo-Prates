@@ -1,3 +1,5 @@
+import { IconLogout } from '@tabler/icons-react'
+import { supabase } from '../lib/supabase'
 import { APLICACOES, ICONES_APLICACAO, DESCRICOES_APLICACAO } from '../lib/apps'
 
 // Tela que o cliente vê logo depois do login, antes de entrar em qualquer
@@ -29,6 +31,24 @@ export default function SelecaoAplicacoes({ onSelecionar }) {
     // junto do conteúdo, então essa mudança não pode ir na classe
     // compartilhada.
     <div className="tela-central tela-login-rv tela-selecao-apps">
+      {/* Pedido do Alex (06/09/2026): "adicionar um botão de sair na página
+          de escolha de aplicações dos clientes, hoje está sem" — essa era a
+          única tela do cliente sem nenhuma forma de encerrar a sessão
+          (dentro de uma aplicação escolhida há sempre um "Sair" próprio,
+          ver .botao-sair/.painel-cliente-btn no Layout/paineis do
+          cliente). Canto superior direito, absolute (.tela-login-rv já é
+          position:relative), pra não empurrar a logo/grade nem exigir
+          reorganizar o layout existente. */}
+      <button
+        type="button"
+        className="selecao-apps-sair"
+        title="Sair"
+        aria-label="Sair"
+        onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}
+      >
+        <IconLogout size={18} />
+      </button>
+
       <img
         src="/rv-invictus-logo-dourado.png"
         alt="RV Invictus — Consultoria e Gestão de Processos"

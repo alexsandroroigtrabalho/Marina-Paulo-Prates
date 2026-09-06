@@ -1103,6 +1103,34 @@ body {
    margem negativa que ".login-rv-footer" usa nas outras telas). O
    padding-bottom extra no container garante que o conteúdo role até acabar
    sem o último elemento ficar embaixo do rodapé fixo. */
+/* Botão "Sair" da seleção de aplicações do cliente — pedido do Alex
+   (06/09/2026): era a única tela do cliente sem nenhuma forma de encerrar
+   a sessão. Canto superior direito, absolute (.tela-login-rv é
+   position:relative) pra não mexer no layout existente (logo + grade +
+   rodapé continuam exatamente como estavam). Mesmo tom dourado
+   semi-apagado do resto da identidade escura (.nav-voltar/.login-rv-
+   rodape), acendendo pro dourado vivo só no hover/foco. */
+.selecao-apps-sair {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: rgba(245, 245, 240, 0.55);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.selecao-apps-sair:hover,
+.selecao-apps-sair:focus-visible {
+  color: #D4AF37;
+  background: rgba(212, 175, 55, 0.1);
+}
+
 .tela-selecao-apps,
 .tela-login,
 .tela-em-construcao { padding-bottom: 88px; }
