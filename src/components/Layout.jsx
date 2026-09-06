@@ -112,7 +112,7 @@ export default function Layout({
           da tela de login/seleção do cliente (.tela-login-rv), só nesta
           tela específica do menu, sem mexer nas demais (app escolhido,
           "Em construção", RV Master). */}
-      <aside className={`sidebar ${!temTelas(app) && !semSeletorApps && !paginaVendas ? 'sidebar-fixa' : ''} ${!app && !semSeletorApps ? 'sidebar-apps' : ''}`}>
+      <aside className={`sidebar ${!temTelas(app) && !semSeletorApps && !paginaVendas ? 'sidebar-fixa' : ''} ${!app && !semSeletorApps ? 'sidebar-apps' : ''} ${paginaVendas ? 'sidebar-vendas' : ''}`}>
         {/* paginaVendas: pedido do Alex (06/09/2026) — troca a logo
             horizontal (elmo + "RV Invictus" lado a lado) e o link do
             rodapé pela logo VERTICAL (elmo em cima, "RV Invictus" embaixo,
@@ -242,7 +242,11 @@ export default function Layout({
                   className="nav-app-card"
                   onClick={(e) => { setAppSelecionada(chave); e.currentTarget.blur() }}
                 >
-                  <span className="nav-app-card-icone"><Icone size={14} stroke={1} /></span>
+                  {/* size 15 (era 14, chegou a 17 num ajuste intermediário) —
+                      acompanha o selo do ícone, reduzido de novo junto com
+                      o cartão pra ficar mais quadrado (ver
+                      .nav-app-card-icone no index.css). */}
+                  <span className="nav-app-card-icone"><Icone size={15} stroke={1} /></span>
                   <span className="nav-app-card-nome">{prefixo} {nome}</span>
                   <span className="nav-app-card-desc">{DESCRICOES_APLICACAO[chave]}</span>
                 </button>
@@ -253,8 +257,14 @@ export default function Layout({
 
         {/* paginaVendas: link do rodapé some junto (ver comentário na logo
             vertical acima) — a marca já está representada pela logo
-            vertical sozinha no meio do menu. */}
-        {!paginaVendas && (
+            vertical sozinha no meio do menu.
+            !app && !semSeletorApps (a própria tela de seleção de
+            aplicações): pedido do Alex (06/09/2026) — "remova o site da
+            rv invictus do rodapé também", junto com os losangos do fundo
+            (ver .sidebar.sidebar-apps no index.css) — nessa tela o link
+            só disputava espaço com a grade de cartões, sem função além da
+            que a logo no topo já cumpre. */}
+        {!paginaVendas && !(!app && !semSeletorApps) && (
           <a className="sidebar-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RVinvictus.com.br</a>
         )}
       </aside>

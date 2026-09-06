@@ -139,12 +139,15 @@ export const ICONES_APLICACAO = {
 // compostos começam cada palavra com maiúscula (ex.: "Laudo e Projeto" —
 // "e" de ligação continua minúsculo, mesmo padrão já usado em
 // "Motonauta e Arrais Amador", ver lib/enautica.js).
+// marina/náutica/serviço em maiúscula (pedido do Alex, 06/09/2026) — junto
+// com o mesmo padrão de "nomes compostos começam cada palavra com
+// maiúscula" já usado em nautdoc/enge/stock/finance (comentário acima).
 export const DESCRICOES_APLICACAO = {
-  marine: 'Gestão de marina',
+  marine: 'Gestão de Marina',
   nautdoc: 'Regularização',
-  enautica: 'Escola náutica',
+  enautica: 'Escola Náutica',
   enge: 'Laudo e Projeto',
-  manut: 'Ordem de serviço',
+  manut: 'Ordem de Serviço',
   stock: 'Inventário',
   finance: 'Contabilidade',
 }

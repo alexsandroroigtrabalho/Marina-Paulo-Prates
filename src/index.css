@@ -834,7 +834,13 @@ body {
   display: flex; flex-direction: column; padding: 20px 12px;
   transform: translateX(-208px); transition: transform .2s ease-out;
   box-shadow: 3px 0 16px rgba(0,0,0,0.25);
-  border-right: 1px solid rgba(212,175,55,0.16);
+  /* 2px (era 1px) — pedido do Alex (06/09/2026): "aumente um pouco a
+     borda dourada na página de aplicações e acompanhe essa espessura nas
+     demais". Acompanha a mesma espessura de .sidebar.sidebar-apps e
+     .sidebar.sidebar-vendas logo abaixo — só a opacidade muda entre elas
+     (0.16 aqui, linha quase invisível nas telas "normais"; 0.55 nas duas
+     telas de vitrine, ver comentário mais abaixo). */
+  border-right: 2px solid rgba(212,175,55,0.16);
   /* overflow-y:auto: rede de segurança pros cartões de aplicação
      (.nav-app-card, mais abaixo) — em telas bem baixas (notebook com
      barra de favoritos, por ex.) 7 cartões + logo + rodapé podem passar
@@ -852,14 +858,35 @@ body {
    no menu lateral desta tela específica — sem mexer no fundo liso das
    demais (app escolhida, "Em construção", RV Master). border-right sobe
    de 0.16 pra 0.55 de opacidade (mesmo tom usado em .login-rv-footer) —
-   de linha quase invisível pra um risco dourado de verdade. */
+   de linha quase invisível pra um risco dourado de verdade. Espessura
+   2px (era 1px) — pedido do Alex (06/09/2026), mesmo ajuste repetido na
+   base ".sidebar" e em ".sidebar-vendas" logo abaixo, pra manter a MESMA
+   grossura de linha em qualquer tela, só variando opacidade/desenho de
+   fundo entre elas. */
+/* Losangos removidos (pedido do Alex, 06/09/2026: "remova os losangos no
+   menu lateral da página de seleção de aplicação") — sobra só o brilho
+   radial suave por trás da logo e a linha dourada mais marcada na
+   lateral (border-right), sem a trama repetida no resto do fundo. */
 .sidebar.sidebar-apps {
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 260px 500px at 50% -10%, rgba(212,175,55,0.14), transparent 60%);
+  border-right: 2px solid rgba(212, 175, 55, 0.55);
+}
+/* Menu lateral da página de vendas (Layout.jsx, prop paginaVendas): mesma
+   trama de losangos e a mesma linha dourada marcada de ".sidebar-apps"
+   acima (0.55 de opacidade, 2px) — pedido do Alex (06/09/2026): "no menu
+   lateral da página de vendas adicione uma borda dourada também". A
+   página de vendas já é uma "vitrine" como a seleção de aplicações, por
+   isso reaproveita a mesma identidade em vez de inventar um terceiro
+   tom/espessura. */
+.sidebar.sidebar-vendas {
   background-color: #0D1B2A;
   background-image:
     radial-gradient(ellipse 260px 500px at 50% -10%, rgba(212,175,55,0.14), transparent 60%),
     repeating-linear-gradient(45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px),
     repeating-linear-gradient(-45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px);
-  border-right: 1px solid rgba(212, 175, 55, 0.55);
+  border-right: 2px solid rgba(212, 175, 55, 0.55);
 }
 /* Enquanto nenhuma das 4 aplicações está escolhida (App.jsx,
    appSelecionada === null), a sidebar fica sempre aberta — o cliente
@@ -979,10 +1006,21 @@ body {
      vez de continuar encolhendo e cortando o texto. Quando há espaço
      (aspect-ratio pediria mais que 128px), o cartão cresce e volta a
      ficar quadrado normalmente, até o teto de max-width/max-height. */
-  min-width: 128px;
-  max-width: 140px;
-  max-height: 140px;
-  padding: clamp(4px, 1.1vh, 9px) 5px;
+  /* Piso/teto: 142/158/158 (do ajuste anterior, "aumente os botões e
+     fontes") deixava o cartão bem mais LARGO que ALTO sempre que a altura
+     livre da sidebar era curta — o piso de largura (min-width) não tinha
+     relação nenhuma com a altura de verdade disponível, só com o texto
+     mais comprido cabendo numa linha. Baixado pra 120/136/136 (pedido do
+     Alex, 06/09/2026: "deixar os botões num aspecto um pouco mais
+     quadrado e menos retangular sem cortar a linha da descrição") — 120px
+     ainda é folga de sobra pra "Gestão de marina"/"Ordem de serviço" (as
+     descrições mais compridas) nos tamanhos de fonte abaixo, só não exagera
+     mais que o necessário pra caber o texto, ficando mais perto do
+     quadrado real em qualquer altura de tela. */
+  min-width: 120px;
+  max-width: 136px;
+  max-height: 136px;
+  padding: clamp(5px, 1.3vh, 10px) 6px;
   margin: 0;
   background: rgba(245, 245, 240, 0.03);
   border: 1px solid rgba(212, 175, 55, 0.28);
@@ -997,7 +1035,7 @@ body {
 }
 .nav-app-card-icone {
   display: flex; align-items: center; justify-content: center;
-  width: clamp(18px, 3vh, 26px); height: clamp(18px, 3vh, 26px); flex-shrink: 0;
+  width: clamp(20px, 3.3vh, 28px); height: clamp(20px, 3.3vh, 28px); flex-shrink: 0;
   border-radius: 50%;
   border: 1px solid rgba(212, 175, 55, 0.4);
   background: rgba(212, 175, 55, 0.06);
@@ -1010,11 +1048,16 @@ body {
 }
 .nav-app-card-nome {
   font-family: 'Montserrat', sans-serif; font-weight: 600; letter-spacing: 0.02em;
-  text-transform: uppercase; font-size: clamp(7.5px, 1.3vh, 9px); line-height: 1.2;
+  /* Fonte um pouco maior (era clamp(8px,1.4vh,9.5px)) — pedido do Alex
+     (06/09/2026): "sem mexer no botão, aumentar as fontes do conteúdo
+     deles pra ficar mais legível". Cartão continua com a mesma largura
+     mínima (120px, ver .nav-app-card) — texto mais comprido ("Gestão de
+     Marina"/"Ordem de Serviço") ainda cabe numa linha só nesse tamanho. */
+  text-transform: uppercase; font-size: clamp(8.5px, 1.5vh, 10px); line-height: 1.2;
   color: rgba(245, 245, 240, 0.92);
 }
 .nav-app-card-desc {
-  font-family: 'Montserrat', sans-serif; font-size: clamp(6.5px, 1.1vh, 7.5px); line-height: 1.2;
+  font-family: 'Montserrat', sans-serif; font-size: clamp(7.5px, 1.3vh, 8.5px); line-height: 1.2;
   color: rgba(245, 245, 240, 0.48);
 }
 
