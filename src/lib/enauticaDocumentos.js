@@ -731,7 +731,12 @@ export function abrirCertificado(cert, cliente, marina, docConfig, labelHabilita
 function gerarListaPratica(agendamento, alunosComHabilitacao, marina, docConfig) {
   const { data, hora, local } = agendamento
   const dataFormatada = data ? new Date(`${data}T12:00`).toLocaleDateString('pt-BR') : '___/___/______'
-  const nomeEscola = marina?.nome || 'Escola Náutica'
+  // docConfig.nomeEscola (Configurações → Documentos) é o nome da ESCOLA
+  // náutica (ex.: "RS Náutica" — o mesmo que aparece no título do painel,
+  // App.jsx), diferente de marina?.nome, que é o nome da MARINA/tenant no
+  // RV Marine (ex.: "Marina Paulo Prates") — os dois têm significados
+  // diferentes mesmo sendo o mesmo cadastro de marina/tenant por trás.
+  const nomeEscola = docConfig.nomeEscola || marina?.nome || 'Escola Náutica'
   const municipio = (docConfig.municipio || '').toUpperCase() || '_______________'
   const capitania = docConfig.capitania || 'Capitania dos Portos / Delegacia / Agência competente'
 
@@ -776,16 +781,17 @@ function gerarListaPratica(agendamento, alunosComHabilitacao, marina, docConfig)
 
   const COLS = [
     { w: '7%', hdr: 'NOME DA<br>EMBARCAÇÃO' },
+    { w: '9%', hdr: 'Nº DE<br>INSCRIÇÃO' },
     { w: '17%', hdr: 'NOME / ASSINATURA<br>DO ALUNO' },
     { w: '9%', hdr: 'CPF' },
-    { w: '8%', hdr: 'TEL.<br>CAND.' },
+    { w: '7%', hdr: 'TEL.<br>CAND.' },
     { w: '3.5%', hdr: 'CAT.' },
-    { w: '10%', hdr: 'ESCOLA<br>NÁUTICA' },
+    { w: '6%', hdr: 'ESCOLA<br>NÁUTICA' },
     { w: '6%', hdr: 'DATA' },
-    { w: '9%', hdr: 'LOCAL' },
-    { w: '7%', hdr: 'MUNICÍPIO' },
-    { w: '8.5%', hdr: 'INSTRUTOR' },
-    { w: '7%', hdr: 'ASS.<br>INSTRUTOR' },
+    { w: '8%', hdr: 'LOCAL' },
+    { w: '6%', hdr: 'MUNICÍPIO' },
+    { w: '7.5%', hdr: 'INSTRUTOR' },
+    { w: '6%', hdr: 'ASS.<br>INSTRUTOR' },
     { w: '4%', hdr: 'INÍCIO' },
     { w: '4%', hdr: 'TÉRMINO' },
   ]
@@ -825,12 +831,17 @@ function gerarListaPratica(agendamento, alunosComHabilitacao, marina, docConfig)
       <tr style="height:30px;">${COLS.map((c) => `<th style="${TH}">${c.hdr}</th>`).join('')}</tr>
     </thead>
     <tbody>
+      ${/* Colunas Nº DE INSCRIÇÃO, INÍCIO e TÉRMINO ficam em branco de propósito
+         (pedido do Alex, 06/09/2026) — preenchimento à mão no dia da aula.
+         `l.inicio`/`l.fim` continuam calculados acima só pra separar as
+         linhas de ARA e MTA de um mesmo aluno, mas não são mais impressos. */''}
       ${linhas.map((l) => `
-      <tr style="height:36px;">
+      <tr style="height:40px;">
         <td style="${TD}text-align:center;">${l.embarcacao}</td>
+        <td style="${TD}text-align:center;"></td>
         <td style="border:1px solid #000;padding:1px 3px;font-size:6pt;vertical-align:top;overflow:hidden;max-width:0;">
           <div style="font-size:6pt;padding-bottom:2px;white-space:nowrap;overflow:hidden;text-align:center;">${l.nome}</div>
-          <div style="border-top:0.5px solid #aaa;margin-top:3px;min-height:8px;font-size:4pt;color:#aaa;text-align:center;letter-spacing:0.3px;">assinatura</div>
+          <div style="border-top:0.5px solid #aaa;margin-top:11px;min-height:8px;font-size:4pt;color:#aaa;text-align:center;letter-spacing:0.3px;">assinatura</div>
         </td>
         <td style="${TD}text-align:center;">${l.cpf}</td>
         <td style="${TD}text-align:center;">${l.tel}</td>
@@ -841,8 +852,8 @@ function gerarListaPratica(agendamento, alunosComHabilitacao, marina, docConfig)
         <td style="${TD}text-align:center;">${l.municipio}</td>
         <td style="${TD}text-align:center;">${l.instrutor}</td>
         <td style="${TD}text-align:center;"></td>
-        <td style="${TD}text-align:center;">${l.inicio}</td>
-        <td style="${TD}text-align:center;">${l.fim}</td>
+        <td style="${TD}text-align:center;"></td>
+        <td style="${TD}text-align:center;"></td>
       </tr>`).join('')}
     </tbody>
   </table>

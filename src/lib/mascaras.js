@@ -25,6 +25,16 @@ export function maskCpf(valor) {
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
 }
 
+// 00.000.000/0000-00 — CNPJ, 14 dígitos. Mesma técnica das demais.
+export function maskCnpj(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '').slice(0, 14)
+  return digitos
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+}
+
 // (00) 00000-0000 — celular com DDD, 11 dígitos. Números fixos (10
 // dígitos, sem o 9) também formatam corretamente: o terceiro grupo cai
 // pra 4 dígitos sozinho ((00) 0000-0000) porque a máscara é aplicada

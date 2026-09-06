@@ -1,40 +1,12 @@
-import { IconArrowLeft } from '@tabler/icons-react'
-import { nomeCompleto } from '../lib/apps'
+import AplicacaoVendas from './AplicacaoVendas'
 
 // O que o CLIENTE vê ao escolher, na tela de seleção, uma aplicação que
 // ainda não foi desenvolvida (todas menos o RV Marine — ver `pronta` em
-// lib/apps.js). Equivalente ao que o administrador já vê no lugar do
-// conteúdo quando escolhe uma dessas aplicações no menu lateral, só que sem
-// o shell/sidebar da área interna, que o cliente não tem.
-//
-// Mesma linguagem da tela de seleção (fundo azul-petróleo, logo dourada,
-// rodapé) pra não introduzir um terceiro visual: o cliente continua
-// claramente "na entrada do sistema", com um caminho óbvio de volta.
-//
-// "tela-em-construcao" só pra fixar o rodapé nesta tela (ver
-// .tela-em-construcao .login-rv-footer no index.css) — pedido do Alex pra
-// ele ficar sempre visível, mesmo tratamento já dado à seleção de
-// aplicações.
+// lib/apps.js). A partir de 06/09/2026 (pedido do Alex: "vamos criar uma
+// página de vendas dentro das aplicações não contratadas ou ainda não
+// construídas") o conteúdo de verdade mora em AplicacaoVendas.jsx, a MESMA
+// página usada por AplicacaoNaoContratada.jsx — este componente só existe
+// pra manter o import/uso já feito em App.jsx sem precisar trocar nada lá.
 export default function AplicacaoEmConstrucao({ app, onVoltar }) {
-  return (
-    <div className="tela-central tela-login-rv tela-em-construcao">
-      <img
-        src="/rv-invictus-logo-dourado.png"
-        alt="RV Invictus — Consultoria e Gestão de Processos"
-        className="login-rv-logo"
-      />
-
-      <div className="em-construcao-bloco">
-        <p className="em-construcao-app">{nomeCompleto(app)}</p>
-        <p className="em-construcao-aviso">Em construção</p>
-        <button type="button" className="nav-voltar em-construcao-voltar" onClick={onVoltar}>
-          <IconArrowLeft size={14} /> Aplicações
-        </button>
-      </div>
-
-      <footer className="login-rv-footer">
-        <a className="login-rv-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">Developed by RVinvictus.com.br</a>
-      </footer>
-    </div>
-  )
+  return <AplicacaoVendas app={app} onVoltar={onVoltar} />
 }

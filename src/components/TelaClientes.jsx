@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 // listarCobrancas saiu daqui junto com o cartão "Total arrecadado": a
 // cobrança passou para o RV Finance (SaaS separado). A função continua em
 // lib/db.js e a tabela `cobrancas` segue no banco, com os dados intactos.
-import { listarClientes, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, removerEmbarcacao } from '../lib/db'
+import { listarClientesComAtividade, salvarCliente, removerCliente, removerClienteComVinculos, listarEmbarcacoes, salvarEmbarcacao, removerEmbarcacao } from '../lib/db'
 import { statusAcessoCliente } from '../lib/statusPagamento'
 import { maskCpf, maskTelefone } from '../lib/mascaras'
 import EditarClienteModal from './EditarClienteModal'
@@ -66,7 +66,7 @@ export default function TelaClientes({ marinaId }) {
 
   async function carregar() {
     if (!marinaId) return
-    const [c, e] = await Promise.all([listarClientes(marinaId), listarEmbarcacoes(marinaId)])
+    const [c, e] = await Promise.all([listarClientesComAtividade(marinaId), listarEmbarcacoes(marinaId)])
     setClientes(c); setEmbarcacoes(e)
   }
 
@@ -116,6 +116,10 @@ export default function TelaClientes({ marinaId }) {
         // a confirmar antes de usar a agenda (isso é do RV Finance agora).
         cadastro_confirmado: true,
         acesso_suspenso: false,
+        // Sinal de "cliente real do RV Marine" pra listarClientesComAtividade
+        // (lib/db.js) — cadastro_confirmado não serve mais pra isso porque
+        // nasce true em qualquer cadastro, inclusive de aluno do e-Náutica.
+        origem_rv_marine: true,
       })
       for (const emb of formEmbarcacoes) {
         if (!emb.nome) continue

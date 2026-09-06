@@ -35,7 +35,7 @@ import { abrirListaPratica } from '../lib/enauticaDocumentos'
 // visão, não havia nenhum jeito de responder "o que já está marcado pra essa
 // semana" sem abrir o banco. Continua só leitura de propósito: nada de
 // status por aqui (isso é exatamente o que foi vetado antes).
-const FORM_VAZIO = { tipo: 'pratica', data: '', hora: '', local: '', alunosIds: [] }
+const FORM_VAZIO = { tipo: 'teorica', data: '', hora: '', local: '', alunosIds: [] }
 
 export default function TelaAgendaEscolaENautica({ marinaId }) {
   const [agendamentos, setAgendamentos] = useState([])

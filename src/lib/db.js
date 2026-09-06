@@ -60,6 +60,13 @@ export async function enviarRelatorioDocumentosAgora(marinaId) {
 }
 
 /* ---------- Clientes ---------- */
+// Continua devolvendo TODOS os clientes da marina, sem filtro — usada pelos
+// seletores operacionais (NovoAgendamentoModal, NovoPedidoAbastecimentoModal,
+// TelaAbastecimento, TelaDocumentacao, TelaManutencao): esses precisam
+// enxergar um cliente auto-cadastrado mesmo ANTES da primeira descida/subida
+// dele, senão a equipe nunca conseguiria lançar a primeira movimentação (ver
+// listarClientesComAtividade abaixo, que é a versão filtrada, só pra tela
+// "Clientes" em si).
 export async function listarClientes(marinaId) {
   const { data, error } = await db
     .from('clientes')
@@ -68,6 +75,40 @@ export async function listarClientes(marinaId) {
     .order('nome')
   if (error) throw error
   return data
+}
+
+// Pedido do Alex (06/09/2026): o cadastro de "cliente" (marina.clientes) é
+// compartilhado entre TODAS as aplicações RV (RV Marine, e-Náutica, RV
+// Finance...) — a mesma conta de login vale pra qualquer uma delas, e
+// FichaCadastro.jsx cria essa linha em `clientes` na hora do cadastro
+// inicial, ANTES de a pessoa sequer escolher qual aplicação vai usar (ver
+// comentário lá). Sem filtro nenhum, isso fazia alguém que só se
+// matriculou no e-Náutica (e nunca usou RV Marine de verdade) aparecer na
+// lista de Clientes do RV Marine também.
+// Regra adotada, só pra ESTA lista (a tela "Clientes" em si — os seletores
+// operacionais continuam usando listarClientes, acima, sem filtro): só
+// aparece quem tem alguma atividade REAL de RV Marine — `origem_rv_marine`
+// (cliente cadastrado direto pelo administrador na tela "Adicionar", já
+// nasce "de verdade") OU já pediu ao menos uma descida/subida
+// (`marina.agendamentos`, tipo 'retirada'/'retorno' — só existem esses dois
+// tipos nessa tabela). Um cadastro de plataforma que nunca passou por
+// nenhuma dessas duas portas (típico de quem só usa e-Náutica) fica de
+// fora — o registro continua existindo no banco, só não aparece nesta lista.
+// IMPORTANTE: não usar `cadastro_confirmado` aqui — essa coluna tem DEFAULT
+// true no banco pra toda linha nova (inclusive as criadas por
+// FichaCadastro.jsx pra quem só vai usar o e-Náutica), então nunca serviu
+// como sinal de "cadastrado pelo admin do RV Marine". `origem_rv_marine` é
+// a coluna criada especificamente pra isso (migration de 06/09/2026),
+// default false, setada true só em TelaClientes.jsx (salvarNovoCliente).
+export async function listarClientesComAtividade(marinaId) {
+  const [{ data, error }, { data: agendamentos, error: erroAg }] = await Promise.all([
+    db.from('clientes').select('*').eq('marina_id', marinaId).order('nome'),
+    db.from('agendamentos').select('cliente_id').eq('marina_id', marinaId).in('tipo', ['retirada', 'retorno']),
+  ])
+  if (error) throw error
+  if (erroAg) throw erroAg
+  const idsComDescidaOuSubida = new Set((agendamentos || []).map((a) => a.cliente_id))
+  return (data || []).filter((c) => c.origem_rv_marine || idsComDescidaOuSubida.has(c.id))
 }
 
 // Não usa .upsert() de propósito: num UPDATE parcial (ex: só { id,

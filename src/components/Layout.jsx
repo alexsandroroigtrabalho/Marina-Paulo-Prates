@@ -1,6 +1,6 @@
 import { IconSettings, IconArrowLeft, IconLogout } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
-import { APLICACOES, TELAS_RV_MASTER, buscarApp, temTelas } from '../lib/apps'
+import { APLICACOES, TELAS_RV_MASTER, buscarApp, temTelas, ICONES_APLICACAO, DESCRICOES_APLICACAO } from '../lib/apps'
 import SonsPainelAdmin from './SonsPainelAdmin'
 
 // Cabeçalho mostra só o cargo (ex: "Admin"), nunca o nome cadastrado da
@@ -41,7 +41,13 @@ export default function Layout({
   // semSeletorApps: esconde o seletor de aplicações da sidebar — usado só
   // na TelaRvMaster (escolher uma aplicação antes de escolher o cliente não
   // faz sentido).
-  marinaId, aoVoltarRvMaster, semSeletorApps,
+  // paginaVendas: telas de PaginaVendas.jsx (aplicação "Em construção" ou
+  // fora do plano contratado) — pedido do Alex (06/09/2026): esconde o
+  // nome da aplicação e o "Em construção" da sidebar (o cartão de vendas
+  // já mostra o nome) e o botão "Sair" do cabeçalho (essa tela não é um
+  // destino de trabalho de verdade, só uma vitrine — sair da conta não faz
+  // sentido aqui; a volta continua pela seta "Aplicações" na sidebar).
+  marinaId, aoVoltarRvMaster, semSeletorApps, paginaVendas,
 }) {
   const app = buscarApp(appSelecionada)
 
@@ -58,8 +64,13 @@ export default function Layout({
   // essa parte da mudança, sem mexer em mais nada.
   const mostrarLogoTopo = appSelecionada !== null
   // 'vagas' (Painel de Controle) só existe no RV Marine, então não precisa
-  // checar a aplicação — a tela já identifica sozinha.
-  const logoSolida = telaAtiva === 'vagas'
+  // checar a aplicação — a tela já identifica sozinha. 'alunosEnautica' é o
+  // Painel de Controle do e-Náutica — pedido explícito do Alex, só nesta
+  // tela: a logo do cabeçalho fica sólida e na versão PRETA (arquivo
+  // rv-invictus-logo-preto.png, já usado como marca d'água em outro lugar
+  // do sistema), sem mexer em nenhuma outra tela.
+  const logoSolida = telaAtiva === 'vagas' || telaAtiva === 'alunosEnautica'
+  const logoPreta = telaAtiva === 'alunosEnautica'
 
   return (
     <div className="app-shell">
@@ -71,51 +82,76 @@ export default function Layout({
       <SonsPainelAdmin marinaId={marinaId ?? perfil?.marina_id} />
       {/* .sidebar-fixa: fica sempre aberta (mesmo sem o cursor em cima)
           sempre que não há nada de verdade pra navegar — nem aplicação
-          escolhida ainda, nem uma das 3 aplicações ainda "Em construção"
-          (todas menos o RV Marine). Volta ao comportamento dinâmico normal
-          (esconde/revela por hover) dentro do RV Marine E também na área
-          própria do rv_master (`semSeletorApps`) — as duas têm telas de
-          verdade pra navegar, então o menu se comporta como qualquer outra
-          aplicação com conteúdo, não como a vitrine "escolha uma aplicação"
-          (essa sim continua sempre aberta, sem precisar de hover). */}
-      <aside className={`sidebar ${appSelecionada !== 'marine' && !semSeletorApps ? 'sidebar-fixa' : ''}`}>
+          escolhida ainda, nem uma aplicação ainda "Em construção" (sem
+          nenhuma tela real, ver `temTelas` em lib/apps.js). Volta ao
+          comportamento dinâmico normal (esconde/revela por hover) em
+          QUALQUER aplicação que já tenha telas de verdade (RV Marine,
+          e-Náutica, Manut, Finance, ...) e também na área própria do
+          rv_master (`semSeletorApps`) — todas essas têm conteúdo pra
+          navegar, então o menu se comporta do mesmo jeito em qualquer
+          uma, não como a vitrine "escolha uma aplicação" (essa sim
+          continua sempre aberta, sem precisar de hover). */}
+      {/* sidebar-apps: só na tela de seleção de aplicações (nenhuma
+          escolhida ainda — app === null e não é a área do rv_master) —
+          pedido do Alex (06/09/2026): losangos dourados no fundo e uma
+          linha dourada mais marcada na lateral, igual à identidade visual
+          da tela de login/seleção do cliente (.tela-login-rv), só nesta
+          tela específica do menu, sem mexer nas demais (app escolhido,
+          "Em construção", RV Master). */}
+      <aside className={`sidebar ${!temTelas(app) && !semSeletorApps ? 'sidebar-fixa' : ''} ${!app && !semSeletorApps ? 'sidebar-apps' : ''}`}>
         <img src="/rv-invictus-logo-dourado.png" alt="RV Invictus" className="sidebar-logo" />
 
         {app ? (
           <>
-            {/* Nome da aplicação escolhida vira título fixo — não é mais um
-                item de lista, e as outras 3 aplicações somem daqui. */}
-            <p className="app-titulo">{app.prefixo} {app.nome}</p>
+            {/* paginaVendas: nem o nome da aplicação nem "Em construção"
+                aparecem aqui — pedido do Alex (06/09/2026), o cartão de
+                vendas no corpo já mostra o nome, repetir na sidebar é
+                redundante. Sobra só a seta de voltar, abaixo. */}
+            {!paginaVendas && (
+              <>
+                {/* Nome da aplicação escolhida vira título fixo — não é mais um
+                    item de lista, e as outras 3 aplicações somem daqui. */}
+                <p className="app-titulo">{app.prefixo} {app.nome}</p>
 
-            {/* RV Marine tem os itens de verdade; as outras aplicações
-                ainda não têm telas — mostram um único item fixo "Em
-                construção" no lugar da lista, só pra manter a mesma
-                composição visual (título + lista) em qualquer aplicação
-                escolhida. Não é clicável (não tem nada pra abrir ainda). */}
-            {temTelas(app) ? (
-              <nav>
-                {app.telas.map(({ chave, label }) => (
-                  <button
-                    key={chave}
-                    className={`nav-item ${telaAtiva === chave ? 'ativo' : ''}`}
-                    onClick={(e) => { setTelaAtiva(chave); e.currentTarget.blur() }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </nav>
-            ) : (
-              <nav>
-                <div className="nav-item ativo nav-item-estatico">Em construção</div>
-              </nav>
+                {/* RV Marine tem os itens de verdade; as outras aplicações
+                    ainda não têm telas — mostram um único item fixo "Em
+                    construção" no lugar da lista, só pra manter a mesma
+                    composição visual (título + lista) em qualquer aplicação
+                    escolhida. Não é clicável (não tem nada pra abrir ainda). */}
+                {temTelas(app) ? (
+                  <nav>
+                    {app.telas.map(({ chave, label }) => (
+                      <button
+                        key={chave}
+                        className={`nav-item ${telaAtiva === chave ? 'ativo' : ''}`}
+                        onClick={(e) => { setTelaAtiva(chave); e.currentTarget.blur() }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </nav>
+                ) : (
+                  <nav>
+                    <div className="nav-item ativo nav-item-estatico">Em construção</div>
+                  </nav>
+                )}
+              </>
             )}
 
+            {/* Só o ícone, sem o texto "Aplicações" — pedido do Alex
+                (06/09/2026): o texto de voltar pra aplicações some do
+                menu lateral dinâmico (o botão continua funcionando igual,
+                só ficou mais discreto — o botão "Sair" do cabeçalho agora
+                cobre esse mesmo caminho nos Painéis de Controle, ver
+                botao-sair abaixo). */}
             <button
               type="button"
               className="nav-voltar"
+              title="Aplicações"
+              aria-label="Aplicações"
               onClick={(e) => { e.currentTarget.blur(); setAppSelecionada(null) }}
             >
-              <IconArrowLeft size={14} /> Aplicações
+              <IconArrowLeft size={14} />
             </button>
           </>
         ) : semSeletorApps ? (
@@ -153,21 +189,32 @@ export default function Layout({
           // Nenhuma aplicação escolhida ainda: seletor das aplicações RV
           // Invictus no lugar da lista de itens — a MESMA lista, na mesma
           // ordem e com os mesmos nomes que o cliente vê depois do login
-          // (lib/apps.js é a fonte única; ver SelecaoAplicacoes.jsx). "RV" e
-          // o nome da aplicação em spans separados — o nome tem fonte um
-          // pouco maior (e cresce mais ainda no hover), o "RV" fica do mesmo
-          // tamanho sempre (ver .nav-app-item-prefixo/-nome no index.css).
+          // (lib/apps.js é a fonte única; ver SelecaoAplicacoes.jsx).
+          // Pedido do Alex (06/09/2026, ajustado no mesmo dia): cartões no
+          // mesmo desenho dos botões que o cliente vê na seleção de
+          // aplicações (ícone em selo dourado + nome + descrição, contorno
+          // dourado, mesmo hover), em versão pequena — ícone EM CIMA do
+          // nome (não do lado) e grade de 2 colunas (não coluna única),
+          // do tamanho da sidebar — mesma composição do cartão grande
+          // (.selecao-app-item), só menor. ICONES_APLICACAO/
+          // DESCRICOES_APLICACAO vêm de lib/apps.js, a mesma fonte que
+          // SelecaoAplicacoes.jsx usa, pra nunca divergir de lá.
           <nav className="nav-apps">
-            {APLICACOES.map(({ chave, prefixo, nome }) => (
-              <button
-                key={chave}
-                className="nav-app-item"
-                onClick={(e) => { setAppSelecionada(chave); e.currentTarget.blur() }}
-              >
-                <span className="nav-app-item-prefixo">{prefixo}</span>{' '}
-                <span className="nav-app-item-nome">{nome}</span>
-              </button>
-            ))}
+            {APLICACOES.map(({ chave, prefixo, nome }) => {
+              const Icone = ICONES_APLICACAO[chave]
+              return (
+                <button
+                  key={chave}
+                  type="button"
+                  className="nav-app-card"
+                  onClick={(e) => { setAppSelecionada(chave); e.currentTarget.blur() }}
+                >
+                  <span className="nav-app-card-icone"><Icone size={14} stroke={1} /></span>
+                  <span className="nav-app-card-nome">{prefixo} {nome}</span>
+                  <span className="nav-app-card-desc">{DESCRICOES_APLICACAO[chave]}</span>
+                </button>
+              )
+            })}
           </nav>
         )}
 
@@ -193,7 +240,7 @@ export default function Layout({
           <div className="topo-logo-area">
             {mostrarLogoTopo && (
               <img
-                src="/rv-invictus-logo.png"
+                src={logoPreta ? '/rv-invictus-logo-preto.png' : '/rv-invictus-logo.png'}
                 alt="RV Invictus"
                 className={`topo-logo ${logoSolida ? 'topo-logo-solida' : ''}`}
               />
@@ -212,11 +259,27 @@ export default function Layout({
             )}
             {/* Sair saiu do menu lateral — agora fica sempre visível aqui,
                 no canto superior direito da página, qualquer que seja a
-                aplicação/tela atual. */}
-            <button type="button" className="botao-sair" title="Sair" aria-label="Sair"
-              onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}>
-              <IconLogout size={18} />
-            </button>
+                aplicação/tela atual.
+                Pedido do Alex (06/09/2026): nos Painéis de Controle (RV
+                Marine "vagas" e e-Náutica "alunosEnautica") este botão
+                deixa de encerrar a sessão — volta pra tela de seleção de
+                aplicações (setAppSelecionada(null)), igual ao antigo
+                botão "Aplicações" da sidebar (que perdeu o texto, ver
+                nav-voltar acima). Sair de verdade (signOut) continua
+                existindo normalmente em qualquer outra tela, inclusive a
+                própria seleção de aplicações — dá pra chegar nele saindo
+                do Painel de Controle primeiro. */}
+            {paginaVendas ? null : telaAtiva === 'vagas' || telaAtiva === 'alunosEnautica' ? (
+              <button type="button" className="botao-sair" title="Aplicações" aria-label="Voltar para a seleção de aplicações"
+                onClick={(e) => { e.currentTarget.blur(); setAppSelecionada(null) }}>
+                <IconArrowLeft size={18} />
+              </button>
+            ) : (
+              <button type="button" className="botao-sair" title="Sair" aria-label="Sair"
+                onClick={(e) => { e.currentTarget.blur(); supabase.auth.signOut() }}>
+                <IconLogout size={18} />
+              </button>
+            )}
           </div>
         </header>
         <div className="corpo">{children}</div>

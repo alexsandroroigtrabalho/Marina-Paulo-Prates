@@ -91,12 +91,16 @@ body {
    tela própria (todas menos o RV Marine). Não reaproveita
    .pagina-marca-dagua-despachos de propósito — aquela classe/tela continua
    intacta, pronta para virar a base do RV Nautdoc mais adiante. */
-/* padding-left: 220px (largura da sidebar) — centraliza o conteúdo em
-   relação ao espaço visível quando a sidebar está aberta, não em relação à
-   largura total da página. Sem isso, "centralizado" fica meio pra esquerda
-   assim que a sidebar expande (ela cobre por cima, sem empurrar o
-   conteúdo). O ::before abaixo repete o mesmo deslocamento (+110px, metade
-   dos 220px) pra a marca d'água acompanhar exatamente o mesmo centro. */
+/* Esta tela SEMPRE cai com a sidebar "fixa" (sempre aberta, ver
+   Layout.jsx/App.jsx: nenhuma aplicação escolhida, ou aplicação ainda "Em
+   construção"), e nesse estado `.sidebar.sidebar-fixa + .conteudo` já
+   aplica `padding-left: 248px` (a largura real da sidebar + respiro) —
+   ou seja, esta caixa (dentro de `.conteudo` > `.corpo`) já nasce só com o
+   espaço visível entre a borda direita da sidebar e a borda direita da
+   página. Por isso NÃO soma padding-left/offset próprio aqui: um segundo
+   deslocamento por cima do de `.conteudo` jogava a marca d'água pra direita
+   do centro real (bug reportado pelo Alex, 06/09/2026) — `left: 50%` puro
+   já centra certo neste espaço. */
 .pagina-marca-dagua {
   position: relative;
   z-index: 0;
@@ -105,13 +109,12 @@ body {
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 36px;
-  padding-left: 220px;
 }
 .pagina-marca-dagua::before {
   content: '';
   position: absolute;
   top: 50%;
-  left: calc(50% + 110px);
+  left: 50%;
   transform: translate(-50%, -50%);
   z-index: -1;
   pointer-events: none;
@@ -131,6 +134,139 @@ body {
   text-transform: uppercase;
   color: var(--cor-texto-suave);
   margin: 0;
+}
+
+/* ---------- Página de vendas (PaginaVendas.jsx) ----------
+   Mostrada no lugar da marca d'água quando a equipe escolhe, no menu
+   lateral, uma aplicação ainda "Em construção" ou fora do plano contratado
+   (pedido do Alex, 06/09/2026). Mesmo espaço/posicionamento de
+   .pagina-marca-dagua (respeita o deslocamento da sidebar via .conteudo,
+   ver comentário lá em cima), só que em vez de uma marca d'água fantasma,
+   mostra um cartão de verdade — ícone da aplicação, nome, recursos e um
+   convite pra contratar.
+   min-height calibrado pra o CARTÃO (não a caixa) ficar centralizado no
+   meio da PÁGINA INTEIRA, contando com o cabeçalho/logo acima dele, não só
+   no espaço que sobra abaixo do cabeçalho (pedido do Alex, 06/09/2026:
+   "centralize o card de vendas verticalmente em relação ao logo") — como
+   esta caixa começa DEPOIS do cabeçalho (⁠~156px: 24px de padding-top do
+   .conteudo + ~104px da logo em 260px de largura + 28px de margem do
+   .topo) e o cartão é centralizado DENTRO dela, prá o centro do cartão
+   coincidir com o centro vertical da página é preciso descontar o dobro
+   dessa altura (H + altura/2 = 50% da página ⇒ altura = 100% − 2H). */
+.pagina-vendas {
+  min-height: calc(100vh - 312px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+.pagina-vendas-card {
+  width: min(420px, 92%);
+  background: var(--cor-card);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 36px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.pagina-vendas-icone {
+  display: flex; align-items: center; justify-content: center;
+  width: 54px; height: 54px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--dourado-texto);
+  background: rgba(212, 175, 55, 0.08);
+  color: var(--cor-secundaria);
+  margin-bottom: 14px;
+}
+.pagina-vendas-titulo {
+  margin: 0 0 4px;
+  color: var(--cor-primaria);
+  font-size: 21px;
+}
+.pagina-vendas-tagline {
+  margin: 0 0 22px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dourado-texto);
+  font-weight: 600;
+}
+.pagina-vendas-recursos {
+  list-style: none;
+  margin: 0 0 26px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+}
+.pagina-vendas-recursos li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--cor-texto);
+}
+.pagina-vendas-recursos li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--cor-secundaria);
+}
+.pagina-vendas-aviso {
+  margin: 0 0 26px;
+  font-size: 13.5px;
+  color: var(--cor-texto-suave);
+}
+.pagina-vendas-cta-texto {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+/* Losangos dourados + borda dourada — pedido do Alex (06/09/2026): "o
+   botão Fale Conosco deve ter o fundo com os losangos e a borda dourada
+   também", a mesma trama e o mesmo tom já usados no fundo da sidebar da
+   tela de seleção de aplicações (.sidebar-apps) e da tela de login
+   (.tela-login-rv) — repetida aqui em escala menor (18px em vez de 46px,
+   pro losango não ficar grande demais num botão) pra carregar a mesma
+   identidade.
+   Selector ".pagina-vendas-card .pagina-vendas-cta" (não só ".pagina-
+   vendas-cta"): a primeira versão não aparecia (relatado pelo Alex) porque
+   tinha a MESMA especificidade de ".btn-primario" (uma classe só) — e
+   ".btn-primario" vem DEPOIS no arquivo, então vencia e sobrescrevia
+   border/background inteiros (os dois usam a propriedade `background`
+   resumida, que zera background-image se não repetida). Descendente com
+   duas classes (0,2,0) bate ".btn-primario" (0,1,0) sempre, não importa a
+   ordem no arquivo. :hover também sobrescreve só `background-color` (não o
+   `background` inteiro que .btn-primario:hover usa) pelo mesmo motivo. */
+.pagina-vendas-card .pagina-vendas-cta {
+  text-decoration: none;
+  border: 1.5px solid var(--dourado-texto);
+  background-color: var(--cor-secundaria);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px),
+    repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px);
+  transition: transform 0.15s ease;
+}
+/* Pedido do Alex (06/09/2026): sem clarear pra outro tom de azul no hover
+   — só aumenta um pouco de tamanho (mesma cor sempre).
+   Repete aqui a MESMA cor/trama da regra de base (não só `transform`):
+   em :hover este seletor (0,2,0) empata em especificidade com
+   ".btn-primario:hover" (que usa o `background` resumido, mais abaixo no
+   arquivo) e, empatado, quem vem depois no arquivo vencia — apagando o
+   fundo e a trama no hover e trocando pro azul claro de
+   --cor-primaria-hover. Reafirmando background-color/background-image
+   aqui, a MESMA regra passa a valer pro hover também, sem depender da
+   ordem no arquivo. */
+.pagina-vendas-card .pagina-vendas-cta:hover {
+  background-color: var(--cor-secundaria);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px),
+    repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px);
+  transform: scale(1.035);
 }
 
 .tela-central { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 24px; }
@@ -647,8 +783,32 @@ body {
   transform: translateX(-208px); transition: transform .2s ease-out;
   box-shadow: 3px 0 16px rgba(0,0,0,0.25);
   border-right: 1px solid rgba(212,175,55,0.16);
+  /* overflow-y:auto: rede de segurança pros cartões de aplicação
+     (.nav-app-card, mais abaixo) — em telas bem baixas (notebook com
+     barra de favoritos, por ex.) 7 cartões + logo + rodapé podem passar
+     de 100vh; com auto a sidebar ganha uma rolagem própria em vez de
+     estourar/cortar conteúdo, sem afetar em nada as demais telas (lista
+     de texto simples sempre coube). */
+  overflow-y: auto;
 }
 .sidebar:hover, .sidebar:focus-within { transform: translateX(0); }
+/* Losangos dourados + linha lateral mais marcada — só na tela de seleção
+   de aplicações (.sidebar-apps, ver Layout.jsx), pedido do Alex
+   (06/09/2026): mesma trama de losangos e mesmo tom de dourado já usados
+   no fundo da tela de login/seleção do cliente (.tela-login-rv acima
+   neste arquivo), reaproveitados aqui pra dar a MESMA identidade visual
+   no menu lateral desta tela específica — sem mexer no fundo liso das
+   demais (app escolhida, "Em construção", RV Master). border-right sobe
+   de 0.16 pra 0.55 de opacidade (mesmo tom usado em .login-rv-footer) —
+   de linha quase invisível pra um risco dourado de verdade. */
+.sidebar.sidebar-apps {
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 260px 500px at 50% -10%, rgba(212,175,55,0.14), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px),
+    repeating-linear-gradient(-45deg, rgba(212,175,55,0.05) 0, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 46px);
+  border-right: 1px solid rgba(212, 175, 55, 0.55);
+}
 /* Enquanto nenhuma das 4 aplicações está escolhida (App.jsx,
    appSelecionada === null), a sidebar fica sempre aberta — o cliente
    acabou de logar e o seletor de aplicações precisa estar visível de
@@ -716,41 +876,77 @@ body {
   border-bottom: 1px solid rgba(212,175,55,0.22);
 }
 
-/* Seletor das 4 aplicações RV Invictus — mesmo gesto tipográfico do resto
-   do menu (Montserrat caixa-alta rastreada), mas SEM o preenchimento/barra
-   lateral do .nav-item: cinza por padrão, branco-gelo no hover — sem
-   sublinhado. "RV" (.nav-app-item-prefixo) fica sempre do mesmo tamanho; o
-   nome da aplicação (.nav-app-item-nome) já nasce um pouco maior que o
-   "RV", e cresce mais ainda no hover — é essa mudança de escala, no lugar
-   do traço dourado, que sinaliza a seleção. Cinza aqui é o próprio
-   branco-gelo da marca em opacidade reduzida (mesmo truque já usado em
-   .login-rotulo etc.), não um cinza neutro solto da paleta. Itens
-   centralizados (text-align/justify-content: center) dentro da sidebar. */
-/* margin-top/bottom: auto centraliza a lista de aplicações verticalmente
-   no meio do espaço livre da sidebar (entre a logo lá em cima e o rodapé
-   lá embaixo) — os dois lados absorvem espaço em partes iguais, então a
-   lista fica no meio, não colada em cima nem embaixo. */
-.nav-apps { display: flex; flex-direction: column; align-items: center; margin-top: auto; margin-bottom: auto; }
-.nav-app-item {
-  display: block;
+/* Seletor das 7 aplicações RV Invictus — mesmo desenho de cartão da tela
+   de seleção do cliente (.selecao-app-item, mais abaixo neste arquivo:
+   selo redondo dourado + nome + descrição, contorno dourado translúcido,
+   preenchimento sutil no hover), só que em versão pequena, pra caber na
+   largura fixa da sidebar (220px, ~196px de área útil já descontando o
+   padding do <aside>). Pedido do Alex (06/09/2026, ajustado no mesmo
+   dia): ícone EM CIMA do nome (mesma composição em coluna do cartão
+   grande, não em linha) e grade de 2 colunas (mesmo `repeat(2, 1fr)` do
+   cartão grande) em vez de coluna única. */
+/* margin-top/bottom: auto centraliza a grade verticalmente no meio do
+   espaço livre da sidebar (entre a logo lá em cima e o rodapé lá
+   embaixo) — os dois lados absorvem espaço em partes iguais, então a
+   grade fica no meio, não colada em cima nem embaixo. */
+.nav-apps {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
   width: 100%;
-  text-align: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(245,245,240,0.5);
-  padding: 12px 4px;
-  margin: 0 4px;
-  transition: color 0.15s ease;
+  margin-top: auto;
+  margin-bottom: auto;
 }
-.nav-app-item-prefixo { font-size: 12px; }
-.nav-app-item-nome { font-size: 13.5px; display: inline-block; transition: font-size 0.15s ease; }
-.nav-app-item:hover { color: #F5F5F0; }
-.nav-app-item:hover .nav-app-item-nome { font-size: 15px; }
+/* 7 aplicações em 2 colunas sobra uma sozinha na última linha — mesmo
+   ajuste do cartão grande (.selecao-apps .selecao-app-item:last-child):
+   ocupa as 2 colunas e fica centralizada com metade da largura, em vez de
+   colada à esquerda sozinha. */
+.nav-apps .nav-app-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  width: calc(50% - 3.5px);
+  margin: 0 auto;
+}
+.nav-app-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+  width: 100%;
+  padding: 9px 5px 8px;
+  margin: 0;
+  background: rgba(245, 245, 240, 0.03);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.nav-app-card:hover {
+  background: rgba(212, 175, 55, 0.08);
+  border-color: rgba(212, 175, 55, 0.6);
+}
+.nav-app-card-icone {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.06);
+  color: #D4AF37;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.nav-app-card:hover .nav-app-card-icone {
+  border-color: #D4AF37;
+  background: rgba(212, 175, 55, 0.14);
+}
+.nav-app-card-nome {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; letter-spacing: 0.02em;
+  text-transform: uppercase; font-size: 9px; line-height: 1.2;
+  color: rgba(245, 245, 240, 0.92);
+}
+.nav-app-card-desc {
+  font-family: 'Montserrat', sans-serif; font-size: 7.5px; line-height: 1.2;
+  color: rgba(245, 245, 240, 0.48);
+}
 
 /* ---------- Seleção de aplicações do cliente (SelecaoAplicacoes.jsx) ----------
    Mesma tela de entrada do login (.tela-login-rv cuida do fundo, da logo e
@@ -1014,6 +1210,72 @@ body {
    sidebar — aqui o botão faz parte do bloco centralizado. */
 .em-construcao-voltar { margin-top: 14px; width: auto; }
 
+/* ---------- Página de vendas do cliente (AplicacaoVendas.jsx) ----------
+   Mesmo bloco .em-construcao-bloco de base (nome + tagline), acrescido do
+   selo do ícone (reusa .selecao-app-item-icone, o mesmo selo redondo
+   dourado do seletor de aplicações), da lista de recursos e do botão de
+   contratar — pedido do Alex (06/09/2026). */
+.aplicacao-vendas-bloco { max-width: 360px; }
+.aplicacao-vendas-icone { width: 52px; height: 52px; margin-bottom: 2px; }
+.aplicacao-vendas-recursos {
+  list-style: none;
+  margin: 8px 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  width: 100%;
+}
+.aplicacao-vendas-recursos li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(245, 245, 240, 0.75);
+}
+.aplicacao-vendas-recursos li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #D4AF37;
+}
+/* Losangos dourados no botão (pedido do Alex, 06/09/2026, mesmo ajuste do
+   .pagina-vendas-cta pro lado do administrador) — a borda dourada aqui já
+   vinha de .tela-login-rv .btn-primario (fundo #0B0B0D + borda #D4AF37);
+   só falta a trama. Selector prefixado com ".tela-login-rv" (não só
+   ".aplicacao-vendas-cta" sozinho): mesmo bug do lado do administrador —
+   ".aplicacao-vendas-cta" sozinho tem menos especificidade que ".tela-
+   login-rv .btn-primario" (que usa `background` resumido) e perdia a
+   trama; com o prefixo as duas ficam empatadas em especificidade e esta,
+   por vir depois no arquivo, vence. Mesmo motivo do :hover-override
+   abaixo. */
+.tela-login-rv .aplicacao-vendas-cta {
+  text-decoration: none;
+  margin-top: 8px;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px),
+    repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px);
+  transition: transform 0.15s ease;
+}
+/* Pedido do Alex (06/09/2026): sem clarear no hover — só aumenta um pouco
+   de tamanho (mesma cor sempre), igual ao ajuste do lado do administrador
+   (.pagina-vendas-cta). Repete a trama aqui (não só `transform`) pelo
+   mesmo motivo: em :hover, ".tela-login-rv .btn-primario:hover" (mais
+   acima no arquivo, background resumido #151519) empata em especificidade
+   com este seletor — como este vem depois, já ganhava a decisão, mas sem
+   reafirmar o background aqui o hover ficava sem nada definido nessa
+   propriedade, deixando o resultado dependente só da ordem. Reafirmando
+   explicitamente, a trama fica garantida no hover também. */
+.tela-login-rv .aplicacao-vendas-cta:hover {
+  background-color: #0B0B0D;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px),
+    repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px);
+  transform: scale(1.035);
+}
+
 /* Seta "Aplicações" — volta do submenu de uma aplicação pro seletor das 4.
    Sempre no rodapé da sidebar (margin-top: auto), logo acima de "Sair",
    qualquer que seja a quantidade de itens acima dela. Deliberadamente
@@ -1257,6 +1519,23 @@ button.badge:hover { filter: brightness(0.95); }
    pra combinar com o sépia da rosa dos ventos do fundo, em vez da cara de
    "template de IA" das cores vivas. */
 .status-pendente, .status-aberta { background: #F1E3D6; color: #8B5A2B; }
+/* Painel de Controle do e-Náutica (TelaAlunosENautica.jsx, coluna Status) —
+   pedido do Alex (05/09/2026): trocar o texto colorido solto pela mesma
+   estética de "pílula" (.badge) usada no resto do RV Marine, reaproveitando
+   os mesmos tons já usados aqui em cima (terroso/dessaturado, nada de cor
+   viva nova). */
+.status-enautica-preparacao { background: #E7EEEF; color: #4A6B78; }
+.status-enautica-teorica { background: #F1E3D6; color: #8B5A2B; }
+.status-enautica-reprova { background: #FBDADA; color: #B3261E; }
+/* Pedido do Alex (06/09/2026): as 3 pílulas de Status tinham larguras
+   diferentes porque ".badge" (index.css acima) encolhe/estica pelo texto —
+   "Preparação" ficava visivelmente menor que "Agendar teórica"/"Agendar
+   reprova". Largura mínima igual pras 3 (a maior delas, "Agendar teórica",
+   define o tamanho) com texto centralizado dentro — a caixa fica do mesmo
+   tamanho sempre, só o texto muda. */
+.status-enautica-preparacao, .status-enautica-teorica, .status-enautica-reprova {
+  display: inline-block; min-width: 134px; text-align: center;
+}
 .status-regular { background: #E7EEEF; color: #4A6B78; }
 .status-pago, .status-concluida, .status-disponivel { background: #E4EBDD; color: #55702F; }
 .status-atrasado, .status-cancelada { background: #F1E3D6; color: #8B5A2B; }
@@ -1651,6 +1930,18 @@ button.badge:hover { filter: brightness(0.95); }
   background: transparent; color: #A23B2E; border: 1px solid rgba(162,59,46,0.35);
 }
 .cliente-card-acoes .botao-secundario.perigo:hover { background: rgba(162,59,46,0.06); }
+/* "Aprovar" no Painel de Controle do e-Náutica (pedido do Alex, 06/09/2026)
+   — a ação principal da barra ganha o mesmo azul-petróleo preenchido dos
+   botões primários do resto do sistema (ver .acoes-modal button:last-child),
+   em vez do neutro claro de ".botao-secundario", pra se destacar como a
+   ação "de verdade" da fila de aprovação. */
+.cliente-card-acoes .botao-primario {
+  background: var(--cor-primaria); color: #fff; border: none;
+  padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+}
+.cliente-card-acoes .botao-primario:hover { background: var(--cor-primaria-hover); }
+.cliente-card-acoes .botao-primario:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* "Sua CHA chega pelo Gov.br" (último passo da Trilha da Habilitação,
    TelaClienteENautica.jsx) — o mesmo fundo azul-petróleo com trama de
@@ -2550,6 +2841,17 @@ button.badge:hover { filter: brightness(0.95); }
 }
 .configuracoes-modal-dourado .modal-card .dica {
   font-family: 'Montserrat', sans-serif; font-size: 11.5px; color: rgba(245,245,240,0.6);
+}
+/* Rótulo sempre EM CIMA do campo (mesma regra e mesmo motivo do painel do
+   cliente, ver ".painel-cliente .modal-card label" acima) — sem isto, o
+   <label> (texto + input soltos dentro dele, ver ConfiguracoesENautica.jsx)
+   seguia o fluxo inline padrão e ficava com o texto colado no campo, sem
+   espaçamento nenhum entre um campo e o próximo. */
+.configuracoes-modal-dourado .modal-card label {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em;
+  font-family: 'Montserrat', sans-serif;
+  color: rgba(245,245,240,0.65);
 }
 
 /* Campos: idênticos aos do painel do cliente. */

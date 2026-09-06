@@ -43,7 +43,7 @@ export default function ModalDocumentosAluno({ matricula, onFechar }) {
   }
 
   return (
-    <div className="modal-fundo" onClick={onFechar}>
+    <div className="modal-fundo configuracoes-modal-dourado" onClick={onFechar}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
         <h3 style={{ marginTop: 0 }}>Documentos — {matricula.clientes?.nome || cliente?.nome || 'aluno'}</h3>
         <p className="dica" style={{ margin: '0 0 12px' }}>

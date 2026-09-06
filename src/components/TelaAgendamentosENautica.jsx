@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { listarMatriculas, listarAgendamentosEscola, labelTipoAgendamento, excluirAgendamento, criarNotificacoesEmLote } from '../lib/enautica'
-import { buscarMarina, buscarClientesPorIds } from '../lib/db'
-import { abrirListaPratica } from '../lib/enauticaDocumentos'
+import { listarMatriculas, listarAgendamentosEscola, labelTipoAgendamento, excluirAgendamento } from '../lib/enautica'
 
 // 2ª aba do e-Náutica pro lado da escola (a 1ª é o Painel de Controle — ver
 // TelaAlunosENautica.jsx), por pedido do Alex: os compromissos marcados
@@ -10,19 +8,26 @@ import { abrirListaPratica } from '../lib/enauticaDocumentos'
 // de ocupar espaço no topo da tabela de alunos. Marcar um compromisso NOVO
 // continua sendo feito a partir do Painel de Controle (seleciona os alunos
 // aprovados na tabela, "Marcar compromisso"), pra não duplicar essa ação em
-// dois lugares. Aqui dá pra reimprimir a Lista de Alunos (Capitania) de um
-// compromisso de aula prática já existente, e pra desfazer um compromisso
-// marcado por engano ("Cancelar compromisso") — antes disso não existia
-// NENHUM jeito de corrigir um agendamento errado, em lugar nenhum do
-// sistema. Um agendamento aqui só tem um estado (existe/não existe, sempre
-// "confirmado" — a pedido do Alex, sem outros status como concluído), então
-// desmarcar é apagar a linha, não mudar um campo.
+// dois lugares.
+//
+// Revisão de 05/09/2026 (várias rodadas, pedido do Alex): a coluna "Ações"
+// saiu das DUAS tabelas (Próximos e Histórico) — "Lista de alunos" (Capitania)
+// continua alcançável pelo botão "Lista de presença" da barra de seleção do
+// Painel de Controle (TelaAlunosENautica.jsx), que cobre o mesmo caso.
+// "Cancelar compromisso" ficou sem outro caminho na interface — se precisar
+// de volta, avisar (a função `excluirAgendamento` de lib/enautica.js
+// continua existindo, só não tem mais botão nenhum chamando ela aqui).
+//
+// Revisão de 05/09/2026 (2ª rodada): a barra de seleção com caixinha por
+// linha no Histórico saiu de novo — o Alex pediu algo mais direto: um único
+// botão "Limpar histórico" que apaga TODOS os compromissos vencidos de uma
+// vez (sem escolher um por um). Continua pedindo confirmação antes (ação
+// irreversível), só que agora de forma simples.
 export default function TelaAgendamentosENautica({ marinaId }) {
   const [agendamentos, setAgendamentos] = useState([])
   const [matriculas, setMatriculas] = useState([])
   const [erro, setErro] = useState(null)
-  const [gerandoListaId, setGerandoListaId] = useState(null)
-  const [cancelandoId, setCancelandoId] = useState(null)
+  const [limpandoHistorico, setLimpandoHistorico] = useState(false)
 
   async function carregar() {
     if (!marinaId) return
@@ -54,12 +59,6 @@ export default function TelaAgendamentosENautica({ marinaId }) {
     matriculas.forEach((m) => { mapa[m.cliente_id] = m.clientes?.nome || 'Aluno' })
     return mapa
   }, [matriculas])
-  const habilitacaoPorId = useMemo(() => {
-    const mapa = {}
-    matriculas.forEach((m) => { mapa[m.cliente_id] = m.habilitacao })
-    return mapa
-  }, [matriculas])
-
   const proximos = useMemo(
     () => agendamentos.filter((ag) => ag.data >= hojeISO).sort((a, b) => `${a.data}${a.hora}`.localeCompare(`${b.data}${b.hora}`)),
     [agendamentos, hojeISO],
@@ -69,79 +68,76 @@ export default function TelaAgendamentosENautica({ marinaId }) {
     [agendamentos, hojeISO],
   )
 
-  // Reimprime a Lista de Alunos (Capitania) de um compromisso de aula
-  // prática que já existe, com os mesmos alunos/data/hora/local — mesma
-  // função (gerarListaPratica) que o Painel de Controle usa na hora de
-  // marcar um compromisso novo.
-  async function reimprimirLista(ag) {
-    const janela = window.open('', '_blank')
-    if (!janela) {
-      alert('Não foi possível abrir a lista: o navegador bloqueou o pop-up. Permita pop-ups para este site e tente de novo.')
-      return
-    }
-    setGerandoListaId(ag.id)
+  // "Limpar histórico" — apaga TODOS os compromissos vencidos de uma vez
+  // (mesma função excluirAgendamento que antes ficava atrás do botão
+  // "Cancelar"). Sem aviso ao aluno (diferente do antigo "Cancelar"): são
+  // compromissos que já aconteceram, não faz sentido notificar de um
+  // cancelamento retroativo. Sem seleção por linha — é tudo ou nada, com
+  // confirmação antes por ser irreversível.
+  async function limparHistorico() {
+    if (anteriores.length === 0) return
+    if (!window.confirm(`Limpar o histórico inteiro (${anteriores.length} compromisso${anteriores.length > 1 ? 's' : ''})? Essa ação não pode ser desfeita.`)) return
+    setLimpandoHistorico(true)
     try {
-      const [marina, clientes] = await Promise.all([buscarMarina(marinaId), buscarClientesPorIds(ag.alunos_ids || [])])
-      const alunosComHabilitacao = clientes.map((c) => ({ ...c, habilitacao: habilitacaoPorId[c.id] || '' }))
-      const docConfig = marina?.config_json?.documentos || {}
-      abrirListaPratica({ data: ag.data, hora: ag.hora, local: ag.local }, alunosComHabilitacao, marina, docConfig, janela)
-    } catch (err) {
-      janela.close()
-      alert('Não foi possível gerar a lista: ' + err.message)
-    } finally {
-      setGerandoListaId(null)
-    }
-  }
-
-  // Desfaz um compromisso — pra corrigir um erro (data errada, aluno
-  // errado) ou pra avisar de uma cancelada de verdade (ex.: mau tempo). Nos
-  // dois casos os alunos marcados são avisados: mesmo quando é só correção
-  // de erro, é melhor o aluno saber que aquele compromisso não vale mais do
-  // que ele aparecer sem explicação na próxima vez que checar.
-  async function cancelarCompromisso(ag) {
-    const nomes = (ag.alunos_ids || []).map((id) => nomePorId[id] || 'Aluno').join(', ')
-    if (!window.confirm(`Cancelar este compromisso${nomes ? ` (${nomes})` : ''}? Os alunos marcados serão avisados.`)) return
-    setCancelandoId(ag.id)
-    try {
-      await excluirAgendamento(ag.id)
-      const dataFormatada = new Date(`${ag.data}T12:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-      await criarNotificacoesEmLote((ag.alunos_ids || []).map((clienteId) => ({
-        marinaId, clienteId, tipo: 'agendamento_cancelado',
-        titulo: `${ag.tipo_label || labelTipoAgendamento(ag.tipo)} cancelada`,
-        mensagem: `O compromisso de ${dataFormatada} às ${ag.hora}${ag.local ? `, em ${ag.local}` : ''} foi cancelado pela escola.`,
-      })))
+      for (const ag of anteriores) await excluirAgendamento(ag.id)
       await carregar()
     } catch (err) {
-      alert('Não foi possível cancelar: ' + err.message)
+      alert('Não foi possível limpar o histórico: ' + err.message)
     } finally {
-      setCancelandoId(null)
+      setLimpandoHistorico(false)
     }
   }
 
-  function Cartao({ ag, permiteCancelar }) {
+  // Tabela de agendamentos — revisão de 05/09/2026 (pedido do Alex): antes
+  // cada compromisso era um "cartão" numa grade; virou uma linha de tabela,
+  // mesmo padrão de tabela usado no Painel de Controle (TelaAlunosENautica).
+  // Sem coluna "Ações" nem caixinha de seleção em nenhuma das duas (ver
+  // aviso no topo do arquivo) — o Histórico usa o botão único "Limpar
+  // histórico" acima da tabela em vez de selecionar linha por linha.
+  function TabelaAgendamentos({ lista, vazio }) {
     return (
-      <div style={{ fontSize: 13, padding: '10px 13px', border: '1px solid var(--cor-toggle-off)', borderRadius: 8, background: 'var(--cor-card)' }}>
-        <div>
-          <b>{new Date(`${ag.data}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} · {ag.hora}</b>
-          {' — '}{ag.tipo_label || labelTipoAgendamento(ag.tipo)}{ag.local ? ` · ${ag.local}` : ''}
-        </div>
-        <div style={{ color: 'var(--cor-texto-suave)', marginTop: 3, fontSize: 12.5 }}>
-          {(ag.alunos_ids || []).map((id) => nomePorId[id] || 'Aluno').join(', ') || '—'}
-        </div>
-        {(ag.tipo === 'pratica' || permiteCancelar) && (
-          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {ag.tipo === 'pratica' && (
-              <button type="button" className="botao-secundario" disabled={gerandoListaId === ag.id} onClick={() => reimprimirLista(ag)}>
-                {gerandoListaId === ag.id ? 'Gerando…' : 'Lista de alunos (Capitania)'}
-              </button>
+      <div className="table-scroll" style={{ overflowX: 'auto', background: 'var(--cor-card)', borderRadius: 'var(--raio)', boxShadow: 'var(--sombra)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640, tableLayout: 'fixed' }}>
+          {/* 3 colunas EXATAMENTE iguais (33.33% cada) — depois de duas
+              tentativas de largura "proporcional ao conteúdo" (20/16/64,
+              depois com Alunos à esquerda) o Alex bateu no mesmo problema
+              nas duas: uma coluna bem mais larga que as outras duas sempre
+              lê como desequilibrado, centralizada (sobra desigual dos dois
+              lados) ou à esquerda (todo o conteúdo gruda no lado esquerdo
+              da página, com um vão enorme sobrando à direita). "simétrico"
+              aqui é literal: as 3 colunas do mesmo tamanho, todas
+              centralizadas (06/09/2026, "ainda está ruim... tudo alinhado
+              à esquerda"). */}
+          <colgroup>
+            <col style={{ width: '33.34%' }} />
+            <col style={{ width: '33.33%' }} />
+            <col style={{ width: '33.33%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={thEsq}>Data</th>
+              <th style={thEsq}>Tipo</th>
+              <th style={thEsq}>Alunos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.length === 0 && (
+              <tr><td colSpan={3} style={{ padding: 16, color: 'var(--cor-texto-suave)' }}>{vazio}</td></tr>
             )}
-            {permiteCancelar && (
-              <button type="button" className="botao-secundario perigo" disabled={cancelandoId === ag.id} onClick={() => cancelarCompromisso(ag)}>
-                {cancelandoId === ag.id ? 'Cancelando…' : 'Cancelar compromisso'}
-              </button>
-            )}
-          </div>
-        )}
+            {lista.map((ag) => (
+              <tr key={ag.id}>
+                <td style={tdCentro}>
+                  <b>{new Date(`${ag.data}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</b>
+                  <div style={{ fontSize: 11.5, color: 'var(--cor-texto-suave)' }}>{ag.hora}{ag.local ? ` · ${ag.local}` : ''}</div>
+                </td>
+                <td style={tdCentro}>{ag.tipo_label || labelTipoAgendamento(ag.tipo)}</td>
+                <td style={{ ...tdCentro, color: 'var(--cor-texto-suave)' }}>
+                  {(ag.alunos_ids || []).map((id) => nomePorId[id] || 'Aluno').join(', ') || '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     )
   }
@@ -152,23 +148,42 @@ export default function TelaAgendamentosENautica({ marinaId }) {
 
       <div style={{ marginBottom: 26 }}>
         <span className="minha-conta-secao-titulo">Próximos compromissos</span>
-        {proximos.length === 0 && <p className="dica" style={{ marginTop: 8 }}>Nenhum compromisso marcado ainda — marque um pelo Painel de Controle, selecionando os alunos aprovados.</p>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, marginTop: 8 }}>
-          {proximos.map((ag) => <Cartao key={ag.id} ag={ag} permiteCancelar />)}
+        <div style={{ marginTop: 8 }}>
+          <TabelaAgendamentos lista={proximos} vazio="Nenhum compromisso marcado ainda — marque um pelo Painel de Controle, selecionando os alunos aprovados." />
         </div>
       </div>
 
-      {/* Compromissos passados não podem mais ser cancelados (já
-          aconteceram ou não — não faz sentido "desmarcar" retroativamente),
-          por isso só os "Próximos" acima ganham o botão. */}
+      {/* Compromissos com data já vencida (antes de hoje) saem sozinhos dos
+          "Próximos" e caem aqui — não é uma ação manual, é só o filtro de
+          data (linha 68 acima) recalculando a cada carregamento. Também não
+          podem mais ser cancelados (já aconteceram ou não — não faz
+          sentido "desmarcar" retroativamente), por isso só os "Próximos"
+          acima ganham o botão. */}
       {anteriores.length > 0 && (
         <div>
-          <span className="minha-conta-secao-titulo">Compromissos anteriores</span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, marginTop: 8, opacity: 0.75 }}>
-            {anteriores.map((ag) => <Cartao key={ag.id} ag={ag} permiteCancelar={false} />)}
+          <span className="minha-conta-secao-titulo">Histórico</span>
+          <div className="cliente-card-acoes" style={{ marginTop: 8, marginBottom: 8 }}>
+            <button
+              type="button"
+              className="botao-secundario perigo"
+              disabled={limpandoHistorico}
+              onClick={limparHistorico}
+            >
+              {limpandoHistorico ? 'Limpando…' : 'Limpar histórico'}
+            </button>
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.75 }}>
+            <TabelaAgendamentos lista={anteriores} vazio="Nenhum compromisso no histórico." />
           </div>
         </div>
       )}
     </div>
   )
 }
+
+// Centralizado (pedido do Alex) — só o TÍTULO da coluna; Data e Alunos
+// continuam à esquerda (texto mais longo lê melhor assim), Tipo e Ações
+// ficam centralizados, alinhados com o título centralizado da coluna.
+const thEsq = { textAlign: 'center', padding: '11px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--cor-texto-suave)', borderBottom: '1px solid #EAF2F5' }
+const tdEsq = { textAlign: 'left', padding: '11px 12px', borderBottom: '1px solid #EAF2F5', verticalAlign: 'middle' }
+const tdCentro = { ...tdEsq, textAlign: 'center' }

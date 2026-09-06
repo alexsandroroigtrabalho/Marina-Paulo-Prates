@@ -8,6 +8,7 @@ import FichaCadastro from './components/FichaCadastro'
 import RedefinirSenha from './components/RedefinirSenha'
 import Layout from './components/Layout'
 import PaginaMarcaDagua from './components/PaginaMarcaDagua'
+import PaginaVendas from './components/PaginaVendas'
 import SelecaoAplicacoes from './components/SelecaoAplicacoes'
 import AplicacaoEmConstrucao from './components/AplicacaoEmConstrucao'
 import TelaVagas from './components/TelaVagas'
@@ -40,7 +41,10 @@ const TELAS = {
   clientes: { titulo: 'Clientes', Componente: TelaClientes },
   financeiro: { titulo: 'Financeiro', Componente: TelaFinanceiro },
   manutencao: { titulo: 'Manutenção', Componente: TelaManutencao },
-  alunosEnautica: { titulo: 'Painel de Controle', Componente: TelaAlunosENautica },
+  // Pedido do Alex (06/09/2026): o TÍTULO da página mudou pra "Escola RS
+  // Náutica" — o item do menu lateral continua "Painel de Controle" (label
+  // próprio, definido em lib/apps.js, não usa este `titulo` aqui).
+  alunosEnautica: { titulo: 'Escola RS Náutica', Componente: TelaAlunosENautica },
   agendamentosEnautica: { titulo: 'Agendamentos', Componente: TelaAgendamentosENautica },
 }
 
@@ -342,18 +346,25 @@ export default function App() {
   // trancada antes do dado chegar).
   if (!ehRvMaster(perfil) && appsContratadosEquipe && !appsContratadosEquipe.includes(appSelecionada)) {
     return (
-      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo={nomeCompleto(app)} marinaId={marinaIdEfetivo} aoVoltarRvMaster={aoVoltarRvMaster}>
-        <PaginaMarcaDagua texto="Esta aplicação não faz parte do seu plano atual. Fale com a RV Invictus para contratar." />
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo="" paginaVendas marinaId={marinaIdEfetivo} aoVoltarRvMaster={aoVoltarRvMaster}>
+        <PaginaVendas app={app} />
       </Layout>
     )
   }
 
   // Aplicações ainda sem telas (Nautdoc, Enge, Stock): só o título
-  // escolhido na sidebar e "Em construção" com a marca d'água.
+  // escolhido na sidebar e a página de vendas no lugar do conteúdo — mesmo
+  // componente do bloco "não contratada" acima (pedido do Alex,
+  // 06/09/2026: mesma página nos dois casos, "não contratada" e "ainda não
+  // construída"). titulo="" + paginaVendas (mesmo ajuste do bloco acima,
+  // 06/09/2026): o nome da aplicação some do título azul do cabeçalho e da
+  // sidebar — o cartão de vendas já mostra o nome, e some o "Sair" do
+  // cabeçalho, que não faz sentido numa tela que não é destino de
+  // trabalho.
   if (!temTelas(app)) {
     return (
-      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo={nomeCompleto(app)} marinaId={marinaIdEfetivo} aoVoltarRvMaster={aoVoltarRvMaster}>
-        <PaginaMarcaDagua texto="Em construção" />
+      <Layout appSelecionada={appSelecionada} setAppSelecionada={escolherApp} perfil={perfil} titulo="" paginaVendas marinaId={marinaIdEfetivo} aoVoltarRvMaster={aoVoltarRvMaster}>
+        <PaginaVendas app={app} />
       </Layout>
     )
   }

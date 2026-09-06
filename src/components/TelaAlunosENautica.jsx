@@ -1,14 +1,13 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  listarMatriculas, aprovarMatricula, recusarMatricula, resolverReagendamento,
+  listarMatriculas, aprovarMatricula,
   listarAgendamentosEscola, criarAgendamento, TIPOS_AGENDAMENTO, labelTipoAgendamento,
-  listarCertificadosEscola, emitirCertificado, atualizarStatusCertificado,
+  arquivarMatricula,
   labelHabilitacao,
 } from '../lib/enautica'
 import { buscarMarina, buscarClientesPorIds } from '../lib/db'
 import { abrirListaPratica, baixarZipDocumentosAlunos } from '../lib/enauticaDocumentos'
-import ModalDocumentosAluno from './ModalDocumentosAluno'
 
 // "Painel de Controle" do e-Náutica (1ª das 2 abas da escola, a outra é
 // Agendamentos — ver TelaAgendamentosENautica.jsx) — substitui as antigas 3
@@ -19,49 +18,87 @@ import ModalDocumentosAluno from './ModalDocumentosAluno'
 // MUDANÇA GRANDE, escolhida explicitamente pelo Alex (não é invenção livre
 // nem port do rsnautica, que nunca teve nada parecido): em vez de 3 listas
 // separadas, cada aluno aparece 1 vez numa tabela só, com uma trilha
-// "Matrícula → Agenda → Certificado" mostrando em que ponto da jornada ele
-// está. Clicar na linha abre um painel com tudo daquele aluno (mesmas ações
-// de sempre: aprovar/recusar, documentos, agenda, certificado). As ações em
-// massa que existiam nas 3 telas (aprovar vários, baixar .zip de vários,
-// marcar uma turma, emitir vários certificados) continuam aqui, na barra
-// que aparece quando alguém marca as caixinhas da tabela.
+// "Matrícula → Avaliação Teórica → Aula Prática" mostrando em que ponto da
+// jornada ele está.
 //
-// O painel "Próximos compromissos" que existia no topo desta tela virou a
-// aba Agendamentos, por pedido do Alex — lá dá pra ver TODOS os
-// compromissos (não só os futuros), com mais espaço.
-const FILTROS = [
-  { chave: 'todos', label: 'Todos' },
-  { chave: 'pendente', label: 'Pendentes' },
-  { chave: 'aprovada', label: 'Aprovadas' },
-  { chave: 'recusada', label: 'Recusadas' },
-]
+// Revisão de 05/09/2026 (2ª rodada, feedback do Alex sobre a 1ª versão desta
+// tela): a linha da tabela NÃO abre mais painel nenhum ao clicar — a seleção
+// (pra usar a barra de ações em massa) é feita só pela caixa de marcação,
+// como em qualquer outra tela da RV Invictus. O que era informação extra do
+// painel (telefone vira coluna própria; contato/e-mail, motivo de recusa e
+// próximo compromisso viram `title` — dica ao passar o mouse — nos
+// elementos da linha, pra não perder a informação sem precisar de um
+// painel só pra isso). O botão manual "marcar reagendamento como atendido"
+// saiu: o reagendamento já se resolve sozinho quando a escola marca a nova
+// data (ver criarAgendamento em lib/enautica.js), e é raro precisar
+// resolver por fora disso.
+//
+// Revisão de 05/09/2026 (3ª rodada): a coluna "Ações" própria de cada linha
+// saiu de vez (pedido do Alex) — TODA ação (aprovar, agendar, gerar
+// documentos, excluir/restaurar) passa a ser feita só pela barra de seleção
+// em massa, mesmo pra 1 aluno só: marca a caixa daquele aluno e usa o botão
+// da barra. Isso também elimina de vez a ambiguidade de antes (um botão
+// "Aprovar" na linha competindo visualmente com o da barra) — só existe UM
+// jeito de aprovar matrícula agora. A barra de seleção passou a existir nas
+// 2 abas (Todos: aprovar/agendar/documentos/lista de presença/excluir;
+// Histórico: restaurar/documentos), não só em Todos.
+//
+// Revisão de 05/09/2026, também a pedido explícito do Alex — a escola não
+// emite mais certificado nenhum pelo sistema (fica de fora de novo: nem
+// coluna, nem botão, nem atalho), e o fluxo virou:
+//   - Etapa (3 marcos, cada um só vermelho/verde, sem estado intermediário):
+//     Matrícula (verde só quando aprovada), Avaliação Teórica e Aula
+//     Prática (verdes quando a escola AGENDA cada uma — ver criarAgendamento
+//     em lib/enautica.js). Reprovou e pediu reagendamento? Avaliação
+//     Teórica volta pro vermelho sozinha (ver `trilha` abaixo) até a escola
+//     marcar uma nova data.
+//   - Status (era "Contato"/e-mail): frase curta do que está pendente do
+//     LADO DO ALUNO — "Aluno em preparação" (nada pendente), "Solicita
+//     agendamento" (aluno já se disse pronto pra prova teórica, ver
+//     `pronto_teste`) ou "Solicita reagendamento" (reprovou e pediu nova
+//     data). O e-mail saiu da tabela; ainda aparece no painel do aluno
+//     (linha "Contato" abaixo do telefone) pra não sumir de vez.
+//   - "Excluir aluno" NÃO apaga nada — arquiva (ver arquivarMatricula em
+//     lib/enautica.js): some da aba Todos e aparece na aba Histórico, de
+//     onde dá pra restaurar. Perguntei ao Alex antes de implementar assim
+//     (a palavra "excluir" sozinha sugere apagar de vez) — confirmado que é
+//     isso mesmo, pra não perder matrícula/agendamentos de ninguém.
+//   - "Recusar matrícula" saiu de vez (confirmado com o Alex) — pendente só
+//     tem "Aprovar matrícula" e "Excluir aluno" (pra tirar da lista uma
+//     inscrição que não vai pra frente, sem um fluxo de recusa formal).
+//     Os poucos registros "recusada" que já existiam de antes do sistema
+//     ainda aparecem (Etapa "Matrícula" em vermelho, sem novo caminho de
+//     aprovação) — só saem da lista se o administrador arquivar.
+//
+// Revisão de 05/09/2026 (5ª rodada, pedido do Alex): a aba "Histórico" saiu
+// desta tela de vez — mudou pra dentro de Configurações do e-Náutica (ver
+// ConfiguracoesENautica.jsx, categoria "Histórico"), que ganhou junto uma
+// opção de exportar planilha. Sem a 2ª aba, o botão "Todos" também não fazia
+// mais sentido sozinho — a tela virou uma lista só, sem abas. A barra de
+// ações em massa deixou de aparecer só quando há seleção — fica sempre
+// visível (cada botão desabilita sozinho quando não há seleção que faça
+// sentido pra ele), e o campo de busca subiu pro canto superior direito,
+// acima da barra.
+const FORM_AGENDA_VAZIO = { tipo: 'teorica', data: '', hora: '', local: '' }
 
-const FORM_AGENDA_VAZIO = { tipo: 'pratica', data: '', hora: '', local: '' }
+const corEtapa = { ok: '#3F8F5F', erro: '#A23B2E' }
 
 export default function TelaAlunosENautica({ marinaId }) {
   const [matriculas, setMatriculas] = useState([])
   const [agendamentos, setAgendamentos] = useState([])
-  const [certificados, setCertificados] = useState([])
   const [erro, setErro] = useState(null)
 
-  const [filtro, setFiltro] = useState('todos')
   const [busca, setBusca] = useState('')
-  // Além do filtro por status (Pendente/Aprovada/Recusada), dois atalhos
-  // pro que mais dá trabalho achar rolando a tabela numa escola com muitos
-  // alunos: quem já foi aprovado mas ainda não tem NENHUM compromisso
-  // marcado, e quem tem certificado emitido esperando ser retirado.
-  const [filtroExtra, setFiltroExtra] = useState(null) // 'semAgenda' | 'certPendente' | null
   const [selecionados, setSelecionados] = useState(new Set())
-  const [linhaAberta, setLinhaAberta] = useState(null)
   const [processandoId, setProcessandoId] = useState(null)
   const [baixandoZip, setBaixandoZip] = useState(false)
-  const [emitindoCerts, setEmitindoCerts] = useState(false)
-  const [entregandoCerts, setEntregandoCerts] = useState(false)
-  const [matriculaDocumentos, setMatriculaDocumentos] = useState(null)
+  const [gerandoListaSelecionados, setGerandoListaSelecionados] = useState(false)
+  const [arquivandoLote, setArquivandoLote] = useState(false)
 
-  // Modal "Marcar compromisso" — mesma lógica que já existia numa tela
-  // própria, agora aberta sob demanda (a partir da barra de seleção ou do
-  // painel de um único aluno) em vez de ocupar uma aba inteira o tempo todo.
+  // Modal "Agendar provas" (era "Marcar compromisso") — mesma lógica que já
+  // existia numa tela própria, agora aberta sob demanda (a partir da barra
+  // de seleção ou do painel de um único aluno) em vez de ocupar uma aba
+  // inteira o tempo todo.
   const [modalAgenda, setModalAgenda] = useState(null) // { alunosIds, nomes } | null
   const [formAgenda, setFormAgenda] = useState(FORM_AGENDA_VAZIO)
   const [criandoAgenda, setCriandoAgenda] = useState(false)
@@ -72,12 +109,11 @@ export default function TelaAlunosENautica({ marinaId }) {
   async function carregar() {
     if (!marinaId) return
     try {
-      const [mats, ags, certs] = await Promise.all([
-        listarMatriculas(marinaId), listarAgendamentosEscola(marinaId), listarCertificadosEscola(marinaId),
+      const [mats, ags] = await Promise.all([
+        listarMatriculas(marinaId), listarAgendamentosEscola(marinaId),
       ])
       setMatriculas(mats)
       setAgendamentos(ags)
-      setCertificados(certs)
       setErro(null)
     } catch (err) {
       setErro(err.message)
@@ -92,69 +128,79 @@ export default function TelaAlunosENautica({ marinaId }) {
       .channel(`enautica-alunos-${marinaId}`)
       .on('postgres_changes', { event: '*', schema: 'enautica', table: 'matriculas', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .on('postgres_changes', { event: '*', schema: 'enautica', table: 'agendamentos', filter: `marina_id=eq.${marinaId}` }, () => carregar())
-      .on('postgres_changes', { event: '*', schema: 'enautica', table: 'certificados', filter: `marina_id=eq.${marinaId}` }, () => carregar())
       .subscribe()
     return () => { supabase.removeChannel(canal) }
   }, [marinaId])
 
   const hojeISO = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
-  // Um aluno = uma matrícula + o que já existe de agenda/certificado pra
-  // aquele cliente/habilitação. Calculado ao vivo a partir dos 3 selects
-  // já carregados, sem tabela nova.
+  // Um aluno = uma matrícula + o que já existe de agenda pra aquele
+  // cliente/habilitação. Calculado ao vivo a partir dos 2 selects já
+  // carregados, sem tabela nova. `temTeorica`/`temPratica`: existe ALGUM
+  // agendamento daquele tipo com este aluno — não importa se já passou ou
+  // não (aqui um agendamento é sempre "confirmado", não tem estado de
+  // concluído — ver comentário em criarAgendamento/lib/enautica.js).
   const alunos = useMemo(() => {
     return matriculas.map((m) => {
       const meusAgendamentos = agendamentos
         .filter((ag) => (ag.alunos_ids || []).includes(m.cliente_id))
         .sort((a, b) => `${a.data}${a.hora}`.localeCompare(`${b.data}${b.hora}`))
       const proximoCompromisso = meusAgendamentos.find((ag) => ag.data >= hojeISO) || null
-      const certificado = certificados.find((c) => c.cliente_id === m.cliente_id && c.habilitacao === m.habilitacao) || null
-      return { matricula: m, agendamentos: meusAgendamentos, proximoCompromisso, certificado }
+      const temTeorica = meusAgendamentos.some((ag) => ag.tipo === 'teorica')
+      const temPratica = meusAgendamentos.some((ag) => ag.tipo === 'pratica')
+      return { matricula: m, agendamentos: meusAgendamentos, proximoCompromisso, temTeorica, temPratica }
     })
-  }, [matriculas, agendamentos, certificados, hojeISO])
+  }, [matriculas, agendamentos, hojeISO])
 
-  // Trilha "Matrícula → Agenda → Certificado" — só reflete dado que já
-  // existe de verdade (status da matrícula, se há algum agendamento, status
-  // do certificado); não inventa nenhuma etapa nova.
+  // Trilha "Matrícula → Avaliação Teórica → Aula Prática" — só 2 estados
+  // por etapa (vermelho/verde), a pedido do Alex, sem estado intermediário.
+  // Avaliação Teórica: verde só quando existe um agendamento tipo "teorica"
+  // E o aluno não tem um pedido de reagendamento em aberto — reprovou e
+  // pediu reagendamento, some o verde na hora, mesmo que a prova antiga
+  // ainda esteja lá (é uma prova que não vale mais). Volta ao verde quando
+  // a escola marca a NOVA data (criarAgendamento já limpa
+  // reagendamento_solicitado nesse momento, ver lib/enautica.js).
+  // Revisão de 05/09/2026 (4ª rodada, revertida): cheguei a diferenciar
+  // "recusada" de "pendente" na tela, mas o Alex foi claro — esse status
+  // "recusada" não existe mais no fluxo de verdade (só sobrou de matrículas
+  // de ANTES deste sistema, ver comentário no topo do arquivo); a única
+  // ação que faz sentido pra elas é "Excluir aluno" (arquivar), igual
+  // qualquer outra, não um rótulo especial. Voltou a ser só "Matrícula" em
+  // vermelho pra qualquer coisa que não seja 'aprovada' — sem distinguir
+  // pendente de recusada na tela.
   function trilha(aluno) {
-    const { matricula, agendamentos: ags, certificado } = aluno
-    if (matricula.status === 'recusada') {
-      return [{ label: 'Matrícula', estado: 'erro' }, { label: 'Agenda', estado: 'todo' }, { label: 'Certificado', estado: 'todo' }]
-    }
-    const matriculaEstado = matricula.status === 'aprovada' ? 'ok' : 'ativo'
-    const agendaEstado = certificado || ags.length > 0 ? 'ok' : matricula.status === 'aprovada' ? 'ativo' : 'todo'
-    const certEstado = certificado?.status === 'entregue' ? 'ok' : certificado ? 'ativo' : (ags.length > 0 ? 'ativo' : 'todo')
+    const { matricula, temTeorica, temPratica } = aluno
+    const matriculaOk = matricula.status === 'aprovada'
+    const teoricaOk = temTeorica && !matricula.reagendamento_solicitado
     return [
-      { label: 'Matrícula', estado: matriculaEstado },
-      { label: 'Agenda', estado: agendaEstado },
-      { label: 'Certificado', estado: certEstado },
+      { label: 'Matrícula', estado: matriculaOk ? 'ok' : 'erro' },
+      { label: 'Avaliação Teórica', estado: teoricaOk ? 'ok' : 'erro' },
+      { label: 'Aula Prática', estado: temPratica ? 'ok' : 'erro' },
     ]
   }
 
-  function mudarFiltro(f) {
-    setFiltro(f)
-    setFiltroExtra(null)
-    setSelecionados(new Set())
+  // Status (era "Contato"/e-mail) — frase curta do que está pendente do
+  // LADO DO ALUNO. Prioridade: reagendamento pedido > pronto pra prova (e
+  // ainda sem teórica marcada) > nada pendente. Não usa o status da
+  // matrícula (isso já está na coluna Etapa) — é só o que o ALUNO sinalizou.
+  // Textos e classe (pedido do Alex, 05/09/2026: rótulos mais curtos + a
+  // mesma estética de "pílula" (.badge + .status-enautica-*, ver index.css)
+  // usada nos status do RV Marine — antes era só texto colorido).
+  function statusAluno(aluno) {
+    const { matricula, temTeorica } = aluno
+    if (matricula.reagendamento_solicitado) {
+      return { texto: 'Agendar reprova', classe: 'status-enautica-reprova' }
+    }
+    if (matricula.pronto_teste === 'sim' && !temTeorica) {
+      return { texto: 'Agendar teórica', classe: 'status-enautica-teorica' }
+    }
+    return { texto: 'Preparação', classe: 'status-enautica-preparacao' }
   }
 
-  let alunosFiltrados = filtro === 'todos' ? alunos : alunos.filter((a) => a.matricula.status === filtro)
+  let alunosFiltrados = alunos.filter((a) => !a.matricula.arquivado)
   if (busca.trim()) {
     const termo = busca.trim().toLowerCase()
     alunosFiltrados = alunosFiltrados.filter((a) => (a.matricula.clientes?.nome || '').toLowerCase().includes(termo))
-  }
-  if (filtroExtra === 'semAgenda') {
-    alunosFiltrados = alunosFiltrados.filter((a) => a.matricula.status === 'aprovada' && a.agendamentos.length === 0)
-  } else if (filtroExtra === 'certPendente') {
-    alunosFiltrados = alunosFiltrados.filter((a) => a.certificado && a.certificado.status !== 'entregue')
-  }
-  const contagemPendentes = alunos.filter((a) => a.matricula.status === 'pendente').length
-  const contagemSemAgenda = alunos.filter((a) => a.matricula.status === 'aprovada' && a.agendamentos.length === 0).length
-  const contagemCertPendente = alunos.filter((a) => a.certificado && a.certificado.status !== 'entregue').length
-  function alternarFiltroExtra(f) {
-    const novo = filtroExtra === f ? null : f
-    setFiltroExtra(novo)
-    if (novo) setFiltro('todos')
-    setSelecionados(new Set())
   }
 
   function alternarSelecao(id) {
@@ -164,42 +210,25 @@ export default function TelaAlunosENautica({ marinaId }) {
       return novo
     })
   }
-  const todosSelecionados = alunosFiltrados.length > 0 && alunosFiltrados.every((a) => selecionados.has(a.matricula.id))
-  function alternarTodos() {
-    setSelecionados(todosSelecionados ? new Set() : new Set(alunosFiltrados.map((a) => a.matricula.id)))
-  }
-
   const selecionadosAlunos = alunos.filter((a) => selecionados.has(a.matricula.id))
   const selPendentes = selecionadosAlunos.length > 0 && selecionadosAlunos.every((a) => a.matricula.status === 'pendente')
   const selAprovados = selecionadosAlunos.length > 0 && selecionadosAlunos.every((a) => a.matricula.status === 'aprovada')
-  const selAprovadosSemCert = selAprovados && selecionadosAlunos.some((a) => !a.certificado)
-  const selComCertPendente = selecionadosAlunos.length > 0 && selecionadosAlunos.every((a) => a.certificado && a.certificado.status !== 'entregue')
 
-  async function aprovar(matricula) {
-    setProcessandoId(matricula.id)
-    try {
-      await aprovarMatricula(matricula)
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível aprovar a matrícula: ' + err.message)
-    } finally {
-      setProcessandoId(null)
-    }
-  }
-
-  async function recusar(matricula) {
-    const motivo = window.prompt(`Recusar a matrícula de ${matricula.clientes?.nome || 'este aluno'}? Descreva o motivo (o aluno vai ver esse texto):`)
-    if (motivo === null) return
-    setProcessandoId(matricula.id)
-    try {
-      await recusarMatricula(matricula, motivo.trim())
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível recusar a matrícula: ' + err.message)
-    } finally {
-      setProcessandoId(null)
-    }
-  }
+  // "Lista de presença" da barra de seleção — reaproveita o mesmo anexo que
+  // já existia só dentro do modal "Agendar provas" (abrirListaPratica). Se
+  // os alunos selecionados tiverem uma aula prática em comum já marcada
+  // (mesmo agendamento pra todos), usa a data/hora/local dela pra preencher
+  // o documento. Revisão de 05/09/2026, pedido do Alex: o botão passou a
+  // habilitar com QUALQUER seleção (não precisa mais ter aula em comum) —
+  // sem uma aula em comum, o documento sai com os campos de data/hora/local
+  // em branco (gerarListaPratica em lib/enauticaDocumentos.js já trata isso
+  // sozinho, com "___/___/______" etc.), pra o administrador preencher à
+  // mão quando for uma lista avulsa.
+  const agendamentoComumPratica = selecionadosAlunos.length > 0
+    ? agendamentos
+      .filter((ag) => ag.tipo === 'pratica' && selecionadosAlunos.every((a) => (ag.alunos_ids || []).includes(a.matricula.cliente_id)))
+      .sort((a, b) => `${a.data}${a.hora}`.localeCompare(`${b.data}${b.hora}`))[0] || null
+    : null
 
   async function aprovarSelecionados() {
     if (!selPendentes) return
@@ -215,77 +244,21 @@ export default function TelaAlunosENautica({ marinaId }) {
     }
   }
 
-  async function toggleReagendamento(matricula) {
-    setProcessandoId(matricula.id)
+  // "Excluir aluno" — arquiva (não apaga, ver comentário no topo do
+  // arquivo). Confirmação simples: é uma ação reversível (dá pra restaurar
+  // na aba Histórico), mas ainda tira o aluno da lista principal na hora.
+  async function arquivarSelecionados() {
+    if (selecionadosAlunos.length === 0) return
+    if (!window.confirm(`Mover ${selecionadosAlunos.length} aluno(s) para o Histórico?`)) return
+    setArquivandoLote(true)
     try {
-      await resolverReagendamento(matricula)
-      await carregar()
-    } catch (err) {
-      alert('Erro ao atualizar: ' + err.message)
-    } finally {
-      setProcessandoId(null)
-    }
-  }
-
-  async function emitirCertificadoRow(aluno) {
-    setProcessandoId(aluno.matricula.id)
-    try {
-      await emitirCertificado({ marinaId, clienteId: aluno.matricula.cliente_id, habilitacao: aluno.matricula.habilitacao })
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível emitir o certificado: ' + err.message)
-    } finally {
-      setProcessandoId(null)
-    }
-  }
-
-  async function alternarStatusCertificadoRow(aluno) {
-    if (!aluno.certificado) return
-    setProcessandoId(aluno.matricula.id)
-    try {
-      await atualizarStatusCertificado(aluno.certificado.id, aluno.certificado.status === 'entregue' ? 'disponível' : 'entregue')
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível atualizar o status: ' + err.message)
-    } finally {
-      setProcessandoId(null)
-    }
-  }
-
-  async function emitirCertificadosSelecionados() {
-    if (!selAprovadosSemCert) return
-    setEmitindoCerts(true)
-    try {
-      for (const a of selecionadosAlunos) {
-        if (a.certificado) continue
-        await emitirCertificado({ marinaId, clienteId: a.matricula.cliente_id, habilitacao: a.matricula.habilitacao })
-      }
+      for (const a of selecionadosAlunos) await arquivarMatricula(a.matricula)
       setSelecionados(new Set())
       await carregar()
     } catch (err) {
-      alert('Não foi possível emitir todos os certificados: ' + err.message)
+      alert('Não foi possível mover todos os selecionados: ' + err.message)
     } finally {
-      setEmitindoCerts(false)
-    }
-  }
-
-  // Contraparte de emitirCertificadosSelecionados: marcar como retirados
-  // vários certificados de uma vez (ex.: dia de entrega, vários alunos ao
-  // mesmo tempo) — antes só existia por aluno, um clique de cada vez.
-  async function marcarCertificadosEntreguesSelecionados() {
-    if (!selComCertPendente) return
-    setEntregandoCerts(true)
-    try {
-      for (const a of selecionadosAlunos) {
-        if (!a.certificado || a.certificado.status === 'entregue') continue
-        await atualizarStatusCertificado(a.certificado.id, 'entregue')
-      }
-      setSelecionados(new Set())
-      await carregar()
-    } catch (err) {
-      alert('Não foi possível atualizar todos os certificados: ' + err.message)
-    } finally {
-      setEntregandoCerts(false)
+      setArquivandoLote(false)
     }
   }
 
@@ -362,234 +335,205 @@ export default function TelaAlunosENautica({ marinaId }) {
     }
   }
 
-  const corEtapa = { ok: '#3F8F5F', ativo: '#B45309', todo: '#B9C2CC', erro: '#A23B2E' }
+  async function gerarListaPresencaSelecionados() {
+    if (selecionadosAlunos.length === 0) return
+    const janela = window.open('', '_blank')
+    if (!janela) {
+      alert('Não foi possível abrir a lista: o navegador bloqueou o pop-up. Permita pop-ups para este site e tente de novo.')
+      return
+    }
+    setGerandoListaSelecionados(true)
+    try {
+      // A lista sempre traz exatamente os alunos MARCADOS na hora (não os
+      // do agendamento inteiro, que pode ter mais gente) — se eles tiverem
+      // uma aula prática em comum, usa a data/hora/local dela; senão, sai
+      // em branco pro administrador preencher à mão (ver comentário acima,
+      // onde agendamentoComumPratica é calculado).
+      const ids = selecionadosAlunos.map((a) => a.matricula.cliente_id)
+      const [marina, clientes] = await Promise.all([buscarMarina(marinaId), buscarClientesPorIds(ids)])
+      const habilitacaoPorId = {}
+      alunos.forEach((a) => { habilitacaoPorId[a.matricula.cliente_id] = a.matricula.habilitacao })
+      const alunosComHabilitacao = clientes.map((c) => ({ ...c, habilitacao: habilitacaoPorId[c.id] || '' }))
+      const docConfig = marina?.config_json?.documentos || {}
+      abrirListaPratica(
+        {
+          data: agendamentoComumPratica?.data || '',
+          hora: agendamentoComumPratica?.hora || '',
+          local: agendamentoComumPratica?.local || '',
+        },
+        alunosComHabilitacao, marina, docConfig, janela,
+      )
+    } catch (err) {
+      janela.close()
+      alert('Não foi possível gerar a lista: ' + err.message)
+    } finally {
+      setGerandoListaSelecionados(false)
+    }
+  }
 
   return (
     <div>
       {erro && <p className="erro">Não foi possível carregar os alunos ({erro}).</p>}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
-        <div className="abas" style={{ marginBottom: 0 }}>
-          {FILTROS.map((f) => (
-            <button key={f.chave} className={filtro === f.chave ? 'ativo' : ''} onClick={() => mudarFiltro(f.chave)}>
-              {f.label} {f.chave === 'pendente' && contagemPendentes > 0 ? `(${contagemPendentes})` : ''}
-            </button>
-          ))}
-        </div>
-        <input
-          type="text" placeholder="Buscar por nome…" value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          style={{ flex: '0 1 200px', minWidth: 140, padding: '7px 10px', fontSize: 13, border: '1px solid var(--cor-toggle-off)', borderRadius: 8 }}
-        />
-      </div>
-
-      {/* Dois atalhos além do filtro por status — sem isso, achar "quem
-          ainda não tem aula marcada" ou "quem está com certificado
-          esperando retirada" exigia rolar a tabela toda lendo a trilha
-          linha por linha. */}
-      {(contagemSemAgenda > 0 || contagemCertPendente > 0) && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-          {contagemSemAgenda > 0 && (
-            <button
-              type="button" onClick={() => alternarFiltroExtra('semAgenda')}
-              className="botao-secundario" style={{ fontSize: 12, padding: '5px 11px', ...(filtroExtra === 'semAgenda' ? { background: 'var(--cor-primaria)', color: '#fff' } : {}) }}
-            >
-              Aguardando agendamento ({contagemSemAgenda})
-            </button>
-          )}
-          {contagemCertPendente > 0 && (
-            <button
-              type="button" onClick={() => alternarFiltroExtra('certPendente')}
-              className="botao-secundario" style={{ fontSize: 12, padding: '5px 11px', ...(filtroExtra === 'certPendente' ? { background: 'var(--cor-primaria)', color: '#fff' } : {}) }}
-            >
-              Certificado a retirar ({contagemCertPendente})
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Barra de ações em massa — só aparece com alguma seleção, e só
-          habilita cada ação quando ela faz sentido pra TODOS os
-          selecionados (evita, por ex., tentar emitir certificado de um
-          aluno ainda pendente). */}
-      {alunosFiltrados.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <button type="button" onClick={alternarTodos} style={{ fontSize: 12, background: 'none', border: 'none', color: 'var(--cor-primaria)', cursor: 'pointer', padding: 0 }}>
-            {todosSelecionados ? 'Desmarcar todos' : 'Selecionar todos'}
+      {/* Cabeçalho (busca + barra de ações em massa) fica "sticky": gruda no
+          topo da janela ao rolar a tabela, em vez de sumir de tela — pedido
+          do Alex pra nunca perder de vista os botões de ação quando a lista
+          de alunos é grande. Precisa de fundo sólido (senão as linhas da
+          tabela aparecem "por baixo" ao passar) e z-index pra ficar por
+          cima da tabela. */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--cor-fundo)', paddingBottom: 22 }}>
+        {/* Barra de ações em massa — pedido do Alex (05/09/2026): fica
+            SEMPRE visível (antes só aparecia com alguma seleção), com cada
+            botão desabilitando sozinho quando não há seleção que faça
+            sentido pra ele (evita, por ex., tentar aprovar um aluno que já
+            foi aprovado, ou agir com nada marcado). TODA ação de aluno
+            (aprovar, agendar, documentos, ata presencial, arquivar) passa
+            por aqui — não existe botão por linha: pra agir sobre 1 aluno
+            só, marca a caixa dele e usa o botão da barra do mesmo jeito. A
+            contagem de selecionados é um número discreto, à direita do
+            botão "Arquivar", só quando há alguma seleção. A busca (pedido
+            do Alex, 06/09/2026) fica na MESMA linha dos botões, empurrada
+            pro canto direito com `marginLeft: auto` — "Buscar" sozinho no
+            placeholder, sem mais "por nome…". */}
+        <div className="cliente-card-acoes" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button" className="botao-primario" disabled={!selPendentes || processandoId === 'lote'}
+            title={selPendentes ? undefined : 'Só habilita quando TODOS os alunos marcados ainda estão com matrícula pendente de aprovação — se o aluno não deve seguir, use "Excluir aluno" em vez de tentar aprovar'}
+            onClick={aprovarSelecionados}
+          >
+            {processandoId === 'lote' ? 'Aprovando…' : 'Aprovar'}
+          </button>
+          <button
+            type="button" className="botao-secundario" disabled={!selAprovados || baixandoZip}
+            title={selAprovados ? undefined : 'Só habilita quando TODOS os alunos marcados já têm matrícula aprovada'}
+            onClick={baixarZipSelecionados}
+          >
+            {baixandoZip ? 'Gerando .zip…' : 'Documentos'}
+          </button>
+          <button
+            type="button" className="botao-secundario" disabled={!selAprovados}
+            title={selAprovados ? undefined : 'Só habilita quando TODOS os alunos marcados já têm matrícula aprovada'}
+            onClick={() => abrirModalAgenda(selecionadosAlunos.map((a) => a.matricula.cliente_id), selecionadosAlunos.map((a) => a.matricula.clientes?.nome || 'Aluno'))}
+          >
+            Agendamento
+          </button>
+          <button
+            type="button" className="botao-secundario" disabled={selecionados.size === 0 || gerandoListaSelecionados}
+            title={agendamentoComumPratica ? undefined : 'Os alunos marcados não compartilham uma aula prática já marcada — a lista sai com data/hora/local em branco, pra preencher à mão'}
+            onClick={gerarListaPresencaSelecionados}
+          >
+            {gerandoListaSelecionados ? 'Gerando…' : 'Ata Presencial'}
+          </button>
+          <button type="button" className="botao-secundario perigo" disabled={selecionados.size === 0 || arquivandoLote} onClick={arquivarSelecionados}>
+            {arquivandoLote ? 'Movendo…' : 'Arquivar'}
           </button>
           {selecionados.size > 0 && (
-            <>
-              <button type="button" className="botao-secundario" disabled={!selPendentes || processandoId === 'lote'} onClick={aprovarSelecionados}>
-                {processandoId === 'lote' ? 'Aprovando…' : `Aprovar selecionados (${selecionados.size})`}
-              </button>
-              <button type="button" className="botao-secundario" disabled={!selAprovados || baixandoZip} onClick={baixarZipSelecionados}>
-                {baixandoZip ? 'Gerando .zip…' : `Baixar documentos (${selecionados.size})`}
-              </button>
-              <button
-                type="button" className="botao-secundario" disabled={!selAprovados}
-                onClick={() => abrirModalAgenda(selecionadosAlunos.map((a) => a.matricula.cliente_id), selecionadosAlunos.map((a) => a.matricula.clientes?.nome || 'Aluno'))}
-              >
-                Marcar compromisso ({selecionados.size})
-              </button>
-              <button type="button" className="botao-secundario" disabled={!selAprovadosSemCert || emitindoCerts} onClick={emitirCertificadosSelecionados}>
-                {emitindoCerts ? 'Emitindo…' : `Emitir certificados (${selecionados.size})`}
-              </button>
-              <button type="button" className="botao-secundario" disabled={!selComCertPendente || entregandoCerts} onClick={marcarCertificadosEntreguesSelecionados}>
-                {entregandoCerts ? 'Atualizando…' : `Marcar entregues (${selecionados.size})`}
-              </button>
-            </>
+            <span style={{ fontSize: 11.5, color: 'var(--cor-texto-suave)' }}>{selecionados.size} selecionado{selecionados.size > 1 ? 's' : ''}</span>
           )}
+          <input
+            type="text" placeholder="Buscar" value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            style={{ marginLeft: 'auto', flex: '0 1 200px', minWidth: 140, padding: '7px 10px', fontSize: 13, border: '1px solid var(--cor-toggle-off)', borderRadius: 8 }}
+          />
         </div>
-      )}
+      </div>
 
-      <div className="table-scroll" style={{ overflowX: 'auto', background: 'var(--cor-card)', borderRadius: 'var(--raio)', boxShadow: 'var(--sombra)' }}>
+      {/* maxHeight + overflowY: a tabela ganha sua própria barra de rolagem
+          — com isso, mesmo uma lista de alunos grande nunca empurra o
+          cabeçalho acima (abas/busca/barra de ações) pra fora da tela.
+          <thead> com position:sticky (dentro deste mesmo container) mantém
+          os títulos das colunas visíveis mesmo rolando a lista. */}
+      <div className="table-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 300px)', background: 'var(--cor-card)', borderRadius: 'var(--raio)', boxShadow: 'var(--sombra)' }}>
         {/* Larguras fixas por coluna (em vez de deixar o navegador decidir
-            pelo conteúdo de cada linha): sem isso, "Etapa" e "Contato"
+            pelo conteúdo de cada linha): sem isso, "Etapa" e "Status"
             deslizavam pra esquerda/direita dependendo do tamanho do nome de
             cada aluno — com <colgroup>, a coluna sempre fica na mesma
             posição em toda linha, alinhada com o cabeçalho. */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720, tableLayout: 'fixed' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 820, tableLayout: 'fixed' }}>
+          {/* Revisão de 06/09/2026, 3ª rodada (pedido do Alex): as duas
+              tentativas anteriores erraram em direções opostas —
+              porcentagens iguais deixavam Status/Etapa "flutuando" longe
+              do conteúdo; deixar só "Aluno" sem largura fixa jogava TODO o
+              espaço sobrando pra ela, empurrando as outras 3 coladas lá no
+              canto direito. Solução: largura em PORCENTAGEM (cresce/encolhe
+              junto com a tela — "proporcional" de verdade) mas cada coluna
+              recebe uma fatia do total proporcional ao que o próprio
+              conteúdo precisa (Etapa, com 3 selos, ganha mais que Telefone,
+              por ex.) — assim o respiro ao redor do conteúdo fica parecido
+              em todas. Títulos: todos centralizados de novo (inclusive
+              "Aluno"), sem alinhar nenhum pela borda. */}
           <colgroup>
-            <col style={{ width: 40 }} />
-            <col style={{ width: '32%' }} />
-            <col style={{ width: '26%' }} />
-            <col style={{ width: '28%' }} />
             <col style={{ width: 36 }} />
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '34%' }} />
+            <col style={{ width: '18%' }} />
           </colgroup>
           <thead>
             <tr>
-              <th style={thEsq}></th>
-              <th style={thEsq}>Aluno</th>
-              <th style={thEsq}>Etapa</th>
-              <th style={thEsq}>Contato</th>
-              <th style={thEsq}></th>
+              <th style={{ ...thEsq, position: 'sticky', top: 0 }}></th>
+              <th style={{ ...thEsq, position: 'sticky', top: 0 }}>Aluno</th>
+              <th style={{ ...thEsq, position: 'sticky', top: 0 }}>Telefone</th>
+              <th style={{ ...thEsq, position: 'sticky', top: 0 }}>Etapa</th>
+              <th style={{ ...thEsq, position: 'sticky', top: 0 }}>Status</th>
             </tr>
           </thead>
           <tbody>
             {alunosFiltrados.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 16, color: 'var(--cor-texto-suave)' }}>Nenhum aluno {filtro === 'todos' ? '' : `com matrícula ${filtro === 'pendente' ? 'pendente' : filtro === 'aprovada' ? 'aprovada' : 'recusada'} `}no momento.</td></tr>
+              <tr><td colSpan={5} style={{ padding: 16, color: 'var(--cor-texto-suave)' }}>
+                Nenhum aluno no momento.
+              </td></tr>
             )}
             {alunosFiltrados.map((a) => {
               const m = a.matricula
-              const aberta = linhaAberta === m.id
+              const st = statusAluno(a)
+              // Reagendamento e próximo compromisso não têm mais painel próprio
+              // (removido a pedido do Alex — seleção agora é só pela caixa de
+              // marcação) — viram `title` (dica ao passar o mouse) na própria
+              // trilha, pra não perder a informação.
+              const tituloTeorica = m.reagendamento_solicitado
+                ? 'Aluno pediu reagendamento da avaliação teórica — resolve-se sozinho quando a escola marcar a nova data'
+                : (a.proximoCompromisso ? `Próximo compromisso: ${new Date(`${a.proximoCompromisso.data}T12:00`).toLocaleDateString('pt-BR')} às ${a.proximoCompromisso.hora} — ${a.proximoCompromisso.tipo_label || labelTipoAgendamento(a.proximoCompromisso.tipo)}` : 'Avaliação Teórica')
               return (
-                <Fragment key={m.id}>
-                  <tr style={{ cursor: 'pointer' }} onClick={() => setLinhaAberta(aberta ? null : m.id)}>
-                    <td style={tdEsq} onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={selecionados.has(m.id)} onChange={() => alternarSelecao(m.id)} />
-                    </td>
-                    <td style={tdEsq}>
-                      <b style={{ color: 'var(--cor-primaria)' }}>{m.clientes?.nome || 'Aluno sem nome'}</b>
-                      <div style={{ fontSize: 11.5, color: 'var(--cor-texto-suave)' }}>{labelHabilitacao(m.habilitacao)}</div>
-                    </td>
-                    <td style={tdEsq}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {trilha(a).map((etapa) => (
-                          <span key={etapa.label} title={etapa.label} style={{ fontSize: 10, color: corEtapa[etapa.estado], fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 2, background: etapa.estado === 'todo' ? 'transparent' : corEtapa[etapa.estado], border: `1.3px solid ${corEtapa[etapa.estado]}` }} />
-                            {etapa.label}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td style={{ ...tdEsq, color: 'var(--cor-texto-suave)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.clientes?.email || ''}>{m.clientes?.email || '—'}</td>
-                    <td style={{ ...tdEsq, textAlign: 'right', color: 'var(--cor-texto-suave)', fontSize: 11 }}>{aberta ? '▲' : '▼'}</td>
-                  </tr>
-                  {aberta && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '0 14px 14px' }} onClick={(e) => e.stopPropagation()}>
-                        {/* Painel do aluno — estilo "linha discreta": um único
-                            bloco com nome/hábilitação no topo, dados abaixo,
-                            ações por último. */}
-                        <div style={{ border: '1px solid var(--cor-toggle-off)', borderRadius: 8, padding: '14px 16px', background: '#FBFAF8' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {m.pronto_teste === 'sim' && (
-                                <span className="status-texto em-dia" style={{ fontSize: 12 }}>✓ pronto p/ prova teórica</span>
-                              )}
-                              {/* Reagendamento é sempre da avaliação teórica (a que é
-                                  feita na Capitania) — não existe reagendamento de aula
-                                  prática no e-Náutica, por isso o texto já deixa isso
-                                  explícito, sem precisar guardar um "tipo" à parte. */}
-                              {m.reagendamento_solicitado && (
-                                <button
-                                  type="button" title="Aluno pediu reagendamento da avaliação teórica — clique para marcar como atendido (o aluno é avisado)"
-                                  disabled={processandoId === m.id}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, padding: '1px 7px', borderRadius: 10, background: '#fef3c7', color: '#b45309', border: '0.5px solid #fde68a', fontWeight: 600, cursor: 'pointer' }}
-                                  onClick={() => toggleReagendamento(m)}
-                                >
-                                  ↺ reagendamento (teórica)
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12.5, color: 'var(--cor-texto)' }}>
-                            <span><b style={{ color: 'var(--cor-texto-suave)' }}>Telefone:</b> {m.clientes?.telefone || '—'}</span>
-                            {m.status === 'recusada' && m.motivo_recusa && (
-                              <span><b style={{ color: 'var(--cor-texto-suave)' }}>Motivo da recusa:</b> {m.motivo_recusa}</span>
-                            )}
-                            {a.proximoCompromisso && (
-                              <span>
-                                <b style={{ color: 'var(--cor-texto-suave)' }}>Próximo compromisso:</b>{' '}
-                                {new Date(`${a.proximoCompromisso.data}T12:00`).toLocaleDateString('pt-BR')} às {a.proximoCompromisso.hora} — {a.proximoCompromisso.tipo_label || labelTipoAgendamento(a.proximoCompromisso.tipo)}
-                              </span>
-                            )}
-                            {a.certificado && (
-                              <span><b style={{ color: 'var(--cor-texto-suave)' }}>Certificado:</b> {a.certificado.status === 'entregue' ? 'entregue' : 'disponível, aguardando retirada'}</span>
-                            )}
-                          </div>
-
-                          <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                            {m.status === 'pendente' && (
-                              <>
-                                <button type="button" className="botao-secundario" disabled={processandoId === m.id} onClick={() => aprovar(m)}>Aprovar</button>
-                                <button type="button" className="botao-secundario perigo" disabled={processandoId === m.id} onClick={() => recusar(m)}>Recusar</button>
-                              </>
-                            )}
-                            {m.status === 'aprovada' && (
-                              <>
-                                <button type="button" className="botao-secundario" onClick={() => setMatriculaDocumentos(m)}>Documentos</button>
-                                <button
-                                  type="button" className="botao-secundario"
-                                  onClick={() => abrirModalAgenda([m.cliente_id], [m.clientes?.nome || 'Aluno'])}
-                                >
-                                  Marcar compromisso
-                                </button>
-                                {!a.certificado && (
-                                  <button type="button" className="botao-secundario" disabled={processandoId === m.id} onClick={() => emitirCertificadoRow(a)}>
-                                    {processandoId === m.id ? 'Emitindo…' : 'Emitir certificado'}
-                                  </button>
-                                )}
-                                {a.certificado && (
-                                  <button
-                                    type="button" className={`botao-secundario${a.certificado.status === 'entregue' ? ' em-dia' : ''}`}
-                                    disabled={processandoId === m.id} onClick={() => alternarStatusCertificadoRow(a)}
-                                  >
-                                    {a.certificado.status === 'entregue' ? '✓ Certificado entregue' : 'Marcar certificado como entregue'}
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                <tr key={m.id}>
+                  <td style={tdCentro}>
+                    <input type="checkbox" checked={selecionados.has(m.id)} onChange={() => alternarSelecao(m.id)} />
+                  </td>
+                  <td style={tdEsq}>
+                    <b style={{ color: 'var(--cor-primaria)' }}>{m.clientes?.nome || 'Aluno sem nome'}</b>
+                    <div style={{ fontSize: 11.5, color: 'var(--cor-texto-suave)' }} title={m.clientes?.email ? `Contato: ${m.clientes.email}` : undefined}>
+                      {labelHabilitacao(m.habilitacao)}
+                    </div>
+                  </td>
+                  <td style={{ ...tdCentro, color: 'var(--cor-texto-suave)' }}>{m.clientes?.telefone || '—'}</td>
+                  <td style={tdCentro}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {trilha(a).map((etapa) => (
+                        <span
+                          key={etapa.label}
+                          title={etapa.label === 'Avaliação Teórica' ? tituloTeorica : etapa.label}
+                          style={{ fontSize: 10, color: corEtapa[etapa.estado], fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}
+                        >
+                          <span style={{ width: 7, height: 7, borderRadius: 2, background: corEtapa[etapa.estado], border: `1.3px solid ${corEtapa[etapa.estado]}` }} />
+                          {etapa.label}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={tdCentro}>
+                    <span className={`badge ${st.classe}`}>{st.texto}</span>
+                  </td>
+                </tr>
               )
             })}
           </tbody>
         </table>
       </div>
 
-      {matriculaDocumentos && (
-        <ModalDocumentosAluno matricula={matriculaDocumentos} onFechar={() => setMatriculaDocumentos(null)} />
-      )}
-
       {modalAgenda && (
-        <div className="modal-fundo" onClick={() => setModalAgenda(null)}>
+        <div className="modal-fundo configuracoes-modal-dourado" onClick={() => setModalAgenda(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <h3 style={{ marginTop: 0 }}>Marcar compromisso</h3>
+            <h3 style={{ marginTop: 0 }}>Agendar provas</h3>
             <p className="dica" style={{ margin: '0 0 12px' }}>
               {modalAgenda.nomes.length === 1 ? modalAgenda.nomes[0] : `${modalAgenda.nomes.length} alunos: ${modalAgenda.nomes.join(', ')}`}
             </p>
@@ -606,9 +550,9 @@ export default function TelaAlunosENautica({ marinaId }) {
                 value={formAgenda.local} onChange={(e) => setFormAgenda({ ...formAgenda, local: e.target.value })}
               />
               {erroAgenda && <p className="erro">{erroAgenda}</p>}
-              {agendaEnviada && <p className="dica" style={{ fontWeight: 600 }}>Compromisso marcado — os alunos selecionados foram notificados.</p>}
+              {agendaEnviada && <p className="dica" style={{ fontWeight: 600 }}>Prova agendada — os alunos selecionados foram notificados.</p>}
               <div style={{ display: 'flex', gap: 10 }}>
-                <button type="submit" disabled={criandoAgenda}>{criandoAgenda ? 'Marcando…' : 'Marcar compromisso'}</button>
+                <button type="submit" disabled={criandoAgenda}>{criandoAgenda ? 'Agendando…' : 'Agendar'}</button>
                 {formAgenda.tipo === 'pratica' && (
                   <button type="button" className="botao-secundario" disabled={gerandoLista} onClick={gerarListaAlunos}>
                     {gerandoLista ? 'Gerando…' : 'Lista de alunos (Capitania)'}
@@ -626,5 +570,13 @@ export default function TelaAlunosENautica({ marinaId }) {
   )
 }
 
-const thEsq = { textAlign: 'left', padding: '11px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--cor-texto-suave)', borderBottom: '1px solid #EAF2F5' }
+// Centralizado (pedido do Alex) — só o TÍTULO da coluna; o conteúdo de cada
+// célula (tdEsq) continua alinhado à esquerda, mais fácil de ler em texto
+// corrido. `background` aqui é o que permite o <thead> ficar "sticky" (ver
+// acima) sem as linhas de baixo aparecerem por trás ao rolar.
+const thEsq = { textAlign: 'center', padding: '11px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--cor-texto-suave)', borderBottom: '1px solid #EAF2F5', background: 'var(--cor-card)', zIndex: 1 }
 const tdEsq = { textAlign: 'left', padding: '11px 12px', borderBottom: '1px solid #EAF2F5', verticalAlign: 'middle' }
+// Telefone/Etapa/Status ficam centralizados, alinhados com o título
+// centralizado da própria coluna (pedido do Alex) — só "Aluno" continua à
+// esquerda (nome + habilitação leem melhor assim).
+const tdCentro = { ...tdEsq, textAlign: 'center' }

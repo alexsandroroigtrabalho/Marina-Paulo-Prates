@@ -1,4 +1,4 @@
-import { listarClientes, listarEmbarcacoes, listarEmbarcacoesTodas, listarOrdensServico, listarDespachos, listarAgendamentos, listarCobrancasDetalhado, listarPedidosAbastecimento } from './db'
+import { listarClientesComAtividade, listarEmbarcacoes, listarEmbarcacoesTodas, listarOrdensServico, listarDespachos, listarAgendamentos, listarCobrancasDetalhado, listarPedidosAbastecimento } from './db'
 import { labelStatusManutencao } from './statusManutencao'
 import { statusEfetivoAbastecimento, momentoConfirmacaoAbastecimento, textoQuantidade } from './statusAbastecimento.js'
 
@@ -59,8 +59,12 @@ function comData(sufixo) {
 
 /* ---------- Clientes ---------- */
 export async function exportarClientesCsv(marinaId) {
+  // listarClientesComAtividade (não listarClientes) — pra planilha bater com
+  // a lista que aparece na tela "Clientes" (ver comentário em lib/db.js):
+  // sem isso, quem só usa o e-Náutica (mesmo cadastro de plataforma,
+  // compartilhado entre os apps) saía na planilha mesmo escondido na tela.
   const [clientes, embarcacoes] = await Promise.all([
-    listarClientes(marinaId),
+    listarClientesComAtividade(marinaId),
     listarEmbarcacoes(marinaId),
   ])
 

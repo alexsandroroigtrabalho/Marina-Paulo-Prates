@@ -1,7 +1,4 @@
-import { APLICACOES } from '../lib/apps'
-import {
-  IconAnchor, IconFileText, IconSchool, IconRuler2, IconTool, IconBoxMultiple, IconCoin,
-} from '@tabler/icons-react'
+import { APLICACOES, ICONES_APLICACAO, DESCRICOES_APLICACAO } from '../lib/apps'
 
 // Tela que o cliente vê logo depois do login, antes de entrar em qualquer
 // aplicação: Login → Seleção de aplicações → Aplicação escolhida.
@@ -23,34 +20,6 @@ import {
 // compacta e organizada; a mesma lista numa coluna só vira uma parede de
 // barras compridas, que é exatamente a sensação de desorganização
 // reportada.
-const ICONES = {
-  marine: IconAnchor,
-  nautdoc: IconFileText,
-  enautica: IconSchool,
-  enge: IconRuler2,
-  manut: IconTool,
-  stock: IconBoxMultiple,
-  finance: IconCoin,
-}
-
-// Uma linha curta por aplicação, só pra dar contexto (o que ela faz), não
-// pra repetir o nome. Fica junto da lista de aplicações (não em apps.js)
-// porque é um texto só desta tela — apps.js é a fonte única usada também
-// pelo menu do administrador, que não precisa desta descrição.
-// Todas no singular (pedido do Alex) — "documentos"/"projetos"/"ordens"/
-// "cobranças" no plural soavam como se cada aplicação lidasse com uma
-// COLEÇÃO de itens, quando a ideia é nomear a ÁREA/processo que ela cobre,
-// no singular, igual "Gestão de marina" e "Escola náutica" já estavam.
-const DESCRICOES = {
-  marine: 'Gestão de marina',
-  nautdoc: 'Documento e regularização',
-  enautica: 'Escola náutica',
-  enge: 'Engenharia e projeto',
-  manut: 'Ordem de serviço',
-  stock: 'Estoque e inventário',
-  finance: 'Financeiro e cobrança',
-}
-
 export default function SelecaoAplicacoes({ onSelecionar }) {
   return (
     // "tela-selecao-apps" (além das classes já usadas no login/cadastro) só
@@ -79,7 +48,7 @@ export default function SelecaoAplicacoes({ onSelecionar }) {
       <div className="selecao-apps-meio">
         <nav className="selecao-apps">
           {APLICACOES.map(({ chave, prefixo, nome }) => {
-            const Icone = ICONES[chave]
+            const Icone = ICONES_APLICACAO[chave]
             return (
               <button
                 key={chave}
@@ -93,7 +62,7 @@ export default function SelecaoAplicacoes({ onSelecionar }) {
                     tamanho pequeno do selo (22px). */}
                 <span className="selecao-app-item-icone"><Icone size={22} stroke={1} /></span>
                 <span className="selecao-app-item-nome">{prefixo} {nome}</span>
-                <span className="selecao-app-item-desc">{DESCRICOES[chave]}</span>
+                <span className="selecao-app-item-desc">{DESCRICOES_APLICACAO[chave]}</span>
               </button>
             )
           })}

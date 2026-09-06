@@ -22,10 +22,27 @@ export const HABILITACOES = [
   // visual (um espaço normal) mas sem esse ponto de quebra.
   { chave: 'arrais', label: 'Arrais Amador' },
   { chave: 'motonauta', label: 'Motonauta' },
+  // "Habilitação Completa" continua sendo o texto do BOTÃO de matrícula
+  // (TelaClienteENautica.jsx) — curto de propósito, o botão foi dimensionado
+  // (ver index.css, comentários por perto de "Habilitação Completa") pra
+  // caber esse texto sem quebrar linha; um rótulo bem mais longo aqui
+  // estouraria esse botão. Pra exibição no Painel de Controle e no
+  // Requerimento de Habilitação (documento), quem decide o texto é
+  // `labelHabilitacao()` abaixo, não este array — ver lá.
   { chave: 'ambas', label: 'Habilitação Completa' },
 ]
 
+// Pedido do Alex (05/09/2026): no Painel de Controle (e no campo "descrição
+// do pedido" do Requerimento de Habilitação — gerarRequerimento5H, em
+// enauticaDocumentos.js, que monta "Solicitação de
+// ${labelHabilitacao(habilitacao)}") o aluno com as duas habilitações não
+// deve aparecer como "Habilitação Completa" (texto genérico) e sim citando
+// as duas por extenso, pra já deixar claro no documento qual é o pedido.
+// O botão de matrícula do aluno (TelaClienteENautica.jsx) usa o array
+// HABILITACOES direto, não esta função, então continua mostrando
+// "Habilitação Completa" (texto curto, dimensionado pro botão).
 export function labelHabilitacao(chave) {
+  if (chave === 'ambas') return 'Motonauta e Arrais Amador'
   return HABILITACOES.find((h) => h.chave === chave)?.label || chave
 }
 
@@ -206,11 +223,16 @@ export const MODULOS_AULA = [
   { id: 3, titulo: 'Aula 03', desc: 'Nós, sinalização e emergências' },
 ]
 
+// `nome`: pedido do Alex — o TÍTULO de cada aula (hoje "Aula 01"/"Aula
+// 02"/"Aula 03") também é editável por escola, igual já era o vídeo (ver
+// ConfiguracoesENautica.jsx, categoria "Aulas preparatórias"). `desc`
+// continua fixo (o "tema sugerido" de cada uma) — só o nome que aparece
+// pro aluno é customizável.
 export function modulosAulaComVideo(marina) {
   const overrides = marina?.config_json?.aulas || []
   return MODULOS_AULA.map((m) => {
     const cfg = overrides.find((o) => o.id === m.id)
-    return { ...m, youtubeId: cfg?.youtubeId || '' }
+    return { ...m, titulo: cfg?.nome || m.titulo, youtubeId: cfg?.youtubeId || '' }
   })
 }
 
@@ -271,9 +293,13 @@ export function alternarAulaConcluida(clienteId, moduloId, concluida) {
 // consome conteúdo. Mesmo modelo do rsnautica antigo (tabela
 // `agendamentos`, `alunos_ids` como array — um mesmo compromisso pode
 // juntar vários alunos, ex. uma turma inteira na mesma avaliação).
+// Pedido do Alex (05/09/2026): teórica primeiro — é a etapa que normalmente
+// vem antes da aula prática, e o <select> do modal de agendamento
+// (TelaAlunosENautica.jsx) usa esta ordem tanto pra listar as opções quanto
+// pro valor padrão selecionado ao abrir (ver FORM_AGENDA_VAZIO).
 export const TIPOS_AGENDAMENTO = [
-  { chave: 'pratica', label: 'Aula prática' },
   { chave: 'teorica', label: 'Avaliação teórica' },
+  { chave: 'pratica', label: 'Aula prática' },
 ]
 
 export function labelTipoAgendamento(chave) {
@@ -314,6 +340,21 @@ export async function criarAgendamento({ marinaId, tipo, data, hora, local, alun
     data, hora, local, alunos_ids: alunosIds, status: 'confirmado',
   })
   if (error) throw error
+  // Agendar uma NOVA avaliação teórica é, na prática, a resposta do
+  // administrador a um pedido de reagendamento (Painel de Controle: coluna
+  // "Etapa" volta do vermelho pro verde, coluna "Status" para de mostrar
+  // "Solicita reagendamento"). Sem isto, marcar a nova data não bastava —
+  // o aluno continuava preso em "aguardando ação do administrador" mesmo
+  // já reagendado, e só saía dali se o administrador lembrasse de também
+  // clicar no botão "↺ reagendamento" à parte. Best-effort (não usa
+  // criarNotificacao/throw): a notificação "avaliação teórica marcada"
+  // abaixo já avisa o aluno da nova data, não precisa de uma segunda.
+  if (tipo === 'teorica' && alunosIds && alunosIds.length > 0) {
+    const { error: erroReagendamento } = await dbEnautica.from('matriculas')
+      .update({ reagendamento_solicitado: false })
+      .eq('marina_id', marinaId).in('cliente_id', alunosIds).eq('reagendamento_solicitado', true)
+    if (erroReagendamento) console.error('Não foi possível limpar o pedido de reagendamento:', erroReagendamento.message)
+  }
   // No rsnautica antigo (referência), criar um evento disparava um e-mail
   // pra cada aluno selecionado — aqui vira uma notificação dentro da própria
   // plataforma (ver criarNotificacao abaixo), a pedido explícito do Alex.
@@ -323,6 +364,40 @@ export async function criarAgendamento({ marinaId, tipo, data, hora, local, alun
     titulo: `${labelTipoAgendamento(tipo)} marcada`,
     mensagem: `${labelTipoAgendamento(tipo)} em ${dataFormatada} às ${hora}${local ? `, em ${local}` : ''}.`,
   })))
+}
+
+// --- Arquivamento (Painel de Controle → "Excluir aluno" / aba Histórico) --
+//
+// Pedido do Alex: "Excluir aluno" não apaga nada de verdade (perderia
+// matrícula + histórico de agendamentos) — move o aluno pra uma aba
+// "Histórico" separada, de onde dá pra restaurar. `arquivado_em` existe só
+// pra mostrar a data na tabela de Histórico (ordenar/exibir), a lógica de
+// "aparece em Todos ou em Histórico" usa só o boolean `arquivado`.
+export async function arquivarMatricula(matricula) {
+  const { error } = await dbEnautica.from('matriculas')
+    .update({ arquivado: true, arquivado_em: new Date().toISOString() })
+    .eq('id', matricula.id)
+  if (error) throw error
+}
+
+export async function restaurarMatricula(matricula) {
+  const { error } = await dbEnautica.from('matriculas')
+    .update({ arquivado: false, arquivado_em: null })
+    .eq('id', matricula.id)
+  if (error) throw error
+}
+
+// Apaga de vez — só disponível na aba Histórico (matrícula já arquivada),
+// pedido do Alex depois de já existir o arquivamento acima: arquivar é o
+// passo reversível (tira da lista principal, mas guarda tudo); isto aqui é
+// o passo seguinte, irreversível, pra quem já decidiu que aquele registro
+// (normalmente lixo antigo — cadastro de teste, matrícula duplicada, um
+// "recusada" de antes deste sistema) não precisa mais ocupar espaço nem no
+// Histórico. Não apaga agendamentos (ficam sem esse aluno na lista de
+// alunos_ids, sem quebrar o compromisso pros demais).
+export async function excluirMatriculaDefinitivamente(matriculaId) {
+  const { error } = await dbEnautica.from('matriculas').delete().eq('id', matriculaId)
+  if (error) throw error
 }
 
 // --- Certificados ---------------------------------------------------------
