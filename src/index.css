@@ -881,44 +881,62 @@ body {
    selo redondo dourado + nome + descrição, contorno dourado translúcido,
    preenchimento sutil no hover), só que em versão pequena, pra caber na
    largura fixa da sidebar (220px, ~196px de área útil já descontando o
-   padding do <aside>). Pedido do Alex (06/09/2026, ajustado no mesmo
-   dia): ícone EM CIMA do nome (mesma composição em coluna do cartão
-   grande, não em linha) e grade de 2 colunas (mesmo `repeat(2, 1fr)` do
-   cartão grande) em vez de coluna única. */
-/* margin-top/bottom: auto centraliza a grade verticalmente no meio do
-   espaço livre da sidebar (entre a logo lá em cima e o rodapé lá
-   embaixo) — os dois lados absorvem espaço em partes iguais, então a
-   grade fica no meio, não colada em cima nem embaixo. */
+   padding do <aside>). Pedido do Alex (06/09/2026): coluna única, um
+   cartão abaixo do outro, cartões QUADRADOS.
+   Ajuste seguinte, mesmo dia: "devem se ajustar na vertical do menu de tal
+   forma que não apareça barra de rolagem" — com largura/altura fixas (a
+   versão anterior), 7 cartões podiam passar da altura livre da sidebar em
+   telas mais baixas e forçar a rolagem (.sidebar tem overflow-y:auto como
+   rede de segurança). Trocado pra FLEXBOX em coluna com `flex: 1 1 0` em
+   cada cartão: os 7 dividem exatamente o espaço vertical disponível entre
+   a logo e o rodapé, sem nunca ultrapassar — nunca sobra espaço pra
+   rolagem aparecer. `aspect-ratio: 1/1` + largura automática (em vez de
+   largura fixa) faz a LARGURA acompanhar a altura que sobrou pra cada
+   cartão, continuando quadrado; `max-width`/`max-height` iguais evitam
+   cartões grandes demais em sidebars com bastante espaço livre (telas
+   altas). Ícone/nome/descrição usam `clamp(...vh)` pra encolher junto
+   quando a altura de cada cartão fica pequena. */
 .nav-apps {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
-  margin-top: auto;
-  margin-bottom: auto;
-}
-/* 7 aplicações em 2 colunas sobra uma sozinha na última linha — mesmo
-   ajuste do cartão grande (.selecao-apps .selecao-app-item:last-child):
-   ocupa as 2 colunas e fica centralizada com metade da largura, em vez de
-   colada à esquerda sozinha. */
-.nav-apps .nav-app-card:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-  width: calc(50% - 3.5px);
-  margin: 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .nav-app-card {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
-  gap: 5px;
-  width: 100%;
-  padding: 9px 5px 8px;
+  gap: clamp(2px, 0.6vh, 5px);
+  flex: 1 1 0;
+  min-height: 0;
+  width: auto;
+  aspect-ratio: 1 / 1;
+  /* min-width 128px: pedido do Alex ("e-Náutica", "Ordem de serviço" e
+     "Gestão de marina" cortando em 2 linhas) — com a largura vindo só do
+     aspect-ratio (=altura), em sidebars com pouca altura livre os 7
+     cartões ficavam mais estreitos que o nome mais longo cabe numa linha
+     só. min-width trava um piso (o mínimo que cobre "Gestão de marina"/
+     "Ordem de serviço" maiúsculas, o texto mais longo, nesse tamanho de
+     fonte) — abaixo dele o cartão vira retângulo (mais largo que alto) em
+     vez de continuar encolhendo e cortando o texto. Quando há espaço
+     (aspect-ratio pediria mais que 128px), o cartão cresce e volta a
+     ficar quadrado normalmente, até o teto de max-width/max-height. */
+  min-width: 128px;
+  max-width: 140px;
+  max-height: 140px;
+  padding: clamp(4px, 1.1vh, 9px) 5px;
   margin: 0;
   background: rgba(245, 245, 240, 0.03);
   border: 1px solid rgba(212, 175, 55, 0.28);
   border-radius: 10px;
   cursor: pointer;
+  overflow: hidden;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .nav-app-card:hover {
@@ -927,7 +945,7 @@ body {
 }
 .nav-app-card-icone {
   display: flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; flex-shrink: 0;
+  width: clamp(18px, 3vh, 26px); height: clamp(18px, 3vh, 26px); flex-shrink: 0;
   border-radius: 50%;
   border: 1px solid rgba(212, 175, 55, 0.4);
   background: rgba(212, 175, 55, 0.06);
@@ -940,11 +958,11 @@ body {
 }
 .nav-app-card-nome {
   font-family: 'Montserrat', sans-serif; font-weight: 600; letter-spacing: 0.02em;
-  text-transform: uppercase; font-size: 9px; line-height: 1.2;
+  text-transform: uppercase; font-size: clamp(7.5px, 1.3vh, 9px); line-height: 1.2;
   color: rgba(245, 245, 240, 0.92);
 }
 .nav-app-card-desc {
-  font-family: 'Montserrat', sans-serif; font-size: 7.5px; line-height: 1.2;
+  font-family: 'Montserrat', sans-serif; font-size: clamp(6.5px, 1.1vh, 7.5px); line-height: 1.2;
   color: rgba(245, 245, 240, 0.48);
 }
 
