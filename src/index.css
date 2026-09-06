@@ -160,11 +160,30 @@ body {
   justify-content: center;
   padding: 24px 0;
 }
+/* Cartão escuro + losangos dourados — pedido do Alex (06/09/2026, com
+   print da própria página de vendas do lado do CLIENTE — AplicacaoVendas/
+   .tela-login-rv): "os cards de vendas do admin devem seguir essa
+   estética". Antes o cartão do admin era claro (fundo branco, título
+   azul-petróleo); agora usa a MESMA identidade escura da tela de entrada
+   do cliente — fundo #0D1B2A com a mesma trama de losangos dourados de
+   .sidebar.sidebar-apps/.tela-login-rv, título em Cinzel dourado
+   maiúsculo (mesmo padrão de .em-construcao-app/.app-titulo), tagline e
+   textos em cinza-claro traslúcido, ícone e checkmarks em dourado vivo
+   (#D4AF37, o tom usado sobre fundo escuro — não mais var(--dourado-texto),
+   que é a versão escurecida pra fundo claro). O botão "Fale Conosco"
+   (mais abaixo) já usava esse mesmo #0D1B2A + losango; com o cartão
+   passando a ser escuro também, os dois ficam na mesma família visual,
+   como no print do lado do cliente. */
 .pagina-vendas-card {
   width: min(420px, 92%);
-  background: var(--cor-card);
+  background-color: #0D1B2A;
+  background-image:
+    radial-gradient(ellipse 320px 220px at 50% -10%, rgba(212, 175, 55, 0.16), transparent 62%),
+    repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.05) 0, rgba(212, 175, 55, 0.05) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.05) 0, rgba(212, 175, 55, 0.05) 1px, transparent 1px, transparent 40px);
+  border: 1px solid rgba(212, 175, 55, 0.4);
   border-radius: var(--raio);
-  box-shadow: var(--sombra);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
   padding: 36px 32px 32px;
   display: flex;
   flex-direction: column;
@@ -175,22 +194,27 @@ body {
   display: flex; align-items: center; justify-content: center;
   width: 54px; height: 54px; flex-shrink: 0;
   border-radius: 50%;
-  border: 1.5px solid var(--dourado-texto);
+  border: 1.5px solid rgba(212, 175, 55, 0.5);
   background: rgba(212, 175, 55, 0.08);
-  color: var(--cor-secundaria);
+  color: #D4AF37;
   margin-bottom: 14px;
 }
 .pagina-vendas-titulo {
   margin: 0 0 4px;
-  color: var(--cor-primaria);
-  font-size: 21px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #D4AF37;
 }
 .pagina-vendas-tagline {
   margin: 0 0 22px;
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--dourado-texto);
+  color: rgba(245, 245, 240, 0.55);
   font-weight: 600;
 }
 .pagina-vendas-recursos {
@@ -207,24 +231,27 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  font-family: 'Montserrat', sans-serif;
   font-size: 13.5px;
   line-height: 1.4;
-  color: var(--cor-texto);
+  color: rgba(245, 245, 240, 0.82);
 }
 .pagina-vendas-recursos li svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--cor-secundaria);
+  color: #D4AF37;
 }
 .pagina-vendas-aviso {
   margin: 0 0 26px;
+  font-family: 'Montserrat', sans-serif;
   font-size: 13.5px;
-  color: var(--cor-texto-suave);
+  color: rgba(245, 245, 240, 0.55);
 }
 .pagina-vendas-cta-texto {
   margin: 0 0 16px;
+  font-family: 'Montserrat', sans-serif;
   font-size: 13px;
-  color: var(--cor-texto-suave);
+  color: rgba(245, 245, 240, 0.55);
 }
 /* Losangos dourados + borda dourada — pedido do Alex (06/09/2026): "o
    botão Fale Conosco deve ter o fundo com os losangos e a borda dourada
@@ -244,8 +271,17 @@ body {
    `background` inteiro que .btn-primario:hover usa) pelo mesmo motivo. */
 .pagina-vendas-card .pagina-vendas-cta {
   text-decoration: none;
-  border: 1.5px solid var(--dourado-texto);
-  background-color: var(--cor-secundaria);
+  /* color: #D4AF37 — acrescentado junto com o cartão escuro (pedido do
+     Alex, mesma estética do lado do cliente): sem isso o texto ficava
+     branco (herdado de ".btn-primario { color: #fff }"), destoando do
+     dourado usado no resto do cartão agora escuro. */
+  color: #D4AF37;
+  border: 1.5px solid rgba(212, 175, 55, 0.5);
+  /* #0B0B0D (preto) — pedido do Alex (06/09/2026): "fundo do fale conosco
+     igual, fundo preto", pra bater com o mesmo tom usado no botão
+     equivalente do lado do cliente (.tela-login-rv .btn-primario) em vez
+     do azul-petróleo var(--cor-secundaria) usado antes aqui. */
+  background-color: #0B0B0D;
   background-image:
     repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px),
     repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px);
@@ -262,7 +298,7 @@ body {
    aqui, a MESMA regra passa a valer pro hover também, sem depender da
    ordem no arquivo. */
 .pagina-vendas-card .pagina-vendas-cta:hover {
-  background-color: var(--cor-secundaria);
+  background-color: #0B0B0D;
   background-image:
     repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px),
     repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.16) 0, rgba(212, 175, 55, 0.16) 1px, transparent 1px, transparent 18px);
@@ -492,6 +528,22 @@ body {
    no manual da marca. ".sair" já tem margin-top:auto, então o rodapé fica
    logo abaixo, sempre no rodapé da sidebar — nunca sobre o conteúdo. */
 .sidebar-logo { display: block; width: 100%; max-width: 196px; height: auto; margin: 4px auto 22px; }
+/* Logo vertical (elmo em cima, "RV Invictus" embaixo) — só nas páginas de
+   vendas (Layout.jsx, prop paginaVendas), pedido do Alex (06/09/2026): no
+   lugar da logo horizontal + link do rodapé, que somem nessas telas. Como
+   é a ÚNICA coisa que sobra no menu lateral aí (sem título, sem lista de
+   telas, sem seta de voltar, sem rodapé), margin:auto nos dois eixos
+   verticais faz ela flutuar centralizada no meio do menu, dividindo o
+   espaço livre da sidebar (entre o padding de cima e o de baixo) em
+   partes iguais — mesma técnica de centralização já usada em
+   .em-construcao-bloco/.nav-apps neste arquivo. */
+.sidebar-logo-vertical {
+  display: block;
+  width: 100%;
+  max-width: 140px;
+  height: auto;
+  margin: auto auto;
+}
 .sidebar-rodape {
   display: block;
   /* Sem margin-top: auto aqui — quem empurra pra baixo é sempre o elemento
@@ -1798,12 +1850,18 @@ button.badge:hover { filter: brightness(0.95); }
    muda com a seleção, ela é fixa. */
 .abas-enautica {
   display: flex; flex-direction: column; gap: 8px; margin-bottom: 38px;
-  /* Era 'Poppins' — mesmo já pareado em peso/tamanho (700/16px) com os
-     botões de habilitação logo abaixo, a fonte em si continuava diferente
-     (Poppins aqui vs. o Inter padrão do app nos botões de habilitação,
-     que usam "font-family: inherit"), então as duas famílias de botão
-     ainda pareciam "diferentes" lado a lado. Tirando o override, esta
-     aba volta a herdar o Inter padrão, igual aos botões de habilitação. */
+  /* Poppins — pedido do Alex (06/09/2026): "os botões do e-Náutica estão
+     numa fonte diferente, maior que o RV Marine" (comparando Solicitar
+     Matrícula/Agendamentos/Início/Trilha com Descida/Subida/Abastecimento
+     do painel do cliente RV Marine, que usa Poppins/600/13.5-14.5px via
+     .painel-cliente-acoes). Antes disso, esta aba tinha sido pareada só
+     com os 3 botões de habilitação (Arrais/Motonauta/Completa) LOGO
+     abaixo dela, na mesma tela — decisão revertida agora porque o Alex
+     quer a referência de fonte sendo o RV Marine, não mais o vizinho
+     dentro do próprio e-Náutica; os 3 botões de habilitação (ver
+     .enautica-botao-habilitacao mais abaixo) foram ajustados juntos, pra
+     não voltar a destoar entre si. */
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
 }
 .abas-enautica-linha { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .abas-enautica button {
@@ -1815,20 +1873,12 @@ button.badge:hover { filter: brightness(0.95); }
      resto. */
   border: 1px solid var(--dourado-texto); border-radius: 14px; cursor: pointer;
   background: #fff; color: var(--cor-primaria);
-  /* Era 600/13.5px (pareado com o Descida/Subida do RV Marine) — o Alex
-     comparou essas abas com os 3 botões de habilitação logo abaixo
-     (.enautica-botao-habilitacao: 700/16px/letter-spacing 0.01em, ver
-     mais abaixo) e pediu pra igualar DENTRO desta mesma tela, já que os
-     dois grupos de botão aparecem juntos aqui — a referência que importa
-     agora é a vizinha na mesma tela, não mais o RV Marine. */
-  /* font-family: inherit — sem isso, um <button> não herda a fonte do
-     ancestral (é um controle de formulário, a stylesheet do navegador dá
-     a ele uma fonte de sistema própria, tipo Arial), então mesmo depois
-     de tirar o "Poppins" daqui ele continuava numa fonte diferente do
-     Inter usado pelos botões de habilitação — só ficava invisível numa
-     comparação rápida, mas dava pra notar de perto. */
+  /* font-family: inherit — herda o Poppins que .abas-enautica (acima)
+     agora define, igual ao .painel-cliente-acoes do RV Marine (mesma
+     técnica: um <button> não herda fonte do ancestral sozinho, por ser
+     controle de formulário — precisa do inherit explícito aqui). */
   font-family: inherit;
-  padding: 12px 6px; font-weight: 700; font-size: 16px; letter-spacing: 0.01em; text-align: center; line-height: 1.2;
+  padding: 12px 6px; font-weight: 600; font-size: 13.5px; letter-spacing: normal; text-align: center; line-height: 1.2;
   transition: box-shadow 120ms ease-in-out, transform 120ms ease-in-out;
 }
 /* Rótulo num <span> à parte (ver JSX): garante que ícone+texto formem um
@@ -1854,11 +1904,12 @@ button.badge:hover { filter: brightness(0.95); }
 .abas-enautica button.abas-enautica-inicio {
   flex-direction: row; align-items: center; justify-content: center; border: none; padding: 16px;
   background: linear-gradient(135deg, #D9713E, #A23B2E); color: #fff;
-  /* Era 600/14.5px (pareado com o S.O.S./Abastecimento do RV Marine) —
-     igualado aos botões de habilitação (700/16px/0.01em), mesmo motivo do
-     ".abas-enautica button" acima: nesta tela específica, o Alex quer os
-     dois grupos de botão com a mesma "espessura" de texto. */
-  font-size: 16px; font-weight: 700; letter-spacing: 0.01em;
+  /* De volta a 600/14.5px, igual ao S.O.S./Serviços do RV Marine
+     (.painel-cliente-btn-sos/.painel-cliente-btn-servicos) — pedido do
+     Alex (06/09/2026) pra usar o RV Marine como referência de fonte em
+     vez dos botões de habilitação vizinhos (ver comentário em
+     ".abas-enautica" acima). */
+  font-size: 14.5px; font-weight: 600; letter-spacing: normal;
 }
 /* Ícone e texto do "Início" desalinhavam verticalmente: havia um nó de
    texto solto (o espaço em branco entre o ícone e o <span> no JSX) virando
@@ -2075,7 +2126,13 @@ button.badge:hover { filter: brightness(0.95); }
   display: flex; align-items: center; text-align: left;
   width: 100%; min-height: 92px; padding: 18px 22px; gap: 8px;
   border-radius: 16px; cursor: pointer;
-  font-family: inherit; font-weight: 700; font-size: 16px; letter-spacing: 0.01em;
+  /* Poppins/600/14.5px — mesmo ajuste do ".abas-enautica button" acima
+     (pedido do Alex, 06/09/2026: usar o RV Marine como referência de
+     fonte). Era Inter (herdado, sem override próprio)/700/16px/0.01em,
+     pareado só com as abas Aulas/Agendamentos vizinhas — os dois grupos
+     seguem juntos agora, pra não voltar a destoar entre si dentro da
+     mesma tela. */
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif; font-weight: 600; font-size: 14.5px; letter-spacing: normal;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .enautica-botao-habilitacao:hover { transform: translateY(-1px); }

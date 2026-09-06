@@ -69,8 +69,17 @@ export default function Layout({
   // tela: a logo do cabeçalho fica sólida e na versão PRETA (arquivo
   // rv-invictus-logo-preto.png, já usado como marca d'água em outro lugar
   // do sistema), sem mexer em nenhuma outra tela.
-  const logoSolida = telaAtiva === 'vagas' || telaAtiva === 'alunosEnautica'
-  const logoPreta = telaAtiva === 'alunosEnautica'
+  // paginaVendas entra também aqui (logoSolida): a logo do cabeçalho nessas
+  // telas fica em opacidade reduzida (0.14, ver .topo-logo) por padrão — a
+  // pedido do Alex (06/09/2026) ela precisa aparecer sólida (opacity: 1)
+  // pra dar pra perceber a troca de cor abaixo; numa marca d'água quase
+  // invisível a diferença de cor não se notava.
+  const logoSolida = telaAtiva === 'vagas' || telaAtiva === 'alunosEnautica' || paginaVendas
+  // paginaVendas: pedido do Alex (06/09/2026) — junto com o fundo preto do
+  // botão "Fale Conosco", a logo do cabeçalho nas páginas de vendas também
+  // passa a ser a versão preta (mesmo arquivo já usado no Painel de
+  // Controle do e-Náutica), em vez da versão colorida padrão.
+  const logoPreta = telaAtiva === 'alunosEnautica' || paginaVendas
 
   return (
     <div className="app-shell">
@@ -90,7 +99,12 @@ export default function Layout({
           rv_master (`semSeletorApps`) — todas essas têm conteúdo pra
           navegar, então o menu se comporta do mesmo jeito em qualquer
           uma, não como a vitrine "escolha uma aplicação" (essa sim
-          continua sempre aberta, sem precisar de hover). */}
+          continua sempre aberta, sem precisar de hover).
+          `&& !paginaVendas`: pedido do Alex (06/09/2026) — nas páginas de
+          vendas o menu lateral também passa a ser dinâmico (esconde/revela
+          por hover), em vez de ficar sempre aberto sem nada de verdade pra
+          mostrar (o cartão de vendas já cobre nome/ícone/recursos, e a
+          seta de voltar saiu daqui, ver nav-voltar mais abaixo). */}
       {/* sidebar-apps: só na tela de seleção de aplicações (nenhuma
           escolhida ainda — app === null e não é a área do rv_master) —
           pedido do Alex (06/09/2026): losangos dourados no fundo e uma
@@ -98,8 +112,21 @@ export default function Layout({
           da tela de login/seleção do cliente (.tela-login-rv), só nesta
           tela específica do menu, sem mexer nas demais (app escolhido,
           "Em construção", RV Master). */}
-      <aside className={`sidebar ${!temTelas(app) && !semSeletorApps ? 'sidebar-fixa' : ''} ${!app && !semSeletorApps ? 'sidebar-apps' : ''}`}>
-        <img src="/rv-invictus-logo-dourado.png" alt="RV Invictus" className="sidebar-logo" />
+      <aside className={`sidebar ${!temTelas(app) && !semSeletorApps && !paginaVendas ? 'sidebar-fixa' : ''} ${!app && !semSeletorApps ? 'sidebar-apps' : ''}`}>
+        {/* paginaVendas: pedido do Alex (06/09/2026) — troca a logo
+            horizontal (elmo + "RV Invictus" lado a lado) e o link do
+            rodapé pela logo VERTICAL (elmo em cima, "RV Invictus" embaixo,
+            rv-invictus-vertical-dourado.png), sozinha e centralizada na
+            vertical do menu (margin:auto no .sidebar-logo-vertical, ver
+            index.css) — sem título de aplicação, sem lista de telas, sem
+            seta de voltar (foi pro canto superior direito) e sem link do
+            site aqui embaixo, não sobra mais nada além da logo pra
+            preencher o menu lateral. */}
+        {paginaVendas ? (
+          <img src="/rv-invictus-vertical-dourado.png" alt="RV Invictus" className="sidebar-logo-vertical" />
+        ) : (
+          <img src="/rv-invictus-logo-dourado.png" alt="RV Invictus" className="sidebar-logo" />
+        )}
 
         {app ? (
           <>
@@ -143,16 +170,22 @@ export default function Layout({
                 menu lateral dinâmico (o botão continua funcionando igual,
                 só ficou mais discreto — o botão "Sair" do cabeçalho agora
                 cobre esse mesmo caminho nos Painéis de Controle, ver
-                botao-sair abaixo). */}
-            <button
-              type="button"
-              className="nav-voltar"
-              title="Aplicações"
-              aria-label="Aplicações"
-              onClick={(e) => { e.currentTarget.blur(); setAppSelecionada(null) }}
-            >
-              <IconArrowLeft size={14} />
-            </button>
+                botao-sair abaixo).
+                paginaVendas: pedido do Alex (06/09/2026) — a seta sai
+                inteiramente do menu lateral e vai pro canto superior
+                direito da página (ver botao-sair no cabeçalho, mais
+                abaixo), então some daqui pra não duplicar. */}
+            {!paginaVendas && (
+              <button
+                type="button"
+                className="nav-voltar"
+                title="Aplicações"
+                aria-label="Aplicações"
+                onClick={(e) => { e.currentTarget.blur(); setAppSelecionada(null) }}
+              >
+                <IconArrowLeft size={14} />
+              </button>
+            )}
           </>
         ) : semSeletorApps ? (
           // Tela do rv_master ANTES de escolher um cliente (App.jsx): mesma
@@ -218,7 +251,12 @@ export default function Layout({
           </nav>
         )}
 
-        <a className="sidebar-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RVinvictus.com.br</a>
+        {/* paginaVendas: link do rodapé some junto (ver comentário na logo
+            vertical acima) — a marca já está representada pela logo
+            vertical sozinha no meio do menu. */}
+        {!paginaVendas && (
+          <a className="sidebar-rodape" href="https://rvinvictus.com.br" target="_blank" rel="noopener noreferrer">RVinvictus.com.br</a>
+        )}
       </aside>
       <main className="conteudo">
         <header className="topo">
@@ -268,8 +306,12 @@ export default function Layout({
                 nav-voltar acima). Sair de verdade (signOut) continua
                 existindo normalmente em qualquer outra tela, inclusive a
                 própria seleção de aplicações — dá pra chegar nele saindo
-                do Painel de Controle primeiro. */}
-            {paginaVendas ? null : telaAtiva === 'vagas' || telaAtiva === 'alunosEnautica' ? (
+                do Painel de Controle primeiro.
+                paginaVendas entra no mesmo caso das Painéis de Controle
+                (seta de voltar, não Sair) — pedido do Alex (06/09/2026):
+                a seta que antes ficava no menu lateral da página de
+                vendas passou pra cá. */}
+            {paginaVendas || telaAtiva === 'vagas' || telaAtiva === 'alunosEnautica' ? (
               <button type="button" className="botao-sair" title="Aplicações" aria-label="Voltar para a seleção de aplicações"
                 onClick={(e) => { e.currentTarget.blur(); setAppSelecionada(null) }}>
                 <IconArrowLeft size={18} />
