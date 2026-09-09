@@ -24,6 +24,34 @@ function maskarCampoDocumento(chave, tipo, valor) {
   return valor
 }
 
+// Converte TODOS os campos de data de CAMPOS_DOCUMENTO (hoje:
+// data_nascimento E data_emissao_rg) de dd/mm/aaaa (máscara exibida) pra
+// aaaa-mm-dd (formato que a coluna `date` do Postgres espera) — usada
+// tanto no envio da matrícula quanto em "Meus dados".
+// Bug corrigido (06/09/2026, relatado pelo Alex: erro "date/time field
+// value out of range: 20/05/2001" ao solicitar matrícula): antes só
+// data_nascimento passava por essa conversão aqui dentro; data_emissao_rg
+// (também tipo:'date' em CAMPOS_DOCUMENTO) ia direto pro banco ainda no
+// formato mascarado, e o Postgres rejeitava a data. Agora percorre
+// CAMPOS_DOCUMENTO em vez de mexer só num campo fixo, então qualquer novo
+// campo tipo:'date' que aparecer lá no futuro já sai convertido também.
+// Retorna null quando alguma data é inválida — quem chamar deve abortar o
+// envio nesse caso (a mensagem de erro já foi setada via `aoErrar`).
+function converterCamposDataDocumento(campos, aoErrar) {
+  const convertidos = { ...campos }
+  for (const c of CAMPOS_DOCUMENTO) {
+    if (c.tipo !== 'date' || !(c.chave in convertidos)) continue
+    if (convertidos[c.chave]) {
+      const iso = dataMascaradaParaIso(convertidos[c.chave])
+      if (!iso) { aoErrar(`${c.label} inválida.`); return null }
+      convertidos[c.chave] = iso
+    } else {
+      convertidos[c.chave] = null
+    }
+  }
+  return convertidos
+}
+
 // Área do aluno no RV e-Náutica — mesma linguagem visual do painel do
 // cliente do RV Marine (TelaClienteDashboard.jsx): wrapper ".painel-cliente",
 // logo no topo, header com o nome do tenant + sair. Sem NENHUMA etapa de
@@ -295,17 +323,13 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   async function salvarMeusDados(e) {
     e.preventDefault()
     setErroDados(null)
-    // A data de nascimento chega mascarada (dd/mm/aaaa) — a coluna no banco
-    // é `date` e espera aaaa-mm-dd, mesma conversão que o formulário de
+    // Datas chegam mascaradas (dd/mm/aaaa) — a coluna no banco é `date` e
+    // espera aaaa-mm-dd. converterCamposDataDocumento cuida de TODOS os
+    // campos tipo:'date' de CAMPOS_DOCUMENTO (não só data_nascimento — ver
+    // comentário na função, acima), mesma conversão que o formulário de
     // matrícula já faz (enviarPedido, abaixo).
-    const campos = { ...formDados }
-    if (campos.data_nascimento) {
-      const iso = dataMascaradaParaIso(campos.data_nascimento)
-      if (!iso) { setErroDados('Data de nascimento inválida.'); return }
-      campos.data_nascimento = iso
-    } else {
-      campos.data_nascimento = null
-    }
+    const campos = converterCamposDataDocumento({ ...formDados }, setErroDados)
+    if (!campos) return
     setSalvandoDados(true)
     // Mesmo cuidado do RV Marine (TelaClienteDashboard.jsx/enviarMeusDados):
     // "E-mail" aqui é o mesmo campo usado pra entrar no sistema, então trocar
@@ -382,16 +406,14 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
   async function enviarPedido(e) {
     e.preventDefault()
     setErroEnvio(null)
-    // Data de nascimento chega mascarada (dd/mm/aaaa) — a coluna no banco é
-    // `date` e espera aaaa-mm-dd. Convertida aqui, na saída, pra não mexer
-    // no formato que o resto da tela usa (dadosFaltando/formFaltando ficam
-    // sempre com o texto mascarado, igual o aluno está vendo).
-    const dadosFaltando = { ...formFaltando }
-    if (dadosFaltando.data_nascimento) {
-      const iso = dataMascaradaParaIso(dadosFaltando.data_nascimento)
-      if (!iso) { setErroEnvio('Data de nascimento inválida.'); return }
-      dadosFaltando.data_nascimento = iso
-    }
+    // Datas chegam mascaradas (dd/mm/aaaa) — a coluna no banco é `date` e
+    // espera aaaa-mm-dd. Convertida aqui, na saída, pra não mexer no formato
+    // que o resto da tela usa (dadosFaltando/formFaltando ficam sempre com o
+    // texto mascarado, igual o aluno está vendo). converterCamposDataDocumento
+    // cuida de TODOS os campos tipo:'date' de CAMPOS_DOCUMENTO — não só
+    // data_nascimento, que era o bug (ver comentário na função, acima).
+    const dadosFaltando = converterCamposDataDocumento({ ...formFaltando }, setErroEnvio)
+    if (!dadosFaltando) return
     setEnviando(true)
     try {
       await enviarMatricula({
