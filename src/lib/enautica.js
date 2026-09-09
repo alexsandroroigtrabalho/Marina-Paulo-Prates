@@ -209,14 +209,23 @@ export async function listarMatriculasAprovadas(marinaId) {
 
 // --- Aulas preparatórias -------------------------------------------------
 //
-// Igual ao rsnautica antigo: conteúdo estático (3 módulos em vídeo), sem
-// tabela própria no banco — não é agendamento nem documento, é só material
-// de estudo que o aluno consome no próprio ritmo. A única customização por
-// escola é o vídeo de cada módulo, guardado em `marina.marinas.config_json`
-// (coluna que já existia, sem uso — ver `{ aulas: [{ id, youtubeId }] }`),
-// mesmo mecanismo do rsnautica (lá era `escolas.config_json.aulas`). Sem
-// vídeo configurado, mostra "Conteúdo em preparação" em vez de um link
-// morto — a RV Invictus ainda não passou o material de nenhuma escola.
+// Igual ao rsnautica antigo: conteúdo estático (3 módulos), sem tabela
+// própria no banco — não é agendamento nem documento, é só material de
+// estudo que o aluno consome no próprio ritmo. A única customização por
+// escola é o link de cada módulo, guardado em `marina.marinas.config_json`
+// (coluna que já existia, sem uso — ver `{ aulas: [{ id, link }] }`), mesmo
+// mecanismo do rsnautica (lá era `escolas.config_json.aulas`). Sem link
+// configurado, mostra "Conteúdo em preparação" em vez de um link morto — a
+// RV Invictus ainda não passou o material de nenhuma escola.
+//
+// Campo era só YouTube no início (guardava o ID do vídeo, extraído da URL
+// por extrairYoutubeId). Trocado (09/09/2026, bug relatado pelo Alex: a
+// Escola RS Náutica colou links do Canva — onde o material foi montado —
+// e eles ficavam em branco, porque extrairYoutubeId só reconhecia URL de
+// YouTube) pra guardar a URL CRUA que a escola colar, seja lá de onde for
+// (YouTube, Canva, Google Drive, etc.) — vira um hyperlink simples
+// ("Assistir aula") em vez de um player embutido. Perde o player embutido
+// do YouTube, mas ganha funcionar com qualquer link que a escola use.
 export const MODULOS_AULA = [
   { id: 1, titulo: 'Aula 01', desc: 'Introdução e legislação náutica' },
   { id: 2, titulo: 'Aula 02', desc: 'Segurança e regras de navegação' },
@@ -224,7 +233,7 @@ export const MODULOS_AULA = [
 ]
 
 // `nome`: pedido do Alex — o TÍTULO de cada aula (hoje "Aula 01"/"Aula
-// 02"/"Aula 03") também é editável por escola, igual já era o vídeo (ver
+// 02"/"Aula 03") também é editável por escola, igual já era o link (ver
 // ConfiguracoesENautica.jsx, categoria "Aulas preparatórias"). `desc`
 // continua fixo (o "tema sugerido" de cada uma) — só o nome que aparece
 // pro aluno é customizável.
@@ -232,29 +241,12 @@ export function modulosAulaComVideo(marina) {
   const overrides = marina?.config_json?.aulas || []
   return MODULOS_AULA.map((m) => {
     const cfg = overrides.find((o) => o.id === m.id)
-    return { ...m, titulo: cfg?.nome || m.titulo, youtubeId: cfg?.youtubeId || '' }
+    // `link` é o campo atual; `youtubeId` fica de fallback só pra não
+    // quebrar uma escola que por acaso já tivesse um ID de YouTube salvo
+    // de antes da troca (nenhuma tinha, mas não custa manter o fallback).
+    const link = cfg?.link || (cfg?.youtubeId ? `https://www.youtube.com/watch?v=${cfg.youtubeId}` : '')
+    return { ...m, titulo: cfg?.nome || m.titulo, link }
   })
-}
-
-// Aceita o que a escola for colar no campo de configuração (Matrículas →
-// engrenagem → Aulas preparatórias): um ID puro (11 caracteres) ou uma URL
-// completa do YouTube, em qualquer um dos formatos comuns
-// (watch?v=, youtu.be/, embed/, shorts/) — extrai só o ID, que é o que
-// modulosAulaComVideo já espera salvar em config_json.aulas. Devolve string
-// vazia se não reconhecer nada (o campo fica só sem link, sem travar o
-// formulário com um erro).
-export function extrairYoutubeId(entrada) {
-  const valor = (entrada || '').trim()
-  if (!valor) return ''
-  if (/^[\w-]{11}$/.test(valor)) return valor
-  const padroes = [
-    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([\w-]{11})/,
-  ]
-  for (const p of padroes) {
-    const m = valor.match(p)
-    if (m) return m[1]
-  }
-  return ''
 }
 
 // Progresso do aluno nas aulas: só local (localStorage), igual ao rsnautica

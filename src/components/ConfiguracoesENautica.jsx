@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { buscarMarina, atualizarConfigMarina } from '../lib/db'
 import {
-  MODULOS_AULA, extrairYoutubeId, listarMatriculas, excluirMatriculaDefinitivamente, labelHabilitacao,
+  MODULOS_AULA, listarMatriculas, excluirMatriculaDefinitivamente, labelHabilitacao,
 } from '../lib/enautica'
 import { maskCnpj, maskCpf } from '../lib/mascaras'
 
@@ -15,8 +15,10 @@ import { maskCnpj, maskCpf } from '../lib/mascaras'
 // recusaria a escrita).
 //
 // Duas categorias:
-//   - Aulas preparatórias (config_json.aulas): vídeo de cada uma das 3
-//     aulas. Sem isso preenchido, a aba do aluno nunca mostra vídeo nenhum.
+//   - Aulas preparatórias (config_json.aulas): link de cada uma das 3
+//     aulas (YouTube, Canva, Drive, qualquer link) — vira um hyperlink
+//     "Assistir aula" pro aluno. Sem isso preenchido, a aba do aluno mostra
+//     "Conteúdo em preparação" em vez do link.
 //   - Documentos (config_json.documentos): dados institucionais da escola
 //     que entram nos 4 documentos gerados por aluno (ver
 //     lib/enauticaDocumentos.js e o botão "Documentos" na aba Aprovadas de
@@ -73,7 +75,7 @@ export default function ConfiguracoesENautica({ aberto, onFechar, ehAdmin, marin
     const overridesAulas = marina?.config_json?.aulas || []
     setFormAulas(MODULOS_AULA.map((m) => {
       const cfg = overridesAulas.find((o) => o.id === m.id)
-      return { id: m.id, nome: cfg?.nome || m.titulo, valor: cfg?.youtubeId || '' }
+      return { id: m.id, nome: cfg?.nome || m.titulo, valor: cfg?.link || cfg?.youtubeId || '' }
     }))
     setFormDocumentos({ ...DOC_CAMPOS_VAZIOS, ...(marina?.config_json?.documentos || {}) })
     setMensagem('')
@@ -159,9 +161,9 @@ export default function ConfiguracoesENautica({ aberto, onFechar, ehAdmin, marin
     setSalvando(true)
     setMensagem('')
     try {
-      // Extrai o ID de cada campo na hora de salvar (não a cada tecla) —
-      // assim o admin pode colar a URL inteira e ver ela normal no campo
-      // até confirmar; só o que vai pro banco é o ID puro. O nome só é
+      // Guarda o link CRU que o admin colar (não é mais só YouTube — ver
+      // comentário em lib/enautica.js: a Escola RS Náutica usa Canva, então
+      // extrair um ID de YouTube deixava o campo em branco). O nome só é
       // salvo quando o admin de fato mudou (diferente do "Aula 0N" padrão)
       // — assim uma escola que nunca editou nada não grava lixo no
       // config_json à toa, e o padrão (MODULOS_AULA) continua valendo.
@@ -169,11 +171,11 @@ export default function ConfiguracoesENautica({ aberto, onFechar, ehAdmin, marin
         .map((c) => {
           const original = MODULOS_AULA.find((m) => m.id === c.id)
           const nomeMudou = c.nome.trim() && c.nome.trim() !== original?.titulo
-          return { id: c.id, nome: nomeMudou ? c.nome.trim() : undefined, youtubeId: extrairYoutubeId(c.valor) }
+          return { id: c.id, nome: nomeMudou ? c.nome.trim() : undefined, link: c.valor.trim() }
         })
-        .filter((c) => c.nome || c.youtubeId)
+        .filter((c) => c.nome || c.link)
       await atualizarConfigMarina(marinaId, { aulas })
-      setMensagem('Vídeos das aulas preparatórias salvos com sucesso.')
+      setMensagem('Links das aulas preparatórias salvos com sucesso.')
     } catch (err) {
       setMensagem('Não foi possível salvar: ' + err.message)
     } finally {
@@ -232,9 +234,9 @@ export default function ConfiguracoesENautica({ aberto, onFechar, ehAdmin, marin
                     </label>
                     <p className="dica" style={{ margin: '0 0 2px' }}>Tema sugerido: {m.desc}</p>
                     <label>
-                      Vídeo do YouTube
+                      Link da aula
                       <input
-                        type="text" placeholder="https://youtube.com/watch?v=..." disabled={!ehAdmin}
+                        type="text" placeholder="Cole aqui o link da aula (YouTube, Canva, Drive, etc.)" disabled={!ehAdmin}
                         value={formAulas.find((c) => c.id === m.id)?.valor || ''}
                         onChange={(e) => mudarCampoAula(m.id, e.target.value)}
                       />

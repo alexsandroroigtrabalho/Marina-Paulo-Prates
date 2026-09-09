@@ -716,11 +716,11 @@ export default function TelaClienteENautica({ perfil, onVoltar }) {
                     <div className="titulo-cliente"><span className="nome">{m.titulo}</span></div>
                   </div>
                   <div className="linha">{m.desc}</div>
-                  {m.youtubeId ? (
+                  {m.link ? (
                     <div className="cliente-card-acoes">
                       <a
                         className="botao-secundario" style={{ textDecoration: 'none' }}
-                        href={`https://www.youtube.com/watch?v=${m.youtubeId}`} target="_blank" rel="noopener noreferrer"
+                        href={m.link} target="_blank" rel="noopener noreferrer"
                       >
                         Assistir aula
                       </a>
