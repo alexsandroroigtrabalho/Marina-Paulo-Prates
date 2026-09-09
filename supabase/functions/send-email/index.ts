@@ -12,6 +12,35 @@ const CORS = {
 const FROM = 'RV Invictus <noreply@rvinvictus.com.br>'
 const PORTAL_URL = 'https://rvinvictus.com.br'
 
+// Domínio real da plataforma (Marina Manager) — cada cliente tem seu
+// próprio sublink (ex: prates.rvinvictus.com.br, ver DOMINIO_BASE em
+// src/lib/tenant.js), e "manager.rvinvictus.com.br" é o domínio principal
+// do painel (sem tenant nenhum, ver comentário em tenant.js). Nenhum dos
+// dois é o site institucional (PORTAL_URL, projeto separado no Vercel).
+const APP_DOMAIN = 'rvinvictus.com.br'
+const APP_FALLBACK_URL = 'https://manager.rvinvictus.com.br'
+
+// Bug corrigido (09/09/2026, relatado pelo Alex: clicou em "Redefinir
+// senha" no e-mail e caiu num 404 DEPLOYMENT_NOT_FOUND): o link de
+// recuperação usava direto o `redirectTo` que o navegador mandou
+// (window.location.origin, em Home.jsx) sem checar se aquele domínio é de
+// fato a plataforma — o Alex estava numa aba/favorito apontando pro
+// endereço bruto do Vercel (rv-invictus.vercel.app), que não corresponde a
+// nenhum deployment ativo. Agora só aceita o redirectTo se for o domínio
+// da plataforma (rvinvictus.com.br ou um sublink dele, ex:
+// prates.rvinvictus.com.br) — qualquer outra coisa (vercel.app, localhost
+// de outra pessoa, lixo) cai no domínio principal do painel, que sempre
+// funciona independente de qual cliente pediu a redefinição.
+function redirectSeguro(redirectTo: string) {
+  try {
+    const url = new URL(redirectTo)
+    if (url.hostname === APP_DOMAIN || url.hostname.endsWith(`.${APP_DOMAIN}`)) return redirectTo
+  } catch {
+    // redirectTo vazio/inválido — cai no fallback abaixo, mesmo tratamento.
+  }
+  return APP_FALLBACK_URL
+}
+
 async function getEscolaConfig(escola_id: string) {
   if (!escola_id) return null
   const url = Deno.env.get('SUPABASE_URL')!
@@ -94,9 +123,9 @@ function emailRedefinirSenha(link: string) {
     <p style="margin:0 0 22px;font-family:Georgia,'Times New Roman',serif;letter-spacing:3px;text-transform:uppercase;color:#D4AF37;font-size:12px;">RV Invictus</p>
     <h2 style="margin:0 0 14px;font-family:Georgia,'Times New Roman',serif;color:#F5F5F0;font-size:21px;letter-spacing:0.3px;">Redefinir senha</h2>
     <p style="margin:0 0 28px;color:rgba(245,245,240,0.72);font-size:14px;line-height:1.6;">
-      Recebemos um pedido para redefinir a senha da sua conta na Marina Manager.
+      Recebemos um pedido para redefinir a senha da sua conta na RV Invictus.
       Clique no botão abaixo para criar uma nova senha. Se você não pediu isso,
-      pode ignorar este e-mail com segurança — sua senha atual continua valendo.
+      pode ignorar este e-mail com segurança, sua senha atual continua valendo.
     </p>
     <a href="${link}" style="display:inline-block;padding:14px 34px;background:#D4AF37;color:#0D1B2A;
        text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">Redefinir senha</a>
@@ -189,7 +218,7 @@ async function enviarRecuperacaoSenha(RESEND_API_KEY: string, para: string, redi
     const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
       method: 'POST',
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'recovery', email: para, options: { redirect_to: redirectTo || PORTAL_URL } }),
+      body: JSON.stringify({ type: 'recovery', email: para, options: { redirect_to: redirectSeguro(redirectTo) } }),
     })
     // deno-lint-ignore no-explicit-any
     const linkData: any = await linkRes.json()
